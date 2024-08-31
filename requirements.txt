@@ -3,3 +3,4 @@ requests==2.31.0
 debugpy # Required for debugging.
 schedule
 google-cloud-bigquery
+google-cloud-secret-manager

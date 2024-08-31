@@ -5,7 +5,10 @@ from config import API_CALLS
 def run_api_calls():
     for api_call in API_CALLS:
         print(f"Running {api_call['name']}")
-        api_call['function']()  # Call the API function
+        try:
+            api_call['function']()  # Call the API function
+        except Exception as e:
+            print(f"Error while running {api_call['name']}: {e}")
 
 def setup_schedules():
     for api_call in API_CALLS:
@@ -17,4 +20,3 @@ if __name__ == "__main__":
     while True:
         schedule.run_pending()
         time.sleep(1)
-

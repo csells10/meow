@@ -1,16 +1,9 @@
-from api_calls.api_call_1 import fetch_data as fetch_data_1
-# from api_calls.api_call_2 import fetch_data as fetch_data_2
+from api_calls.api_call_nfl_games import fetch_nfl_games
 
 API_CALLS = [
     {
-        "name": "API Call 1",
-        "schedule": "10:00",  # Time format should be HH:MM
-        "function": fetch_data_1,
-    }
-   # {
-   #     "name": "API Call 2",
-   #     "schedule": "12:00",
-    #    "function": fetch_data_2,
-    #},
-    # Add more API calls here
+        "name": "NFL Games API Call",
+        "schedule": "10:00",  # Example time, format HH:MM
+        "function": fetch_nfl_games,
+    },
 ]
