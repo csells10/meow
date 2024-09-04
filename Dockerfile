@@ -1,17 +1,21 @@
-# Python image to use.
-FROM python:3.12-alpine
+# Use the official Python image from Dockerhub
+FROM python:3.9
 
-# Set the working directory to /app
+# Set the working directory
 WORKDIR /app
 
-# copy the requirements file used for dependencies
-COPY requirements.txt .
+# Copy the current directory contents into the container
+COPY . /app
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+# Install the dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the working directory contents into the container at /app
-COPY . .
+# Make port 8080 available to the outside world
+EXPOSE 8080
 
-# Run app.py when the container launches
-ENTRYPOINT ["python", "app.py"]
+# Environment variable for the port
+ENV PORT=8080
+
+# Run the app
+CMD ["python", "app.py"]
+
