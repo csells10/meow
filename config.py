@@ -5,6 +5,6 @@ API_CALLS = [
     {
         'name': 'NFL Games API Call',
         'function': fetch_nfl_games,
-        'max_cycles': 1,  # Run the API call for 10 cycles
+        'max_cycles': 1
     }
 ]
