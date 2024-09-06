@@ -1,0 +1,34 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.pkl
+.Python
+env/
+venv/
+ENV/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+# Environments
+*.env
+*.venv
+# VS Code
+.vscode/
+.codeoss/
+# Cloud Shell logs and Go modules
+.npm/
+.config/
+.cache/
+logs/
+gopath/
+go/
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+# IDEs
+.idea/
+*.iml
+# Operating system files
+.DS_Store
+Thumbs.db
