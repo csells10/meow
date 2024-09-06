@@ -1,6 +1,9 @@
 import requests
+from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import secretmanager
+
+PROJECT_ID = "nfl-stream-406420" 
 
 def get_secret(secret_id):
     client = secretmanager.SecretManagerServiceClient()
@@ -10,7 +13,7 @@ def get_secret(secret_id):
 
 def check_existing_records(table_id, key_column, keys):
     """Check if the records with the given keys already exist in the table."""
-    client = bigquery.Client()
+    client = bigquery.Client(project=PROJECT_ID)
     query = f"""
         SELECT {key_column}
         FROM `{table_id}`
@@ -31,7 +34,7 @@ def filter_new_records(existing_keys, records, key_column):
 
 def insert_into_bigquery(table_id, rows_to_insert):
     """Insert new records into BigQuery."""
-    client = bigquery.Client()
+    client = bigquery.Client(project=PROJECT_ID)
     errors = client.insert_rows_json(table_id, rows_to_insert)
     if errors:
         raise RuntimeError(f"Encountered errors while inserting rows: {errors}")
@@ -73,19 +76,22 @@ def fetch_and_validate_api_data(url, headers, querystring):
 
     return data  # Return the parsed JSON
 
-def delete_old_games_from_bigquery(table_id, start_date):
+def delete_yesterdays_games_from_bigquery(table_id):
     """
-    Deletes records from BigQuery table where gameDate is before the start_date.
+    Deletes records from BigQuery table where gameDate is yesterday's date.
 
     Parameters:
     - table_id: The BigQuery table in 'project.dataset.table' format.
-    - start_date: A datetime.date object representing the cutoff date.
     """
-    client = bigquery.Client()
+    client = bigquery.Client(project=PROJECT_ID)
+    
+    # Calculate yesterday's date
+    yesterday = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    
     query = f"""
     DELETE FROM `{table_id}`
-    WHERE gameDate < '{start_date.strftime('%Y-%m-%d')}'
+    WHERE gameDate = '{yesterday}'
     """
     query_job = client.query(query)
     query_job.result()  # Wait for the query to complete
-    print(f"Deleted old records from {table_id} where gameDate < {start_date}")
+    print(f"Deleted records from {table_id} where gameDate = {yesterday}")

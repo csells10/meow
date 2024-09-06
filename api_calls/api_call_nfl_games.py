@@ -7,7 +7,7 @@ from utils.helper import (
     fetch_and_validate_api_data,
     check_existing_records,
     filter_new_records,
-    delete_old_games_from_bigquery
+    delete_yesterdays_games_from_bigquery
 )
 
 def fetch_nfl_games():
@@ -22,11 +22,12 @@ def fetch_nfl_games():
     table_id = 'nfl-stream-406420.League.schedule'
     start_date = datetime.now().date()
 
-    # Delete old records before fetching new data
-    delete_old_games_from_bigquery(table_id, start_date)
+    # Step 1: Delete yesterday's data
+    delete_yesterdays_games_from_bigquery(table_id)
 
-    days_range = 3  # Fetch games for the next 3 days
-    for day_offset in range(days_range):
+    # Step 2: Fetch new data for yesterday, today, tomorrow, and day after tomorrow
+    days_range = 4  # Fetch games for yesterday, today, tomorrow, and day after tomorrow
+    for day_offset in range(-1, days_range - 1):  # Start from yesterday
         game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
         querystring = {"gameDate": game_date}
         
