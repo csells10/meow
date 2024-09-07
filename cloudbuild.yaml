@@ -23,11 +23,15 @@ steps:
       - '--allow-unauthenticated'
       
 
-timeout: '1200s'  # Increase the timeout as needed
+timeout: '600s'  # Increase the timeout as needed
+
+# Define custom substitutions
+substitutions:
+  _REPOSITORY_NAME: 'meow' 
 
 # Service account to use for this build
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/362530996210-compute@developer.gserviceaccount.com
 
 # Add logging option
 options:
-  logging: CLOUD_LOGGING_ONLY  # You can use NONE if you don't need logs
+  logging: NONE  # You can use NONE if you don't need logs
