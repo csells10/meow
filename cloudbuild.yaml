@@ -29,3 +29,6 @@ substitutions:
 
 # Service account to use for this build
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/362530996210-compute@developer.gserviceaccount.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
