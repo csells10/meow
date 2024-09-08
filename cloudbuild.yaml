@@ -31,7 +31,3 @@ substitutions:
 
 # Service account to use for this build
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/362530996210-compute@developer.gserviceaccount.com
-
-# Add logging option
-options:
-  logging: NONE  # You can use NONE if you don't need logs
