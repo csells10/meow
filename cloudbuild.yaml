@@ -13,25 +13,22 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'nfl-games-app'         # Replace with your Cloud Run service name
+      - 'nfl-games-app'         
       - '--image'
       - 'gcr.io/$PROJECT_ID/$_REPOSITORY_NAME:$COMMIT_SHA'
       - '--region'
-      - 'us-central1'               # Replace with your region
+      - 'us-central1'               
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated'
-      
+      - '--allow-unauthenticated'  
 
-timeout: '600s'  # Increase the timeout as needed
+timeout: '600s'  
 
-# Define custom substitutions
 substitutions:
   _REPOSITORY_NAME: 'meow' 
 
 # Service account to use for this build
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/362530996210-compute@developer.gserviceaccount.com
 
-# Add logging option
 options:
-  logging: NONE  # You can use NONE if you don't need logs
+  logging: CLOUD_LOGGING_ONLY
