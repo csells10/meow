@@ -17,7 +17,7 @@ def fetch_nfl_teams():
         'x-rapidapi-key': api_key,
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
     }
-
+    querystring = {"sortBy":"teamID","rosters":"false","schedules":"false","topPerformers":"true","teamStats":"true","teamStatsSeason":"2023"}
     table_id = 'nfl-stream-406420.League.teams_partitioned'
 
     # Define the range for fetching yesterday and today's data
@@ -31,7 +31,7 @@ def fetch_nfl_teams():
 
         # Fetch team data for the specific date
         try:
-            teams = fetch_and_validate_api_data(url, headers)
+            teams = fetch_and_validate_api_data(url, headers, querystring)
         except (ValueError, TypeError) as e:
             print(f"Error fetching team data for {data_date}: {e}")
             continue
