@@ -27,6 +27,32 @@ def check_existing_records(table_id, key_column, keys):
     query_job = client.query(query, job_config=job_config)
     existing_keys = set(row[key_column] for row in query_job)
     return existing_keys
+    
+def check_existing_today(table_id):
+    """
+    Check if today's data already exists in the table.
+    """
+    client = bigquery.Client(project=PROJECT_ID)
+    
+    query = f"""
+        SELECT COUNT(*) as count
+        FROM `{table_id}`
+        WHERE date_column = CURRENT_DATE()
+    """
+    
+    query_job = client.query(query)
+    result = query_job.result()
+    
+    # If count is 0, today's data doesn't exist yet
+    for row in result:
+        return row["count"] == 0
+
+if check_existing_today("your_project.your_dataset.your_table"):
+    # If today's data doesn't exist, insert it
+    insert_data_for_today()
+else:
+    print("Today's data already exists, skipping insert.")
+
 
 def filter_new_records(existing_keys, records, key_column):
     """Filter out records that already exist in the table."""
