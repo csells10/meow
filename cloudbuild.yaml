@@ -13,7 +13,7 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'nfl-games-app'         
+      - 'nfl-games-app-dev'         
       - '--image'
       - 'gcr.io/$PROJECT_ID/$_REPOSITORY_NAME:$COMMIT_SHA'
       - '--region'
