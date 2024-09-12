@@ -19,7 +19,7 @@ def fetch_nfl_teams():
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
     }
     querystring = {"sortBy":"teamID","rosters":"false","schedules":"false","topPerformers":"true","teamStats":"true","teamStatsSeason":"2023"}
-    table_id = 'nfl-stream-406420.League.teams_partitioned'  # Adjusted table ID to match new schema
+    table_id = 'nfl-stream-406420.Teams.teams'  # Adjusted table ID to match new schema
 
     # Get today's date
     data_date = datetime.now().strftime('%Y-%m-%d')

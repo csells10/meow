@@ -2,9 +2,9 @@ from google.cloud import bigquery
 
 def create_bigquery_table():
     # Define your Google Cloud project and dataset
-    project_id = 'your_project_id'  # Replace with your actual project ID
-    dataset_id = 'your_dataset_id'  # Replace with your actual dataset ID
-    table_id = 'teams_partitioned'  # Replace with your table name
+    project_id = 'nfl-stream-406420'  # Replace with your actual project ID
+    dataset_id = 'Teams'  # Replace with your actual dataset ID
+    table_id = 'teams'  # Replace with your table name
 
     client = bigquery.Client(project=project_id)
 
