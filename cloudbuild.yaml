@@ -1,16 +1,11 @@
 steps:
-  # Install dependencies
-  - name: python
-    entrypoint: pip
-    args: ["install", "-r", "requirements.txt", "--user"]
-    
   # Step 1: Build the Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/meow-main/main:${COMMIT_SHA}', '.']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'nfl-games-app-main', '--image', 'gcr.io/$PROJECT_ID/nfl-games-app:main-$(COMMIT_SHA)', '--region', 'us-central1', '--platform', 'managed']
 
-  # Step 2: Push the Docker image to Artifact Registry
+  # Step 2: Push the Docker image to Google Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/meow-main/main:${COMMIT_SHA}']
+    args: ['push', 'gcr.io/$PROJECT_ID/$_REPOSITORY_NAME:main-$COMMIT_SHA']
 
   # Step 3: Deploy the image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -20,7 +15,7 @@ steps:
       - 'deploy'
       - 'nfl-games-app-main'         
       - '--image'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/meow-main/main:${COMMIT_SHA}'
+      - 'gcr.io/$PROJECT_ID/$_REPOSITORY_NAME:main-$(COMMIT_SHA)'
       - '--region'
       - 'us-central1'               
       - '--platform'
@@ -30,8 +25,7 @@ steps:
 timeout: '600s'  
 
 substitutions:
-  _PROJECT_ID: '$PROJECT_ID'
-  _COMMIT_SHA: '$COMMIT_SHA'
+  _REPOSITORY_NAME: 'meow' 
 
 # Service account to use for this build
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/362530996210-compute@developer.gserviceaccount.com
