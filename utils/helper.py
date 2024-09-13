@@ -2,6 +2,7 @@ import requests
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import secretmanager
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 
 PROJECT_ID = "nfl-stream-406420" 
 
@@ -28,30 +29,29 @@ def check_existing_records(table_id, key_column, keys):
     existing_keys = set(row[key_column] for row in query_job)
     return existing_keys
     
-def check_existing_today(table_id):
+def check_existing_today(table_id, date_column='date_column'):
     """
     Check if today's data already exists in the table.
+    Returns the count of rows matching today's date.
     """
     client = bigquery.Client(project=PROJECT_ID)
     
     query = f"""
         SELECT COUNT(*) as count
         FROM `{table_id}`
-        WHERE date_column = CURRENT_DATE()
+        WHERE {date_column} = CURRENT_DATE()
     """
     
-    query_job = client.query(query)
-    result = query_job.result()
-    
-    # If count is 0, today's data doesn't exist yet
-    for row in result:
-        return row["count"] == 0
-
-if check_existing_today("your_project.your_dataset.your_table"):
-    # If today's data doesn't exist, insert it
-    insert_data_for_today()
-else:
-    print("Today's data already exists, skipping insert.")
+    try:
+        query_job = client.query(query)
+        result = query_job.result()
+        
+        # Fetch and return the count
+        for row in result:
+            return row["count"]
+    except (GoogleAPICallError, NotFound) as e:
+        print(f"Error querying BigQuery: {e}")
+        return None  # None indicates an error occurred
 
 
 def filter_new_records(existing_keys, records, key_column):

@@ -25,6 +25,11 @@ def fetch_nfl_teams():
     data_date = datetime.now().strftime('%Y-%m-%d')
     print(f"Fetching data for date: {data_date}")
 
+    # Check if today's data already exists in BigQuery
+    if not check_existing_today(table_id, date_column='dataDate'):  
+        print(f"Data for today ({data_date}) already exists. Skipping today's data.")
+        return
+
     # Fetch team data for today
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
