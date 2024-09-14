@@ -26,7 +26,7 @@ def fetch_nfl_teams():
     print(f"Fetching data for date: {data_date}")
 
     # Check if today's data already exists in BigQuery
-    if not check_existing_today(table_id, date_column='dataDate'):  
+    if check_existing_today(table_id, date_column='dataDate'):  #removed not to test
         print(f"Data for today ({data_date}) already exists. Skipping today's data.")
         return
 
