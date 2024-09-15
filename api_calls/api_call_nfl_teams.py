@@ -1,12 +1,10 @@
 import requests
-from google.cloud import secretmanager
-from datetime import datetime, timedelta
+import pandas as pd
+from datetime import datetime
 from utils.helper import (
     insert_into_bigquery,
     get_secret,
     fetch_and_validate_api_data,
-    check_existing_records,
-    filter_new_records,
     check_existing_today
 )
 
@@ -18,15 +16,15 @@ def fetch_nfl_teams():
         'x-rapidapi-key': api_key,
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
     }
-    querystring = {"sortBy":"teamID","rosters":"false","schedules":"false","topPerformers":"true","teamStats":"true","teamStatsSeason":"2023"}
-    table_id = 'nfl-stream-406420.Teams.teams'  # Adjusted table ID to match new schema
+    querystring = {"sortBy": "teamID", "rosters": "false", "schedules": "false", "topPerformers": "true", "teamStats": "true", "teamStatsSeason": "2023"}
+    table_id = 'nfl-stream-406420.Teams.teams'
 
     # Get today's date
     data_date = datetime.now().strftime('%Y-%m-%d')
     print(f"Fetching data for date: {data_date}")
 
     # Check if today's data already exists in BigQuery
-    if check_existing_today(table_id, date_column='dataDate'):  #removed not to test
+    if check_existing_today(table_id, date_column='dataDate'):
         print(f"Data for today ({data_date}) already exists. Skipping today's data.")
         return
 
@@ -41,223 +39,81 @@ def fetch_nfl_teams():
         print(f"No teams data found for {data_date}")
         return
 
-    # Prepare data for BigQuery (add 'dataDate' field)
-    rows_to_insert = []
+    # Convert teams data into DataFrame
+    teams_df = pd.json_normalize(teams['body'])
+
+    # Add 'dataDate' field
+    teams_df['dataDate'] = data_date
+
+    # Define the team-level fields we need to extract
+    team_info_fields = ['teamID', 'teamName', 'teamCity', 'conference', 'division', 'wins', 'loss']
+
+    # Handle Team Info using `melt` to reshape
+    team_info_df = pd.melt(
+        teams_df[team_info_fields],
+        id_vars=['teamID'],
+        var_name='Level2',
+        value_name='Value'
+    ).assign(Level1='Team Info', PlayerID=None)
+
+    # Handle Bye Weeks separately
+    bye_weeks_df = pd.melt(
+        teams_df[['teamID', 'byeWeeks.2022', 'byeWeeks.2023', 'byeWeeks.2024']],
+        id_vars=['teamID'],
+        var_name='Level2',
+        value_name='Value'
+    ).assign(Level1='Bye Weeks', PlayerID=None)
     
-    for team in teams['body']:
-        team_id = team.get('teamID')
+    # Clean up the "Level2" field for bye weeks
+    bye_weeks_df['Level2'] = bye_weeks_df['Level2'].str.replace('byeWeeks.', '').str.cat(['-Byes'])
 
-        ### Level 1: Team Info (General Team Details)
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'TeamName',
-            'Value': team.get('teamName'),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
+    # Process Team Stats
+    team_stats_fields = {
+        'RushingYards': 'teamStats.Rushing.rushYds',
+        'RushingTouchdowns': 'teamStats.Rushing.rushTD',
+        'PassingYards': 'teamStats.Passing.passYds',
+        'PassingTouchdowns': 'teamStats.Passing.passTD',
+        'KickingFieldGoalsMade': 'teamStats.Kicking.fgMade',
+        'PuntingYards': 'teamStats.Punting.puntYds'
+    }
+    
+    team_stats_df = pd.melt(
+        teams_df[['teamID'] + list(team_stats_fields.values())],
+        id_vars=['teamID'],
+        var_name='Level2',
+        value_name='Value'
+    ).assign(Level1='Team Stats', PlayerID=None)
+    
+    # Clean up the "Level2" field for team stats
+    team_stats_df['Level2'] = team_stats_df['Level2'].map({v: k for k, v in team_stats_fields.items()})
 
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'City',
-            'Value': team.get('teamCity'),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
+    # Handle Top Performers
+    top_performer_stats = {
+        'PassingAttempts': 'topPerformers.Passing.passAttempts.total',
+        'PassingYards': 'topPerformers.Passing.passYds.total',
+        'PassingTouchdowns': 'topPerformers.Passing.passTD.total',
+        'RushingYards': 'topPerformers.Rushing.rushYds.total',
+        'RushingTouchdowns': 'topPerformers.Rushing.rushTD.total',
+        'ReceivingYards': 'topPerformers.Receiving.recYds.total',
+        'ReceivingTouchdowns': 'topPerformers.Receiving.recTD.total',
+        'KickingFieldGoalsMade': 'topPerformers.Kicking.fgMade.total'
+    }
 
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'Conference',
-            'Value': team.get('conference'),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
+    top_performers_df = pd.melt(
+        teams_df[['teamID'] + list(top_performer_stats.values())],
+        id_vars=['teamID'],
+        var_name='Level2',
+        value_name='Value'
+    ).assign(Level1='Top Performers', PlayerID=None)
 
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'Division',
-            'Value': team.get('division'),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
+    # Clean up the "Level2" field for top performers
+    top_performers_df['Level2'] = top_performers_df['Level2'].map({v: k for k, v in top_performer_stats.items()})
 
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'Wins',
-            'Value': int(team.get('wins', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
+    # Concatenate all the DataFrames
+    final_df = pd.concat([team_info_df, bye_weeks_df, team_stats_df, top_performers_df])
 
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Info',
-            'Level2': 'Losses',
-            'Value': int(team.get('loss', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-
-        ### Bye Weeks (Under Team Info)
-        bye_weeks = team.get('byeWeeks', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Bye Weeks',
-            'Level2': '2022-Byes',
-            'Value': bye_weeks.get('2022', [None])[0],
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Bye Weeks',
-            'Level2': '2023-Byes',
-            'Value': bye_weeks.get('2023', [None])[0],
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Bye Weeks',
-            'Level2': '2024-Byes',
-            'Value': bye_weeks.get('2024', [None])[0],
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-
-        ### Level 1: Team Stats
-        team_stats = team.get('teamStats', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'RushingYards',
-            'Value': int(team_stats.get('Rushing', {}).get('rushYds', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'RushingTouchdowns',
-            'Value': int(team_stats.get('Rushing', {}).get('rushTD', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'PassingYards',
-            'Value': int(team_stats.get('Passing', {}).get('passYds', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'PassingTouchdowns',
-            'Value': int(team_stats.get('Passing', {}).get('passTD', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'KickingFieldGoalsMade',
-            'Value': int(team_stats.get('Kicking', {}).get('fgMade', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Team Stats',
-            'Level2': 'PuntingYards',
-            'Value': int(team_stats.get('Punting', {}).get('puntYds', 0)),
-            'PlayerID': None,
-            'dataDate': data_date,
-        })
-
-        ### Level 1: Top Performers (with PlayerIDs)
-        top_performers = team.get('topPerformers', {})
-
-        # Passing Top Performer
-        passing = top_performers.get('Passing', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'PassingAttempts',
-            'Value': int(passing.get('passAttempts', {}).get('total', 0)),
-            'PlayerID': passing.get('passAttempts', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'PassingYards',
-            'Value': int(passing.get('passYds', {}).get('total', 0)),
-            'PlayerID': passing.get('passYds', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'PassingTouchdowns',
-            'Value': int(passing.get('passTD', {}).get('total', 0)),
-            'PlayerID': passing.get('passTD', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-
-        # Rushing Top Performer
-        rushing = top_performers.get('Rushing', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'RushingYards',
-            'Value': int(rushing.get('rushYds', {}).get('total', 0)),
-            'PlayerID': rushing.get('rushYds', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'RushingTouchdowns',
-            'Value': int(rushing.get('rushTD', {}).get('total', 0)),
-            'PlayerID': rushing.get('rushTD', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-
-        # Receiving Top Performer
-        receiving = top_performers.get('Receiving', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'ReceivingYards',
-            'Value': int(receiving.get('recYds', {}).get('total', 0)),
-            'PlayerID': receiving.get('recYds', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'ReceivingTouchdowns',
-            'Value': int(receiving.get('recTD', {}).get('total', 0)),
-            'PlayerID': receiving.get('recTD', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
-
-        # Kicking Top Performer
-        kicking = top_performers.get('Kicking', {})
-        rows_to_insert.append({
-            'teamID': team_id,
-            'Level1': 'Top Performers',
-            'Level2': 'KickingFieldGoalsMade',
-            'Value': int(kicking.get('fgMade', {}).get('total', 0)),
-            'PlayerID': kicking.get('fgMade', {}).get('playerID', [None])[0],
-            'dataDate': data_date,
-        })
+    # Convert back to dictionary and insert into BigQuery
+    rows_to_insert = final_df.to_dict(orient='records')
 
     # Insert the data into BigQuery
     if rows_to_insert:
