@@ -35,10 +35,10 @@ def fetch_nfl_teams(load_date=None):
     querystring = {"sortBy": "teamID", "rosters": "false", "schedules": "false", "topPerformers": "true", "teamStats": "true", "teamStatsSeason": "2023"}
     table_id = 'nfl-stream-406420.Teams.teams'
 
-    # Step 3: Check if data for today (or load_date) already exists in BigQuery
-    if check_existing_today(table_id, date_column='dataDate', data_date=data_date):
-        print(f"Data for {data_date} already exists. Skipping today's data.")
-        return
+    # # Step 3: Check if data for today (or load_date) already exists in BigQuery
+    # if check_existing_today(table_id, date_column='dataDate', data_date=data_date):
+    #     print(f"Data for {data_date} already exists. Skipping today's data.")
+    #     return
 
     # Step 4: Fetch the team data from the API (Single API Call)
     try:
