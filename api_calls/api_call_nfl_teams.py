@@ -69,6 +69,16 @@ def fetch_nfl_teams(load_date=None):
     # Step 9: Concatenate all the processed DataFrames
     final_df = pd.concat([*melted_dfs, team_stats_df, top_performers_df])
 
+    # Step 10: **Data Type Check** - Ensure that the 'Value' column is numeric
+        # Force the 'Value' column to be numeric, coerce invalid entries to NaN
+    final_df['Value'] = pd.to_numeric(final_df['Value'], errors='coerce')
+
+    # After coercion, check if there are any NaN values in the 'Value' column
+    nan_values = final_df[final_df['Value'].isna()]
+    if not nan_values.empty:
+        print(f"Warning: There are {len(nan_values)} rows with non-numeric 'Value' fields.")
+        print(nan_values)  # Print the rows with NaN values for debugging
+
     # Step 10: Convert the DataFrame to a dictionary format and insert into BigQuery
     rows_to_insert = final_df.to_dict(orient='records')
 
@@ -116,7 +126,7 @@ def process_static_fields(teams_df, data_date):
     
     return melted_dfs
 
-# Processing Team Stats
+# Ensure values are converted to floats only if they are numeric
 def process_team_stats(teams_df, data_date):
     team_stats = []
     for _, team in teams_df.iterrows():
@@ -126,18 +136,25 @@ def process_team_stats(teams_df, data_date):
         for category, stats in stats_data.items():
             for stat_name, stat_value in stats.items():
                 level2 = ''.join([word.capitalize() for word in stat_name.split()])
+
+                # Ensure only numeric values are inserted into numeric fields
+                try:
+                    stat_value = float(stat_value)
+                except ValueError:
+                    stat_value = None  # Set to None if it's not numeric
+
                 team_stats.append({
                     'teamID': team_id,
                     'Level1': 'Team Stats',
                     'Level2': level2,
-                    'Value': float(stat_value) if stat_value is not None else None,
+                    'Value': stat_value,  # Ensure Value is numeric or None
                     'PlayerID': None,
                     'dataDate': data_date
                 })
 
     return pd.DataFrame(team_stats)
 
-# Processing Top Performers (Only Index 0)
+# Ensure top performers' values are numeric where applicable
 def process_top_performers(teams_df, data_date):
     top_performers = []
 
@@ -148,13 +165,21 @@ def process_top_performers(teams_df, data_date):
         for category, stats in performers_data.items():
             if 'total' in stats and len(stats['total']) > 0:
                 level2 = ''.join([word.capitalize() for word in category.split()])
+
+                # Ensure only numeric values are inserted into numeric fields
+                try:
+                    value = float(stats['total'][0])
+                except ValueError:
+                    value = None  # Set to None if it's not numeric
+
                 top_performers.append({
                     'teamID': team_id,
                     'Level1': 'Top Performers',
                     'Level2': level2,
-                    'Value': stats['total'][0] if len(stats['total']) > 0 else None,  # Get index 0
-                    'PlayerID': stats['playerID'][0] if len(stats['playerID']) > 0 else None,  # Get index 0
+                    'Value': value,  # Ensure Value is numeric or None
+                    'PlayerID': stats['playerID'][0] if len(stats['playerID']) > 0 else None,
                     'dataDate': data_date
                 })
 
     return pd.DataFrame(top_performers)
+
