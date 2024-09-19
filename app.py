@@ -71,6 +71,23 @@ def run_scheduled_job():
     setup_schedules(load_date=load_date)  # Setup and run the scheduled API calls with the load_date if provided.
     return "API calls executed successfully", 200
 
+# New route for testing locally
+@app.route("/test", methods=["GET"])
+def test_api_calls():
+    """
+    Endpoint for testing API calls manually without the need for Cloud Scheduler.
+    """
+    load_date = request.args.get('load_date')  # Get optional load_date from query params
+    logging.info(f"Testing API calls with load_date={load_date}")
+    
+    # Run the API call with the optional load_date
+    try:
+        setup_schedules(load_date=load_date)
+        return f"Test successful. API calls executed with load_date={load_date}", 200
+    except Exception as e:
+        logging.error(f"Error during test: {e}")
+        return f"Error: {e}", 500
+
 if __name__ == "__main__":
     # Run Flask app (Cloud Run will handle invoking the function)
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
