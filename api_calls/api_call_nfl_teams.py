@@ -1,3 +1,4 @@
+import logging
 import requests
 import pandas as pd
 from datetime import datetime
@@ -32,62 +33,85 @@ def fetch_nfl_teams(load_date=None):
         'x-rapidapi-key': api_key,
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
     }
-    querystring = {"sortBy": "teamID", "rosters": "false", "schedules": "false", "topPerformers": "true", "teamStats": "true", "teamStatsSeason": "2023"}
+    querystring = {
+        "sortBy": "teamID", 
+        "rosters": "false", 
+        "schedules": "false", 
+        "topPerformers": "true", 
+        "teamStats": "true", 
+        "teamStatsSeason": "2023"
+    }
     table_id = 'nfl-stream-406420.Teams.teams'
 
-    # # Step 3: Check if data for today (or load_date) already exists in BigQuery
-    # if check_existing_today(table_id, date_column='dataDate', data_date=data_date):
-    #     print(f"Data for {data_date} already exists. Skipping today's data.")
-    #     return
-
-    # Step 4: Fetch the team data from the API (Single API Call)
+    # Step 3: Fetch the team data from the API (Single API Call)
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
+        logging.info(f"Fetched team data for {data_date}.")
     except (ValueError, TypeError) as e:
-        print(f"Error fetching team data for {data_date}: {e}")
+        logging.error(f"Error fetching team data for {data_date}: {e}", exc_info=True)
         return
     
     if not teams:
-        print(f"No teams data found for {data_date}")
+        logging.warning(f"No teams data found for {data_date}.")
         return
 
-    # Step 5: Convert the API response into a DataFrame
+    # Step 4: Convert the API response into a DataFrame
     teams_df = pd.json_normalize(teams['body'])
 
     # Add 'dataDate' field for BigQuery partitioning
     teams_df['dataDate'] = data_date
 
-    # Step 6: Process static fields (Team Info, Bye Weeks)
+    # Step 5: Process static fields (Team Info, Bye Weeks)
     melted_dfs = process_static_fields(teams_df, data_date)
 
-    # Step 7: Dynamically process Team Stats
+    # Step 6: Dynamically process Team Stats
     team_stats_df = process_team_stats(teams_df, data_date)
 
-    # Step 8: Dynamically process Top Performers (Index 0 only)
+    # Step 7: Dynamically process Top Performers (Index 0 only)
     top_performers_df = process_top_performers(teams_df, data_date)
 
-    # Step 9: Concatenate all the processed DataFrames
+    # Step 8: Concatenate all the processed DataFrames
     final_df = pd.concat([*melted_dfs, team_stats_df, top_performers_df])
 
-    # Step 10: **Data Type Check** - Ensure that the 'Value' column is numeric
-        # Force the 'Value' column to be numeric, coerce invalid entries to NaN
+    # Step 9: **Data Type Check** - Ensure that the 'Value' column is numeric
     final_df['Value'] = pd.to_numeric(final_df['Value'], errors='coerce')
 
-    # After coercion, check if there are any NaN values in the 'Value' column
+    # Replace NaN values with None for compatibility with BigQuery
+    final_df = final_df.where(pd.notnull(final_df), None)
+
+    # Step 10: Log any NaN values in the 'Value' column
     nan_values = final_df[final_df['Value'].isna()]
     if not nan_values.empty:
-        print(f"Warning: There are {len(nan_values)} rows with non-numeric 'Value' fields.")
-        print(nan_values)  # Print the rows with NaN values for debugging
+        logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
+        logging.debug(nan_values)  # Log the rows with NaN values for debugging
 
-    # Step 10: Convert the DataFrame to a dictionary format and insert into BigQuery
+    # Step 11: Convert the DataFrame to a dictionary format and log the payload
     rows_to_insert = final_df.to_dict(orient='records')
 
-    # Insert the data into BigQuery
     if rows_to_insert:
-        insert_into_bigquery(table_id, rows_to_insert)
-        print(f"Inserted {len(rows_to_insert)} rows for {data_date} into BigQuery")
+        logging.info(f"BigQuery payload: {rows_to_insert}")  # Log the payload for debugging
+        insert_with_retry(table_id, rows_to_insert)
+        logging.info(f"Inserted {len(rows_to_insert)} rows for {data_date} into BigQuery.")
     else:
-        print(f"No new teams to insert for {data_date}")
+        logging.info(f"No new teams to insert for {data_date}.")
+
+def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
+    """
+    Insert rows into BigQuery with retry logic.
+    """
+    for attempt in range(retries):
+        try:
+            insert_into_bigquery(table_id, rows_to_insert)
+            logging.info(f"Successfully inserted {len(rows_to_insert)} rows into BigQuery.")
+            break
+        except Exception as e:
+            logging.error(f"Error inserting into BigQuery: {e}", exc_info=True)
+            if attempt < retries - 1:
+                time.sleep(delay * (2 ** attempt))  # Exponential backoff
+                logging.info(f"Retrying... (Attempt {attempt + 2}/{retries})")
+            else:
+                logging.critical(f"Failed to insert into BigQuery after {retries} attempts.")
+                raise
 
 # Processing Static Fields (Team Info, Bye Weeks)
 def process_static_fields(teams_df, data_date):
@@ -182,4 +206,3 @@ def process_top_performers(teams_df, data_date):
                 })
 
     return pd.DataFrame(top_performers)
-
