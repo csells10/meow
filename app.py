@@ -1,8 +1,11 @@
 from flask import Flask, request
+from utils.logging import setup_logging 
+ 
 import sys
 import os
+import logging
 from config import API_CALLS
-from utils.logging import setup_logging  
+
 
 # Setup structured logging
 setup_logging() 
@@ -78,4 +81,4 @@ def test_api_calls():
         return f"Error: {e}", 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)

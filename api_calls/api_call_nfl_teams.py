@@ -2,6 +2,7 @@ import logging
 import requests
 import pandas as pd
 from datetime import datetime
+import time
 from utils.helper import (
     insert_into_bigquery,
     get_secret,
