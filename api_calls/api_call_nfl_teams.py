@@ -48,6 +48,9 @@ def fetch_nfl_teams(load_date=None):
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
         logging.info(f"Fetched team data for {data_date}.")
+        
+        # Log size of the raw API response
+        logging.info(f"Raw API response size: {len(teams['body']) if 'body' in teams else 0}")
     except (ValueError, TypeError) as e:
         logging.error(f"Error fetching team data for {data_date}: {e}", exc_info=True)
         return
@@ -56,9 +59,9 @@ def fetch_nfl_teams(load_date=None):
         logging.warning(f"No teams data found for {data_date}.")
         return
 
-    # Step 4: Convert the API response into a DataFrame
+    # Step 4: Convert the API response into a DataFrame and log the size
     teams_df = pd.json_normalize(teams['body'])
-    logging.info(f"Normalized DataFrame: {teams_df.head()}")  # Log the first few rows of the normalized DataFrame
+    logging.info(f"Normalized DataFrame size: {teams_df.shape[0]} rows, {teams_df.shape[1]} columns")
 
     # Add 'dataDate' field for BigQuery partitioning
     teams_df['dataDate'] = data_date
@@ -87,11 +90,15 @@ def fetch_nfl_teams(load_date=None):
         logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
         logging.debug(nan_values)  # Log the rows with NaN values for debugging
 
-    # Step 11: Convert the DataFrame to a dictionary format and log the payload
+    # Step 11: Log the size of the final DataFrame before insertion
+    logging.info(f"Final DataFrame size before insertion: {final_df.shape[0]} rows, {final_df.shape[1]} columns")
+
+    # Step 12: Convert the DataFrame to a dictionary format and log the payload
     rows_to_insert = final_df.to_dict(orient='records')
 
     if rows_to_insert:
-        logging.info(f"BigQuery payload: {rows_to_insert}")  # Log the payload for debugging
+        logging.info(f"BigQuery payload size: {len(rows_to_insert)} rows")  # Log the size of the payload
+        logging.debug(f"BigQuery payload: {rows_to_insert}")  # Log the actual payload for debugging
         insert_with_retry(table_id, rows_to_insert)
         logging.info(f"Inserted {len(rows_to_insert)} rows for {data_date} into BigQuery.")
     else:
