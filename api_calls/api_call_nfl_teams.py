@@ -21,10 +21,7 @@ def fetch_nfl_teams(load_date=None):
     """
 
     # Step 1: Set dataDate as the provided load_date or today's date
-    if load_date:
-        data_date = load_date
-    else:
-        data_date = datetime.now().strftime('%Y-%m-%d')
+    data_date = load_date or datetime.now().strftime('%Y-%m-%d')
 
     # Step 2: Retrieve API key from secret manager
     api_key = get_secret('Tank_Rapidapi')
@@ -48,6 +45,9 @@ def fetch_nfl_teams(load_date=None):
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
         logging.info(f"Fetched team data for {data_date}.")
+        
+        # Log a portion of the raw API response for debugging
+        logging.info(f"Raw API Response: {teams['body'][:2]}")
     except (ValueError, TypeError) as e:
         logging.error(f"Error fetching team data for {data_date}: {e}", exc_info=True)
         return
@@ -58,6 +58,7 @@ def fetch_nfl_teams(load_date=None):
 
     # Step 4: Convert the API response into a DataFrame
     teams_df = pd.json_normalize(teams['body'])
+    logging.info(f"Normalized DataFrame: {teams_df.head()}")
 
     # Add 'dataDate' field for BigQuery partitioning
     teams_df['dataDate'] = data_date
@@ -90,19 +91,30 @@ def fetch_nfl_teams(load_date=None):
     rows_to_insert = final_df.to_dict(orient='records')
 
     if rows_to_insert:
-        logging.info(f"BigQuery payload: {rows_to_insert}")  # Log the payload for debugging
+        logging.info(f"BigQuery payload: {rows_to_insert[:5]}")  # Log the first few rows of the payload for debugging
         insert_with_retry(table_id, rows_to_insert)
         logging.info(f"Inserted {len(rows_to_insert)} rows for {data_date} into BigQuery.")
     else:
         logging.info(f"No new teams to insert for {data_date}.")
 
-def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
+
+def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2, batch_size=500):
     """
-    Insert rows into BigQuery with retry logic.
+    Insert rows into BigQuery with retry logic and batch processing.
+    
+    Args:
+        table_id (str): BigQuery table ID.
+        rows_to_insert (list): List of rows to insert.
+        retries (int): Number of retry attempts.
+        delay (int): Delay between retries in seconds.
+        batch_size (int): Batch size for inserting data in chunks.
     """
     for attempt in range(retries):
         try:
-            insert_into_bigquery(table_id, rows_to_insert)
+            # Batch insert into BigQuery
+            for i in range(0, len(rows_to_insert), batch_size):
+                batch = rows_to_insert[i:i+batch_size]
+                insert_into_bigquery(table_id, batch)
             logging.info(f"Successfully inserted {len(rows_to_insert)} rows into BigQuery.")
             break
         except Exception as e:
@@ -113,6 +125,7 @@ def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
             else:
                 logging.critical(f"Failed to insert into BigQuery after {retries} attempts.")
                 raise
+
 
 # Processing Static Fields (Team Info, Bye Weeks)
 def process_static_fields(teams_df, data_date):
@@ -151,6 +164,7 @@ def process_static_fields(teams_df, data_date):
     
     return melted_dfs
 
+
 # Ensure values are converted to floats only if they are numeric
 def process_team_stats(teams_df, data_date):
     team_stats = []
@@ -178,6 +192,7 @@ def process_team_stats(teams_df, data_date):
                 })
 
     return pd.DataFrame(team_stats)
+
 
 # Ensure top performers' values are numeric where applicable
 def process_top_performers(teams_df, data_date):
