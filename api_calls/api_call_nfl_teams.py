@@ -44,7 +44,10 @@ def fetch_nfl_teams(load_date=None):
     }
     table_id = 'nfl-stream-406420.Teams.teams'
 
-    # Step 3: Fetch the team data from the API (Single API Call)
+    # Step 3: **Log the API request details** (New logging to debug 400 error)
+    logging.info(f"Making API request to {url} with headers {headers} and query {querystring}")
+
+    # Step 4: Fetch the team data from the API (Single API Call)
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
         logging.info(f"Fetched team data for {data_date}.")
@@ -59,41 +62,45 @@ def fetch_nfl_teams(load_date=None):
         logging.warning(f"No teams data found for {data_date}.")
         return
 
-    # Step 4: Convert the API response into a DataFrame and log the size
+    # Step 5: Convert the API response into a DataFrame and log the size
     teams_df = pd.json_normalize(teams['body'])
     logging.info(f"Normalized DataFrame size: {teams_df.shape[0]} rows, {teams_df.shape[1]} columns")
 
     # Add 'dataDate' field for BigQuery partitioning
     teams_df['dataDate'] = data_date
 
-    # Step 5: Process static fields (Team Info, Bye Weeks)
+    # Step 6: Process static fields (Team Info, Bye Weeks)
     melted_dfs = process_static_fields(teams_df, data_date)
 
-    # Step 6: Dynamically process Team Stats
+    # Step 7: Dynamically process Team Stats
     team_stats_df = process_team_stats(teams_df, data_date)
 
-    # Step 7: Dynamically process Top Performers (Index 0 only)
+    # Step 8: Dynamically process Top Performers (Index 0 only)
     top_performers_df = process_top_performers(teams_df, data_date)
 
-    # Step 8: Concatenate all the processed DataFrames
+    # Step 9: Concatenate all the processed DataFrames
     final_df = pd.concat([*melted_dfs, team_stats_df, top_performers_df])
 
-    # Step 9: **Data Type Check** - Ensure that the 'Value' column is numeric
+    # Step 10: **Data Type Check** - Ensure that the 'Value' column is numeric
     final_df['Value'] = pd.to_numeric(final_df['Value'], errors='coerce')
 
     # Replace NaN values with None for compatibility with BigQuery
     final_df = final_df.where(pd.notnull(final_df), None)
 
-    # Step 10: Log any NaN values in the 'Value' column
+    # Step 11: **Log missing values** (New check to log NaN/None values before insertion)
+    if final_df.isnull().any().any():
+        logging.warning("There are missing values in the DataFrame, ensure this is expected before insertion.")
+
+    # Step 12: Log any NaN values in the 'Value' column
     nan_values = final_df[final_df['Value'].isna()]
     if not nan_values.empty:
         logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
         logging.debug(nan_values)  # Log the rows with NaN values for debugging
 
-    # Step 11: Log the size of the final DataFrame before insertion
+    # Step 13: Log the size of the final DataFrame before insertion
     logging.info(f"Final DataFrame size before insertion: {final_df.shape[0]} rows, {final_df.shape[1]} columns")
 
-    # Step 12: Convert the DataFrame to a dictionary format and log the payload
+    # Step 14: Convert the DataFrame to a dictionary format and log the payload
     rows_to_insert = final_df.to_dict(orient='records')
 
     if rows_to_insert:
