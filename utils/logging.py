@@ -4,9 +4,6 @@ import sys
 
 class JsonFormatter(logging.Formatter):
     def format(self, record):
-        """
-        Format log messages in JSON format for structured logging.
-        """
         log_record = {
             'level': record.levelname,
             'message': record.getMessage(),
@@ -19,11 +16,14 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 def setup_logging():
-    """
-    Sets up logging with a JSON formatter for structured logs.
-    """
     formatter = JsonFormatter()
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
 
-    logging.basicConfig(level=logging.INFO, handlers=[handler])
+    # StreamHandler for stdout
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+
+    # FileHandler for log file
+    file_handler = logging.FileHandler('app.log')
+    file_handler.setFormatter(formatter)
+
+    logging.basicConfig(level=logging.INFO, handlers=[stream_handler, file_handler])

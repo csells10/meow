@@ -12,6 +12,14 @@ from utils.helper import (
 )
 from deepdiff import DeepDiff
 
+# Set up logging to a file to avoid overwhelming terminal output
+logging.basicConfig(
+    filename='app.log',
+    filemode='w',
+    format='%(asctime)s %(levelname)s:%(message)s',
+    level=logging.INFO
+)
+
 # Store the original response for comparison
 original_json_response = None  # This will hold the original response for comparison
 
@@ -122,7 +130,7 @@ def fetch_nfl_teams(load_date=None):
     nan_values = final_df[final_df['Value'].isna()]
     if not nan_values.empty:
         logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
-        logging.debug(nan_values)  # Log the rows with NaN values for debugging
+        logging.debug(nan_values.head())  # Log a sample of rows with NaN values for debugging
 
     # Step 11: Log and validate the final DataFrame transformation
     logging.info(f"Final DataFrame size: {len(final_df)} rows.")
@@ -132,7 +140,8 @@ def fetch_nfl_teams(load_date=None):
     rows_to_insert = final_df.to_dict(orient='records')
 
     if rows_to_insert:
-        logging.info(f"BigQuery payload: {rows_to_insert[:5]} (showing first 5 records)")  # Log first 5 rows
+        logging.info(f"BigQuery payload size: {len(rows_to_insert)} rows.")
+        logging.info(f"First 5 rows of BigQuery payload: {rows_to_insert[:5]}")
         insert_with_retry(table_id, rows_to_insert)
         logging.info(f"Inserted {len(rows_to_insert)} rows for {data_date} into BigQuery.")
     else:
@@ -224,26 +233,27 @@ def process_top_performers(teams_df, data_date):
             continue
 
         for category, stats in performers_data.items():
-            if 'total' in stats and len(stats['total']) > 0:
-                level2 = ''.join([word.capitalize() for word in category.split()])
+            for stat_name, stat_details in stats.items():
+                if 'total' in stat_details and len(stat_details['total']) > 0:
+                    level2 = ''.join([word.capitalize() for word in stat_name.split()])
 
-                # Ensure only numeric values are inserted into numeric fields
-                try:
-                    value = float(stats['total'][0])
-                except ValueError:
-                    value = None  # Set to None if it's not numeric
+                    # Ensure only numeric values are inserted into numeric fields
+                    try:
+                        value = float(stat_details['total'][0])
+                    except (ValueError, TypeError):
+                        value = None  # Set to None if it's not numeric
 
-                if value is None:
-                    logging.warning(f"Non-numeric value found for {level2} in teamID {team_id}")
+                    if value is None:
+                        logging.warning(f"Non-numeric value found for {level2} in teamID {team_id}")
 
-                top_performers.append({
-                    'teamID': team_id,
-                    'Level1': 'Top Performers',
-                    'Level2': level2,
-                    'Value': value,  # Ensure Value is numeric or None
-                    'PlayerID': stats['playerID'][0] if len(stats['playerID']) > 0 else None,
-                    'dataDate': data_date
-                })
+                    top_performers.append({
+                        'teamID': team_id,
+                        'Level1': 'Top Performers',
+                        'Level2': level2,
+                        'Value': value,  # Ensure Value is numeric or None
+                        'PlayerID': stat_details['playerID'][0] if len(stat_details['playerID']) > 0 else None,
+                        'dataDate': data_date
+                    })
 
     # Log how many top performers were processed
     logging.info(f"Processed {len(top_performers)} top performers.")
@@ -269,7 +279,7 @@ def process_team_stats(teams_df, data_date):
                 # Ensure only numeric values are inserted into numeric fields
                 try:
                     stat_value = float(stat_value)
-                except ValueError:
+                except (ValueError, TypeError):
                     stat_value = None  # Set to None if it's not numeric
 
                 if stat_value is None:
