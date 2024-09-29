@@ -122,7 +122,7 @@ def fetch_nfl_teams(load_date=None):
 
     # Step 4: Convert the API response into a DataFrame
     teams_df = pd.json_normalize(teams['body'])
-
+    logging.info(f"API flatten response shape: {teams_df.shape}")
     # Determine the dynamic team count
     team_count = teams_df['teamID'].nunique()
     logging.info(f"Detected {team_count} unique teams in the API response.")
@@ -264,14 +264,8 @@ def process_team_stats(teams_df, data_date, team_count):
     """
     team_stats = []
 
-    # Log the teams_df to see if data exists for team stats
-    logging.info(f"Initial teams_df (head):\n{teams_df.head(5)}")
-    pd.set_option('display.max_columns', None)  # Show all columns for testing
+    logging.info(f"Incoming dataframe shape: {teams_df.shape}")
     logging.info(f"Columns in Teams Dataframe {teams_df.columns.tolist()}")  # testing
-
-    # Filter for teamID = 1 for debugging
-    filtered_df = teams_df[teams_df['teamID'] == 1]
-    logging.info(f"Filtered data for teamID = 1:\n{filtered_df}")  # testing
 
     # Identify all teamStats columns dynamically
     team_stats_columns = [col for col in teams_df.columns if col.startswith('teamStats.')]
@@ -335,8 +329,7 @@ def process_top_performers(teams_df, data_date, team_count):
     """
     top_performers = []
     logging.info(f"Starting Processing Top Performers")
-    logging.info(f"Incoming files {data_date}")
-    logging.info(f"Incoming files {team_count}")
+    logging.info(f"API flatten response shape: {teams_df.shape}")
     logging.info(f"Incoming files {teams_df.head(50)}")
     for _, team in teams_df.iterrows():
         team_id = team['teamID']
