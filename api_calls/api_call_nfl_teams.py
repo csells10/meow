@@ -256,8 +256,30 @@ def process_static_fields(teams_df, data_date, team_count):
 
     return melted_dfs
 
-
 def process_team_stats(teams_df, data_date, team_count):
+    team_stats = []
+    team_stats_columns = [col for col in teams_df.columns if col.startswith('teamStats.')]
+
+    for _, team in teams_df.iterrows():
+        team_id = team['teamID']
+        for stat_column in team_stats_columns:
+            stat_value = team.get(stat_column)
+            level2 = '.'.join(stat_column.split('.')[1:])
+            try:
+                stat_value = float(stat_value)
+            except (ValueError, TypeError):
+                stat_value = None
+            team_stats.append({
+                'teamID': team_id,
+                'Level1': 'Team Stats',
+                'Level2': level2,
+                'Value': stat_value,
+                'PlayerID': None,
+                'dataDate': data_date
+            })
+
+    return pd.DataFrame(team_stats)
+def old_process_team_stats(teams_df, data_date, team_count):
     """
     Process team stats data from the API response.
     Adds validation and logging to ensure fields are processed correctly.
@@ -319,10 +341,36 @@ def process_team_stats(teams_df, data_date, team_count):
     
     return team_stats_df
 
-
-
-
 def process_top_performers(teams_df, data_date, team_count):
+    top_performers = []
+
+    for _, team in teams_df.iterrows():
+        team_id = team['teamID']
+        performers_data = team.get('topPerformers', {})
+        if not performers_data:
+            continue
+
+        for category, stats in performers_data.items():
+            for stat_name, stat_details in stats.items():
+                value = stat_details.get('total')
+                player_ids = stat_details.get('playerID', [])
+                try:
+                    value = float(value)
+                except (ValueError, TypeError):
+                    value = None
+                top_performers.append({
+                    'teamID': team_id,
+                    'Level1': 'Top Performers',
+                    'Level2': stat_name,
+                    'Value': value,
+                    'PlayerID': player_ids[0] if isinstance(player_ids, list) and player_ids else None,
+                    'dataDate': data_date
+                })
+
+    return pd.DataFrame(top_performers)
+
+
+def old_process_top_performers(teams_df, data_date, team_count):
     """
     Process top performers' data from the API response.
     Adds validation and logging to ensure fields are processed correctly.
