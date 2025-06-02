@@ -8,17 +8,10 @@ from utils.helper import (
     insert_into_bigquery,
     get_secret,
     fetch_and_validate_api_data,
-    check_existing_today
+    check_existing_today,
+    check_existing_team_records
 )
 from deepdiff import DeepDiff
-
-# Set up logging to a file to avoid overwhelming terminal output
-logging.basicConfig(
-    filename='app.log',
-    filemode='w',
-    format='%(asctime)s %(levelname)s:%(message)s',
-    level=logging.INFO
-)
 
 # Store the original response for comparison
 original_json_response = None  # This will hold the original response for comparison
@@ -57,7 +50,8 @@ def validate_transformation(final_df, original_json):
 def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
     """
     Insert rows into BigQuery with retry logic.
-    """
+    MOVE TO
+     """
     for attempt in range(retries):
         try:
             insert_into_bigquery(table_id, rows_to_insert)
@@ -89,6 +83,14 @@ def fetch_nfl_teams(load_date=None):
         data_date = load_date
     else:
         data_date = datetime.now().strftime('%Y-%m-%d')
+    
+    # Step 2a: Check if data already exists, and delete if refreshing
+    table_id = 'nfl-stream-406420.Teams.teams'  # ChatGPT: moved earlier to avoid undefined variable
+
+    existing_team_ids = check_existing_team_records(table_id, 'teamID', data_date)
+    if existing_team_ids:
+        logging.info(f"Data already exists for {data_date} for teamIDs: {list(existing_team_ids)[:5]}... Skipping load.")
+        return
 
     # Step 2: Retrieve API key from secret manager
     api_key = get_secret('Tank_Rapidapi')
@@ -135,21 +137,21 @@ def fetch_nfl_teams(load_date=None):
     
     # Log the combined static fields data
     static_df = pd.concat(melted_dfs)
-    logging.info(f"Static fields processed. DataFrame head:\n{static_df.head(50)}")
+    logging.info(f"Static fields processed. DataFrame head:\n{static_df.head()}")
     logging.info(f"Static DataFrame shape: {static_df.shape}")
 
     # Step 6: Dynamically process Team Stats
     team_stats_df = process_team_stats(teams['body'], data_date, team_count)
     
     # Log the team stats data
-    logging.info(f"Team stats processed. DataFrame head:\n{team_stats_df.head(50)}")
+    logging.info(f"Team stats processed. DataFrame head:\n{team_stats_df.head()}")
     logging.info(f"Team Stats DataFrame shape: {team_stats_df.shape}")
 
     # Step 7: Dynamically process Top Performers (Index 0 only)
     top_performers_df = process_top_performers(teams['body'], data_date, team_count)
     
     # Log the top performers data
-    logging.info(f"Top performers processed. DataFrame head:\n{top_performers_df.head(50)}")
+    logging.info(f"Top performers processed. DataFrame head:\n{top_performers_df.head()}")
     logging.info(f"Top Performers DataFrame shape: {top_performers_df.shape}")
 
     # Step 8: Combine all processed DataFrames
@@ -165,10 +167,10 @@ def fetch_nfl_teams(load_date=None):
     final_df = final_df.where(pd.notnull(final_df), None)
 
     # Step 10: Log any NaN values in the 'Value' column
-    nan_values = final_df[final_df['Value'].isna()]
-    if not nan_values.empty:
-        logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
-        logging.debug(nan_values.head())  # Log a sample of rows with NaN values for debugging
+    # nan_values = final_df[final_df['Value'].isna()]
+    # if not nan_values.empty:
+    #     logging.warning(f"There are {len(nan_values)} rows with non-numeric 'Value' fields.")
+    #     logging.debug(nan_values.head())  # Log a sample of rows with NaN values for debugging
 
     # Step 11: Log and validate the final DataFrame transformation
     # logging.info(f"Final DataFrame size: {len(final_df)} rows.")
@@ -201,7 +203,7 @@ def old_combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_coun
 
     # Log and inspect the final DataFrame
     logging.info(f"Final combined DataFrame has {len(final_df)} rows.")
-    logging.info(f"First 50 rows of final combined DataFrame:\n{final_df.head(50)}")
+    logging.info(f"First 50 rows of final combined DataFrame:\n{final_df.head()}")
     
     return final_df
 
@@ -450,7 +452,7 @@ def old_process_top_performers(teams_df, data_date, team_count):
     top_performers = []
     logging.info(f"Starting Processing Top Performers")
     logging.info(f"API flatten response shape: {teams_df.shape}")
-    logging.info(f"Incoming files {teams_df.head(50)}")
+    logging.info(f"Incoming files {teams_df.head(0)}")
     for _, team in teams_df.iterrows():
         team_id = team['teamID']
         logging.info(f'{team_id}')

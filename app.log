@@ -1,251 +1,1169 @@
-2025-06-01 19:47:42,345 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2025-06-02 12:22:53,923 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:8080
  * Running on http://192.168.1.186:8080
-2025-06-01 19:47:42,346 INFO:[33mPress CTRL+C to quit[0m
-2025-06-01 19:48:46,535 INFO:Testing API calls with load_date=2025-06-01
-2025-06-01 19:48:46,535 INFO:Scheduling NFL Teams API Call to run with load_date=2025-06-01
-2025-06-01 19:48:46,535 INFO:Running NFL Teams API Call API call with load_date=2025-06-01
-2025-06-01 19:48:50,821 INFO:Fetched team data for 2025-06-01.
-2025-06-01 19:48:50,860 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-01.json
-2025-06-01 19:48:50,865 INFO:API flatten response shape: (32, 123)
-2025-06-01 19:48:50,866 INFO:Detected 32 unique teams in the API response.
-2025-06-01 19:48:50,871 INFO:Processed 192 rows for Team Info.
-2025-06-01 19:48:50,874 INFO:Processed 96 rows for Bye Weeks.
-2025-06-01 19:48:50,885 INFO:Static fields processed. DataFrame head:
-   teamID    Level2         Value     Level1 PlayerID    dataDate
-0       1  teamName     Cardinals  Team Info     None  2025-06-01
-1       2  teamName       Falcons  Team Info     None  2025-06-01
-2       3  teamName        Ravens  Team Info     None  2025-06-01
-3       4  teamName         Bills  Team Info     None  2025-06-01
-4       5  teamName      Panthers  Team Info     None  2025-06-01
-5       6  teamName         Bears  Team Info     None  2025-06-01
-6       7  teamName       Bengals  Team Info     None  2025-06-01
-7       8  teamName        Browns  Team Info     None  2025-06-01
-8       9  teamName       Cowboys  Team Info     None  2025-06-01
-9      10  teamName       Broncos  Team Info     None  2025-06-01
-10     11  teamName         Lions  Team Info     None  2025-06-01
-11     12  teamName       Packers  Team Info     None  2025-06-01
-12     13  teamName        Texans  Team Info     None  2025-06-01
-13     14  teamName         Colts  Team Info     None  2025-06-01
-14     15  teamName       Jaguars  Team Info     None  2025-06-01
-15     16  teamName        Chiefs  Team Info     None  2025-06-01
-16     17  teamName       Raiders  Team Info     None  2025-06-01
-17     18  teamName      Chargers  Team Info     None  2025-06-01
-18     19  teamName          Rams  Team Info     None  2025-06-01
-19     20  teamName      Dolphins  Team Info     None  2025-06-01
-20     21  teamName       Vikings  Team Info     None  2025-06-01
-21     22  teamName      Patriots  Team Info     None  2025-06-01
-22     23  teamName        Saints  Team Info     None  2025-06-01
-23     24  teamName        Giants  Team Info     None  2025-06-01
-24     25  teamName          Jets  Team Info     None  2025-06-01
-25     26  teamName      Steelers  Team Info     None  2025-06-01
-26     27  teamName        Eagles  Team Info     None  2025-06-01
-27     28  teamName         49ers  Team Info     None  2025-06-01
-28     29  teamName      Seahawks  Team Info     None  2025-06-01
-29     30  teamName    Buccaneers  Team Info     None  2025-06-01
-30     31  teamName        Titans  Team Info     None  2025-06-01
-31     32  teamName    Commanders  Team Info     None  2025-06-01
-32      1  teamCity       Arizona  Team Info     None  2025-06-01
-33      2  teamCity       Atlanta  Team Info     None  2025-06-01
-34      3  teamCity     Baltimore  Team Info     None  2025-06-01
-35      4  teamCity       Buffalo  Team Info     None  2025-06-01
-36      5  teamCity      Carolina  Team Info     None  2025-06-01
-37      6  teamCity       Chicago  Team Info     None  2025-06-01
-38      7  teamCity    Cincinnati  Team Info     None  2025-06-01
-39      8  teamCity     Cleveland  Team Info     None  2025-06-01
-40      9  teamCity        Dallas  Team Info     None  2025-06-01
-41     10  teamCity        Denver  Team Info     None  2025-06-01
-42     11  teamCity       Detroit  Team Info     None  2025-06-01
-43     12  teamCity     Green Bay  Team Info     None  2025-06-01
-44     13  teamCity       Houston  Team Info     None  2025-06-01
-45     14  teamCity  Indianapolis  Team Info     None  2025-06-01
-46     15  teamCity  Jacksonville  Team Info     None  2025-06-01
-47     16  teamCity   Kansas City  Team Info     None  2025-06-01
-48     17  teamCity     Las Vegas  Team Info     None  2025-06-01
-49     18  teamCity   Los Angeles  Team Info     None  2025-06-01
-2025-06-01 19:48:50,886 INFO:Static DataFrame shape: (288, 6)
-2025-06-01 19:48:50,886 INFO:Starting Processing Team Stats from raw JSON
-2025-06-01 19:48:50,886 INFO:Found 32 teams in input
-2025-06-01 19:48:50,886 INFO:Processing teamID 1 (ARI)
-2025-06-01 19:48:50,886 INFO:Processing teamID 2 (ATL)
-2025-06-01 19:48:50,886 INFO:Processing teamID 3 (BAL)
-2025-06-01 19:48:50,886 INFO:Processing teamID 4 (BUF)
-2025-06-01 19:48:50,886 INFO:Processing teamID 5 (CAR)
-2025-06-01 19:48:50,886 INFO:Processing teamID 6 (CHI)
-2025-06-01 19:48:50,886 INFO:Processing teamID 7 (CIN)
-2025-06-01 19:48:50,886 INFO:Processing teamID 8 (CLE)
-2025-06-01 19:48:50,886 INFO:Processing teamID 9 (DAL)
-2025-06-01 19:48:50,886 INFO:Processing teamID 10 (DEN)
-2025-06-01 19:48:50,886 INFO:Processing teamID 11 (DET)
-2025-06-01 19:48:50,886 INFO:Processing teamID 12 (GB)
-2025-06-01 19:48:50,886 INFO:Processing teamID 13 (HOU)
-2025-06-01 19:48:50,886 INFO:Processing teamID 14 (IND)
-2025-06-01 19:48:50,886 INFO:Processing teamID 15 (JAX)
-2025-06-01 19:48:50,886 INFO:Processing teamID 16 (KC)
-2025-06-01 19:48:50,886 INFO:Processing teamID 17 (LV)
-2025-06-01 19:48:50,887 INFO:Processing teamID 18 (LAC)
-2025-06-01 19:48:50,887 INFO:Processing teamID 19 (LAR)
-2025-06-01 19:48:50,887 INFO:Processing teamID 20 (MIA)
-2025-06-01 19:48:50,887 INFO:Processing teamID 21 (MIN)
-2025-06-01 19:48:50,887 INFO:Processing teamID 22 (NE)
-2025-06-01 19:48:50,887 INFO:Processing teamID 23 (NO)
-2025-06-01 19:48:50,887 INFO:Processing teamID 24 (NYG)
-2025-06-01 19:48:50,887 INFO:Processing teamID 25 (NYJ)
-2025-06-01 19:48:50,887 INFO:Processing teamID 26 (PIT)
-2025-06-01 19:48:50,887 INFO:Processing teamID 27 (PHI)
-2025-06-01 19:48:50,887 INFO:Processing teamID 28 (SF)
-2025-06-01 19:48:50,887 INFO:Processing teamID 29 (SEA)
-2025-06-01 19:48:50,887 INFO:Processing teamID 30 (TB)
-2025-06-01 19:48:50,887 INFO:Processing teamID 31 (TEN)
-2025-06-01 19:48:50,887 INFO:Processing teamID 32 (WSH)
-2025-06-01 19:48:50,888 INFO:Processed 1184 team stats across 32 teams.
-2025-06-01 19:48:50,896 INFO:Team stats processed. DataFrame head:
-   teamID      Level1                          Level2   Value PlayerID    dataDate
-0       1  Team Stats                 Rushing.rushYds  2451.0     None  2025-06-01
-1       1  Team Stats                 Rushing.carries   463.0     None  2025-06-01
-2       1  Team Stats                  Rushing.rushTD    18.0     None  2025-06-01
-3       1  Team Stats              Kicking.fgAttempts    38.0     None  2025-06-01
-4       1  Team Stats                  Kicking.fgMade    34.0     None  2025-06-01
-5       1  Team Stats                  Kicking.xpMade    36.0     None  2025-06-01
-6       1  Team Stats                   Kicking.fgYds     0.0     None  2025-06-01
-7       1  Team Stats               Kicking.kickYards     0.0     None  2025-06-01
-8       1  Team Stats              Kicking.xpAttempts    37.0     None  2025-06-01
-9       1  Team Stats            Passing.passAttempts   543.0     None  2025-06-01
-10      1  Team Stats                  Passing.passTD    21.0     None  2025-06-01
-11      1  Team Stats                 Passing.passYds  3859.0     None  2025-06-01
-12      1  Team Stats                     Passing.int    11.0     None  2025-06-01
-13      1  Team Stats         Passing.passCompletions   374.0     None  2025-06-01
-14      1  Team Stats                 Punting.puntYds  2563.0     None  2025-06-01
-15      1  Team Stats                   Punting.punts    54.0     None  2025-06-01
-16      1  Team Stats               Punting.puntsin20    20.0     None  2025-06-01
-17      1  Team Stats          Punting.puntTouchBacks     2.0     None  2025-06-01
-18      1  Team Stats            Receiving.receptions   374.0     None  2025-06-01
-19      1  Team Stats                 Receiving.recTD    21.0     None  2025-06-01
-20      1  Team Stats               Receiving.targets   523.0     None  2025-06-01
-21      1  Team Stats                Receiving.recYds  3859.0     None  2025-06-01
-22      1  Team Stats             Defense.fumblesLost     9.0     None  2025-06-01
-23      1  Team Stats                   Defense.defTD     2.0     None  2025-06-01
-24      1  Team Stats                 Defense.fumbles    21.0     None  2025-06-01
-25      1  Team Stats        Defense.fumblesRecovered    18.0     None  2025-06-01
-26      1  Team Stats             Defense.soloTackles   656.0     None  2025-06-01
-27      1  Team Stats                  Defense.qbHits    76.0     None  2025-06-01
-28      1  Team Stats        Defense.passingTDAllowed    20.0     None  2025-06-01
-29      1  Team Stats         Defense.passDeflections    63.0     None  2025-06-01
-30      1  Team Stats     Defense.passingYardsAllowed  3674.0     None  2025-06-01
-31      1  Team Stats            Defense.totalTackles  1155.0     None  2025-06-01
-32      1  Team Stats  Defense.defensiveInterceptions     9.0     None  2025-06-01
-33      1  Team Stats                     Defense.tfl    87.0     None  2025-06-01
-34      1  Team Stats     Defense.rushingYardsAllowed  2149.0     None  2025-06-01
-35      1  Team Stats                   Defense.sacks    41.0     None  2025-06-01
-36      1  Team Stats        Defense.rushingTDAllowed    18.0     None  2025-06-01
-37      2  Team Stats                 Rushing.rushYds  2219.0     None  2025-06-01
-38      2  Team Stats                 Rushing.carries   495.0     None  2025-06-01
-39      2  Team Stats                  Rushing.rushTD    18.0     None  2025-06-01
-40      2  Team Stats              Kicking.fgAttempts    41.0     None  2025-06-01
-41      2  Team Stats                  Kicking.fgMade    29.0     None  2025-06-01
-42      2  Team Stats                  Kicking.xpMade    38.0     None  2025-06-01
-43      2  Team Stats                   Kicking.fgYds     0.0     None  2025-06-01
-44      2  Team Stats               Kicking.kickYards     0.0     None  2025-06-01
-45      2  Team Stats              Kicking.xpAttempts    38.0     None  2025-06-01
-46      2  Team Stats            Passing.passAttempts   559.0     None  2025-06-01
-47      2  Team Stats                  Passing.passTD    21.0     None  2025-06-01
-48      2  Team Stats                 Passing.passYds  4283.0     None  2025-06-01
-49      2  Team Stats                     Passing.int    19.0     None  2025-06-01
-2025-06-01 19:48:50,896 INFO:Team Stats DataFrame shape: (1184, 6)
-2025-06-01 19:48:50,896 INFO:Starting Processing Top Performers from raw JSON
-2025-06-01 19:48:50,896 INFO:Found 32 teams in input
-2025-06-01 19:48:50,896 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,896 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,897 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
-2025-06-01 19:48:50,898 INFO:Processed 1056 top performers.
-2025-06-01 19:48:50,906 INFO:Top performers processed. DataFrame head:
+2025-06-02 12:22:53,923 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 12:23:24,066 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 12:23:24,066 INFO:load_date parameter received: None
+2025-06-02 12:23:24,066 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 12:23:24,066 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 12:23:24,066 INFO:Starting NFL games fetch job...
+2025-06-02 12:23:26,767 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 12:23:32,091 INFO:Fetching games for date: 20250601
+2025-06-02 12:23:33,579 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 41, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 12:23:33,581 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:23:37,174 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:23:46,287 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:23:46,320 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:23:46,327 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:23:46,328 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:23:46,335 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:23:46,339 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:23:46,348 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:23:46,348 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:23:46,348 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:23:46,348 INFO:Found 32 teams in input
+2025-06-02 12:23:46,348 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:23:46,348 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:23:46,348 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:23:46,348 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:23:46,348 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:23:46,348 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:23:46,348 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:23:46,348 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:23:46,348 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:23:46,348 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:23:46,348 INFO:Processing teamID 11 (DET)
+2025-06-02 12:23:46,348 INFO:Processing teamID 12 (GB)
+2025-06-02 12:23:46,349 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:23:46,349 INFO:Processing teamID 14 (IND)
+2025-06-02 12:23:46,349 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:23:46,349 INFO:Processing teamID 16 (KC)
+2025-06-02 12:23:46,349 INFO:Processing teamID 17 (LV)
+2025-06-02 12:23:46,349 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:23:46,349 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:23:46,349 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:23:46,349 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:23:46,349 INFO:Processing teamID 22 (NE)
+2025-06-02 12:23:46,349 INFO:Processing teamID 23 (NO)
+2025-06-02 12:23:46,349 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:23:46,349 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:23:46,349 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:23:46,349 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:23:46,349 INFO:Processing teamID 28 (SF)
+2025-06-02 12:23:46,349 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:23:46,349 INFO:Processing teamID 30 (TB)
+2025-06-02 12:23:46,349 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:23:46,349 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:23:46,351 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:23:46,356 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:23:46,356 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:23:46,356 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:23:46,356 INFO:Found 32 teams in input
+2025-06-02 12:23:46,356 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,356 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,357 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,360 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,361 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,361 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,361 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,361 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:23:46,363 INFO:Processed 1056 top performers.
+2025-06-02 12:23:46,370 INFO:Top performers processed. DataFrame head:
    teamID          Level1                  Level2   Value PlayerID    dataDate
-0       1  Top Performers                 rushYds  1094.0  3045147  2025-06-01
-1       1  Top Performers                 carries   236.0  3045147  2025-06-01
-2       1  Top Performers                  rushTD     8.0  3045147  2025-06-01
-3       1  Top Performers              fgAttempts    32.0  4363538  2025-06-01
-4       1  Top Performers                  fgMade    28.0  4363538  2025-06-01
-5       1  Top Performers                  xpMade    26.0  4363538  2025-06-01
-6       1  Top Performers                   fgYds     0.0     None  2025-06-01
-7       1  Top Performers               kickYards     0.0     None  2025-06-01
-8       1  Top Performers              xpAttempts    27.0  4363538  2025-06-01
-9       1  Top Performers            passAttempts   541.0  3917315  2025-06-01
-10      1  Top Performers                  passTD    21.0  3917315  2025-06-01
-11      1  Top Performers                 passYds  3851.0  3917315  2025-06-01
-12      1  Top Performers                     int    11.0  3917315  2025-06-01
-13      1  Top Performers         passCompletions   372.0  3917315  2025-06-01
-14      1  Top Performers                 puntYds  1887.0  4045180  2025-06-01
-15      1  Top Performers                   punts    38.0  4045180  2025-06-01
-16      1  Top Performers               puntsin20    19.0  4045180  2025-06-01
-17      1  Top Performers          puntTouchBacks     1.0  4045180  2025-06-01
-18      1  Top Performers              receptions   111.0  4361307  2025-06-01
-19      1  Top Performers                   recTD     8.0  4432708  2025-06-01
-20      1  Top Performers                 targets   147.0  4361307  2025-06-01
-21      1  Top Performers                  recYds  1146.0  4361307  2025-06-01
-22      1  Top Performers            totalTackles   164.0  3127287  2025-06-01
-23      1  Top Performers             fumblesLost     4.0  3917315  2025-06-01
-24      1  Top Performers                   defTD     1.0  4361307  2025-06-01
-25      1  Top Performers                 fumbles     8.0  3917315  2025-06-01
-26      1  Top Performers        fumblesRecovered     3.0  3917315  2025-06-01
-27      1  Top Performers             soloTackles    95.0  3127287  2025-06-01
-28      1  Top Performers  defensiveInterceptions     3.0  3932886  2025-06-01
-29      1  Top Performers                  qbHits    18.0  2979860  2025-06-01
-30      1  Top Performers                     tfl    12.0    11284  2025-06-01
-31      1  Top Performers         passDeflections     9.0  4568506  2025-06-01
-32      1  Top Performers                   sacks     8.0  3693166  2025-06-01
-33      2  Top Performers                 rushYds  1456.0  4430807  2025-06-01
-34      2  Top Performers                 carries   304.0  4430807  2025-06-01
-35      2  Top Performers                  rushTD    14.0  4430807  2025-06-01
-36      2  Top Performers              fgAttempts    34.0  3049899  2025-06-01
-37      2  Top Performers                  fgMade    25.0  3049899  2025-06-01
-38      2  Top Performers                  xpMade    26.0  3049899  2025-06-01
-39      2  Top Performers                   fgYds     0.0     None  2025-06-01
-40      2  Top Performers               kickYards     0.0     None  2025-06-01
-41      2  Top Performers              xpAttempts    26.0  3049899  2025-06-01
-42      2  Top Performers            passAttempts   453.0    14880  2025-06-01
-43      2  Top Performers                  passTD    18.0    14880  2025-06-01
-44      2  Top Performers                 passYds  3508.0    14880  2025-06-01
-45      2  Top Performers                     int    16.0    14880  2025-06-01
-46      2  Top Performers         passCompletions   303.0    14880  2025-06-01
-47      2  Top Performers                 puntYds  2209.0  2977680  2025-06-01
-48      2  Top Performers                   punts    47.0  2977680  2025-06-01
-49      2  Top Performers               puntsin20    14.0  2977680  2025-06-01
-2025-06-01 19:48:50,906 INFO:Top Performers DataFrame shape: (1056, 6)
-2025-06-01 19:48:50,914 WARNING:There are 224 rows with non-numeric 'Value' fields.
-2025-06-01 19:48:50,924 INFO:BigQuery payload size: 2528 rows.
-2025-06-01 19:48:50,925 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}]
-2025-06-01 19:48:54,246 INFO:Successfully inserted 2528 rows into BigQuery.
-2025-06-01 19:48:54,246 INFO:Inserted 2528 rows for 2025-06-01 into BigQuery.
-2025-06-01 19:48:54,247 INFO:Cycle count for NFL Teams API Call incremented to 1
-2025-06-01 19:48:54,248 INFO:Max cycles reached for NFL Teams API Call.
-2025-06-01 19:48:54,248 INFO:127.0.0.1 - - [01/Jun/2025 19:48:54] "GET /test?load_date=2025-06-01 HTTP/1.1" 200 -
+0       1  Top Performers                 rushYds  1094.0  3045147  2025-06-02
+1       1  Top Performers                 carries   236.0  3045147  2025-06-02
+2       1  Top Performers                  rushTD     8.0  3045147  2025-06-02
+3       1  Top Performers              fgAttempts    32.0  4363538  2025-06-02
+4       1  Top Performers                  fgMade    28.0  4363538  2025-06-02
+5       1  Top Performers                  xpMade    26.0  4363538  2025-06-02
+6       1  Top Performers                   fgYds     0.0     None  2025-06-02
+7       1  Top Performers               kickYards     0.0     None  2025-06-02
+8       1  Top Performers              xpAttempts    27.0  4363538  2025-06-02
+9       1  Top Performers            passAttempts   541.0  3917315  2025-06-02
+10      1  Top Performers                  passTD    21.0  3917315  2025-06-02
+11      1  Top Performers                 passYds  3851.0  3917315  2025-06-02
+12      1  Top Performers                     int    11.0  3917315  2025-06-02
+13      1  Top Performers         passCompletions   372.0  3917315  2025-06-02
+14      1  Top Performers                 puntYds  1887.0  4045180  2025-06-02
+15      1  Top Performers                   punts    38.0  4045180  2025-06-02
+16      1  Top Performers               puntsin20    19.0  4045180  2025-06-02
+17      1  Top Performers          puntTouchBacks     1.0  4045180  2025-06-02
+18      1  Top Performers              receptions   111.0  4361307  2025-06-02
+19      1  Top Performers                   recTD     8.0  4432708  2025-06-02
+20      1  Top Performers                 targets   147.0  4361307  2025-06-02
+21      1  Top Performers                  recYds  1146.0  4361307  2025-06-02
+22      1  Top Performers            totalTackles   164.0  3127287  2025-06-02
+23      1  Top Performers             fumblesLost     4.0  3917315  2025-06-02
+24      1  Top Performers                   defTD     1.0  4361307  2025-06-02
+25      1  Top Performers                 fumbles     8.0  3917315  2025-06-02
+26      1  Top Performers        fumblesRecovered     3.0  3917315  2025-06-02
+27      1  Top Performers             soloTackles    95.0  3127287  2025-06-02
+28      1  Top Performers  defensiveInterceptions     3.0  3932886  2025-06-02
+29      1  Top Performers                  qbHits    18.0  2979860  2025-06-02
+30      1  Top Performers                     tfl    12.0    11284  2025-06-02
+31      1  Top Performers         passDeflections     9.0  4568506  2025-06-02
+32      1  Top Performers                   sacks     8.0  3693166  2025-06-02
+33      2  Top Performers                 rushYds  1456.0  4430807  2025-06-02
+34      2  Top Performers                 carries   304.0  4430807  2025-06-02
+35      2  Top Performers                  rushTD    14.0  4430807  2025-06-02
+36      2  Top Performers              fgAttempts    34.0  3049899  2025-06-02
+37      2  Top Performers                  fgMade    25.0  3049899  2025-06-02
+38      2  Top Performers                  xpMade    26.0  3049899  2025-06-02
+39      2  Top Performers                   fgYds     0.0     None  2025-06-02
+40      2  Top Performers               kickYards     0.0     None  2025-06-02
+41      2  Top Performers              xpAttempts    26.0  3049899  2025-06-02
+42      2  Top Performers            passAttempts   453.0    14880  2025-06-02
+43      2  Top Performers                  passTD    18.0    14880  2025-06-02
+44      2  Top Performers                 passYds  3508.0    14880  2025-06-02
+45      2  Top Performers                     int    16.0    14880  2025-06-02
+46      2  Top Performers         passCompletions   303.0    14880  2025-06-02
+47      2  Top Performers                 puntYds  2209.0  2977680  2025-06-02
+48      2  Top Performers                   punts    47.0  2977680  2025-06-02
+49      2  Top Performers               puntsin20    14.0  2977680  2025-06-02
+2025-06-02 12:23:46,370 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:23:46,380 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:23:46,390 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:23:46,391 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:23:49,953 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:23:49,954 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:23:49,955 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 12:23:49,955 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 12:23:49,955 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 12:23:49,956 INFO:Starting NFL games fetch job...
+2025-06-02 12:23:52,484 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 12:23:59,240 INFO:Fetching games for date: 20250601
+2025-06-02 12:24:00,023 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 41, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 12:24:00,025 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:24:03,706 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:24:12,434 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:24:12,488 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:24:12,495 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:24:12,495 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:24:12,498 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:24:12,501 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:24:12,507 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:24:12,507 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:24:12,507 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:24:12,507 INFO:Found 32 teams in input
+2025-06-02 12:24:12,507 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:24:12,507 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:24:12,507 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:24:12,507 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:24:12,508 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:24:12,508 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:24:12,508 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:24:12,508 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:24:12,508 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:24:12,508 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:24:12,508 INFO:Processing teamID 11 (DET)
+2025-06-02 12:24:12,508 INFO:Processing teamID 12 (GB)
+2025-06-02 12:24:12,508 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:24:12,508 INFO:Processing teamID 14 (IND)
+2025-06-02 12:24:12,508 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:24:12,508 INFO:Processing teamID 16 (KC)
+2025-06-02 12:24:12,508 INFO:Processing teamID 17 (LV)
+2025-06-02 12:24:12,508 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:24:12,508 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:24:12,508 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:24:12,508 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:24:12,508 INFO:Processing teamID 22 (NE)
+2025-06-02 12:24:12,508 INFO:Processing teamID 23 (NO)
+2025-06-02 12:24:12,508 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:24:12,508 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:24:12,508 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:24:12,509 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:24:12,509 INFO:Processing teamID 28 (SF)
+2025-06-02 12:24:12,509 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:24:12,509 INFO:Processing teamID 30 (TB)
+2025-06-02 12:24:12,509 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:24:12,509 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:24:12,510 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:24:12,516 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:24:12,516 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:24:12,516 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:24:12,516 INFO:Found 32 teams in input
+2025-06-02 12:24:12,516 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,516 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,517 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:24:12,518 INFO:Processed 1056 top performers.
+2025-06-02 12:24:12,525 INFO:Top performers processed. DataFrame head:
+   teamID          Level1                  Level2   Value PlayerID    dataDate
+0       1  Top Performers                 rushYds  1094.0  3045147  2025-06-02
+1       1  Top Performers                 carries   236.0  3045147  2025-06-02
+2       1  Top Performers                  rushTD     8.0  3045147  2025-06-02
+3       1  Top Performers              fgAttempts    32.0  4363538  2025-06-02
+4       1  Top Performers                  fgMade    28.0  4363538  2025-06-02
+5       1  Top Performers                  xpMade    26.0  4363538  2025-06-02
+6       1  Top Performers                   fgYds     0.0     None  2025-06-02
+7       1  Top Performers               kickYards     0.0     None  2025-06-02
+8       1  Top Performers              xpAttempts    27.0  4363538  2025-06-02
+9       1  Top Performers            passAttempts   541.0  3917315  2025-06-02
+10      1  Top Performers                  passTD    21.0  3917315  2025-06-02
+11      1  Top Performers                 passYds  3851.0  3917315  2025-06-02
+12      1  Top Performers                     int    11.0  3917315  2025-06-02
+13      1  Top Performers         passCompletions   372.0  3917315  2025-06-02
+14      1  Top Performers                 puntYds  1887.0  4045180  2025-06-02
+15      1  Top Performers                   punts    38.0  4045180  2025-06-02
+16      1  Top Performers               puntsin20    19.0  4045180  2025-06-02
+17      1  Top Performers          puntTouchBacks     1.0  4045180  2025-06-02
+18      1  Top Performers              receptions   111.0  4361307  2025-06-02
+19      1  Top Performers                   recTD     8.0  4432708  2025-06-02
+20      1  Top Performers                 targets   147.0  4361307  2025-06-02
+21      1  Top Performers                  recYds  1146.0  4361307  2025-06-02
+22      1  Top Performers            totalTackles   164.0  3127287  2025-06-02
+23      1  Top Performers             fumblesLost     4.0  3917315  2025-06-02
+24      1  Top Performers                   defTD     1.0  4361307  2025-06-02
+25      1  Top Performers                 fumbles     8.0  3917315  2025-06-02
+26      1  Top Performers        fumblesRecovered     3.0  3917315  2025-06-02
+27      1  Top Performers             soloTackles    95.0  3127287  2025-06-02
+28      1  Top Performers  defensiveInterceptions     3.0  3932886  2025-06-02
+29      1  Top Performers                  qbHits    18.0  2979860  2025-06-02
+30      1  Top Performers                     tfl    12.0    11284  2025-06-02
+31      1  Top Performers         passDeflections     9.0  4568506  2025-06-02
+32      1  Top Performers                   sacks     8.0  3693166  2025-06-02
+33      2  Top Performers                 rushYds  1456.0  4430807  2025-06-02
+34      2  Top Performers                 carries   304.0  4430807  2025-06-02
+35      2  Top Performers                  rushTD    14.0  4430807  2025-06-02
+36      2  Top Performers              fgAttempts    34.0  3049899  2025-06-02
+37      2  Top Performers                  fgMade    25.0  3049899  2025-06-02
+38      2  Top Performers                  xpMade    26.0  3049899  2025-06-02
+39      2  Top Performers                   fgYds     0.0     None  2025-06-02
+40      2  Top Performers               kickYards     0.0     None  2025-06-02
+41      2  Top Performers              xpAttempts    26.0  3049899  2025-06-02
+42      2  Top Performers            passAttempts   453.0    14880  2025-06-02
+43      2  Top Performers                  passTD    18.0    14880  2025-06-02
+44      2  Top Performers                 passYds  3508.0    14880  2025-06-02
+45      2  Top Performers                     int    16.0    14880  2025-06-02
+46      2  Top Performers         passCompletions   303.0    14880  2025-06-02
+47      2  Top Performers                 puntYds  2209.0  2977680  2025-06-02
+48      2  Top Performers                   punts    47.0  2977680  2025-06-02
+49      2  Top Performers               puntsin20    14.0  2977680  2025-06-02
+2025-06-02 12:24:12,526 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:24:12,535 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:24:12,545 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:24:12,545 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:24:15,784 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:24:15,785 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:24:15,786 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 12:24:15,786 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 12:24:15,786 INFO:127.0.0.1 - - [02/Jun/2025 12:24:15] "POST / HTTP/1.1" 200 -
+2025-06-02 12:31:58,496 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 12:31:58,497 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 12:32:37,889 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 12:32:37,889 INFO:load_date parameter received: None
+2025-06-02 12:32:37,889 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 12:32:37,889 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 12:32:37,890 INFO:Starting NFL games fetch job...
+2025-06-02 12:32:40,331 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 12:32:45,481 INFO:Fetching games for date: 20250601
+2025-06-02 12:32:46,887 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 41, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 12:32:46,891 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:32:50,478 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:32:59,332 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:32:59,371 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:32:59,376 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:32:59,377 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:32:59,381 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:32:59,384 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:32:59,390 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:32:59,390 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:32:59,390 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:32:59,390 INFO:Found 32 teams in input
+2025-06-02 12:32:59,390 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:32:59,391 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:32:59,391 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:32:59,391 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:32:59,391 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:32:59,391 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:32:59,391 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:32:59,391 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:32:59,391 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:32:59,391 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:32:59,391 INFO:Processing teamID 11 (DET)
+2025-06-02 12:32:59,391 INFO:Processing teamID 12 (GB)
+2025-06-02 12:32:59,391 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:32:59,391 INFO:Processing teamID 14 (IND)
+2025-06-02 12:32:59,391 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:32:59,391 INFO:Processing teamID 16 (KC)
+2025-06-02 12:32:59,391 INFO:Processing teamID 17 (LV)
+2025-06-02 12:32:59,391 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:32:59,391 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:32:59,391 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:32:59,391 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:32:59,391 INFO:Processing teamID 22 (NE)
+2025-06-02 12:32:59,391 INFO:Processing teamID 23 (NO)
+2025-06-02 12:32:59,392 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:32:59,392 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:32:59,392 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:32:59,392 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:32:59,392 INFO:Processing teamID 28 (SF)
+2025-06-02 12:32:59,392 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:32:59,392 INFO:Processing teamID 30 (TB)
+2025-06-02 12:32:59,392 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:32:59,392 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:32:59,393 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:32:59,398 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:32:59,399 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:32:59,399 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:32:59,399 INFO:Found 32 teams in input
+2025-06-02 12:32:59,399 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,399 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,400 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,403 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:32:59,405 INFO:Processed 1056 top performers.
+2025-06-02 12:32:59,409 INFO:Top performers processed. DataFrame head:
+  teamID          Level1      Level2   Value PlayerID    dataDate
+0      1  Top Performers     rushYds  1094.0  3045147  2025-06-02
+1      1  Top Performers     carries   236.0  3045147  2025-06-02
+2      1  Top Performers      rushTD     8.0  3045147  2025-06-02
+3      1  Top Performers  fgAttempts    32.0  4363538  2025-06-02
+4      1  Top Performers      fgMade    28.0  4363538  2025-06-02
+2025-06-02 12:32:59,410 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:32:59,420 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:32:59,430 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:32:59,430 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:33:02,669 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:33:02,670 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:33:02,671 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 12:33:02,672 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 12:33:02,673 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 12:33:02,673 INFO:Starting NFL games fetch job...
+2025-06-02 12:33:05,138 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 12:33:10,507 INFO:Fetching games for date: 20250601
+2025-06-02 12:33:11,172 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 41, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 12:33:11,173 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:33:14,564 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:33:22,989 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:33:23,029 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:33:23,040 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:33:23,040 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:33:23,043 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:33:23,046 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:33:23,052 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:33:23,052 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:33:23,052 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:33:23,052 INFO:Found 32 teams in input
+2025-06-02 12:33:23,052 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:33:23,052 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:33:23,052 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:33:23,052 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:33:23,052 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:33:23,052 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:33:23,053 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:33:23,053 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:33:23,053 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:33:23,053 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:33:23,053 INFO:Processing teamID 11 (DET)
+2025-06-02 12:33:23,053 INFO:Processing teamID 12 (GB)
+2025-06-02 12:33:23,053 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:33:23,053 INFO:Processing teamID 14 (IND)
+2025-06-02 12:33:23,053 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:33:23,053 INFO:Processing teamID 16 (KC)
+2025-06-02 12:33:23,053 INFO:Processing teamID 17 (LV)
+2025-06-02 12:33:23,053 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:33:23,053 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:33:23,053 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:33:23,053 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:33:23,054 INFO:Processing teamID 22 (NE)
+2025-06-02 12:33:23,054 INFO:Processing teamID 23 (NO)
+2025-06-02 12:33:23,054 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:33:23,054 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:33:23,054 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:33:23,054 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:33:23,054 INFO:Processing teamID 28 (SF)
+2025-06-02 12:33:23,054 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:33:23,054 INFO:Processing teamID 30 (TB)
+2025-06-02 12:33:23,055 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:33:23,055 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:33:23,056 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:33:23,061 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:33:23,061 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:33:23,062 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:33:23,062 INFO:Found 32 teams in input
+2025-06-02 12:33:23,062 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,062 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,063 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,064 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:33:23,066 INFO:Processed 1056 top performers.
+2025-06-02 12:33:23,071 INFO:Top performers processed. DataFrame head:
+  teamID          Level1      Level2   Value PlayerID    dataDate
+0      1  Top Performers     rushYds  1094.0  3045147  2025-06-02
+1      1  Top Performers     carries   236.0  3045147  2025-06-02
+2      1  Top Performers      rushTD     8.0  3045147  2025-06-02
+3      1  Top Performers  fgAttempts    32.0  4363538  2025-06-02
+4      1  Top Performers      fgMade    28.0  4363538  2025-06-02
+2025-06-02 12:33:23,071 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:33:23,080 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:33:23,089 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:33:23,090 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:33:26,360 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:33:26,360 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:33:26,362 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 12:33:26,362 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 12:33:26,362 INFO:127.0.0.1 - - [02/Jun/2025 12:33:26] "POST / HTTP/1.1" 200 -
+2025-06-02 12:35:43,671 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 12:35:43,672 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 12:35:49,359 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 12:35:49,359 INFO:load_date parameter received: None
+2025-06-02 12:35:49,360 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 12:35:49,360 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:35:53,561 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:36:02,178 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:36:02,217 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:36:02,224 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:36:02,225 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:36:02,229 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:36:02,231 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:36:02,238 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:36:02,238 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:36:02,238 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:36:02,238 INFO:Found 32 teams in input
+2025-06-02 12:36:02,238 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:36:02,238 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:36:02,239 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:36:02,239 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:36:02,239 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:36:02,239 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:36:02,239 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:36:02,239 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:36:02,239 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:36:02,239 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:36:02,239 INFO:Processing teamID 11 (DET)
+2025-06-02 12:36:02,240 INFO:Processing teamID 12 (GB)
+2025-06-02 12:36:02,240 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:36:02,240 INFO:Processing teamID 14 (IND)
+2025-06-02 12:36:02,240 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:36:02,240 INFO:Processing teamID 16 (KC)
+2025-06-02 12:36:02,240 INFO:Processing teamID 17 (LV)
+2025-06-02 12:36:02,240 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:36:02,240 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:36:02,240 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:36:02,240 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:36:02,240 INFO:Processing teamID 22 (NE)
+2025-06-02 12:36:02,240 INFO:Processing teamID 23 (NO)
+2025-06-02 12:36:02,240 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:36:02,240 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:36:02,240 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:36:02,240 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:36:02,240 INFO:Processing teamID 28 (SF)
+2025-06-02 12:36:02,240 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:36:02,240 INFO:Processing teamID 30 (TB)
+2025-06-02 12:36:02,240 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:36:02,240 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:36:02,242 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:36:02,246 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:36:02,246 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:36:02,247 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:36:02,247 INFO:Found 32 teams in input
+2025-06-02 12:36:02,247 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,247 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,248 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:36:02,249 INFO:Processed 1056 top performers.
+2025-06-02 12:36:02,254 INFO:Top performers processed. DataFrame head:
+  teamID          Level1      Level2   Value PlayerID    dataDate
+0      1  Top Performers     rushYds  1094.0  3045147  2025-06-02
+1      1  Top Performers     carries   236.0  3045147  2025-06-02
+2      1  Top Performers      rushTD     8.0  3045147  2025-06-02
+3      1  Top Performers  fgAttempts    32.0  4363538  2025-06-02
+4      1  Top Performers      fgMade    28.0  4363538  2025-06-02
+2025-06-02 12:36:02,255 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:36:02,263 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:36:02,277 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:36:02,277 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:36:05,461 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:36:05,461 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:36:05,463 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 12:36:05,463 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 12:36:05,463 INFO:127.0.0.1 - - [02/Jun/2025 12:36:05] "POST / HTTP/1.1" 200 -
+2025-06-02 12:38:02,056 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 12:38:02,056 INFO:load_date parameter received: None
+2025-06-02 12:38:02,057 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 12:38:02,057 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 12:38:05,835 INFO:Data for 2025-06-02 already exists. Deleting to refresh.
+2025-06-02 12:38:14,567 INFO:Fetched team data for 2025-06-02.
+2025-06-02 12:38:14,610 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-02.json
+2025-06-02 12:38:14,617 INFO:API flatten response shape: (32, 123)
+2025-06-02 12:38:14,618 INFO:Detected 32 unique teams in the API response.
+2025-06-02 12:38:14,622 INFO:Processed 192 rows for Team Info.
+2025-06-02 12:38:14,627 INFO:Processed 96 rows for Bye Weeks.
+2025-06-02 12:38:14,632 INFO:Static fields processed. DataFrame head:
+  teamID    Level2      Value     Level1 PlayerID    dataDate
+0      1  teamName  Cardinals  Team Info     None  2025-06-02
+1      2  teamName    Falcons  Team Info     None  2025-06-02
+2      3  teamName     Ravens  Team Info     None  2025-06-02
+3      4  teamName      Bills  Team Info     None  2025-06-02
+4      5  teamName   Panthers  Team Info     None  2025-06-02
+2025-06-02 12:38:14,632 INFO:Static DataFrame shape: (288, 6)
+2025-06-02 12:38:14,632 INFO:Starting Processing Team Stats from raw JSON
+2025-06-02 12:38:14,632 INFO:Found 32 teams in input
+2025-06-02 12:38:14,633 INFO:Processing teamID 1 (ARI)
+2025-06-02 12:38:14,633 INFO:Processing teamID 2 (ATL)
+2025-06-02 12:38:14,633 INFO:Processing teamID 3 (BAL)
+2025-06-02 12:38:14,633 INFO:Processing teamID 4 (BUF)
+2025-06-02 12:38:14,633 INFO:Processing teamID 5 (CAR)
+2025-06-02 12:38:14,633 INFO:Processing teamID 6 (CHI)
+2025-06-02 12:38:14,633 INFO:Processing teamID 7 (CIN)
+2025-06-02 12:38:14,633 INFO:Processing teamID 8 (CLE)
+2025-06-02 12:38:14,633 INFO:Processing teamID 9 (DAL)
+2025-06-02 12:38:14,634 INFO:Processing teamID 10 (DEN)
+2025-06-02 12:38:14,634 INFO:Processing teamID 11 (DET)
+2025-06-02 12:38:14,634 INFO:Processing teamID 12 (GB)
+2025-06-02 12:38:14,634 INFO:Processing teamID 13 (HOU)
+2025-06-02 12:38:14,634 INFO:Processing teamID 14 (IND)
+2025-06-02 12:38:14,634 INFO:Processing teamID 15 (JAX)
+2025-06-02 12:38:14,634 INFO:Processing teamID 16 (KC)
+2025-06-02 12:38:14,634 INFO:Processing teamID 17 (LV)
+2025-06-02 12:38:14,634 INFO:Processing teamID 18 (LAC)
+2025-06-02 12:38:14,635 INFO:Processing teamID 19 (LAR)
+2025-06-02 12:38:14,635 INFO:Processing teamID 20 (MIA)
+2025-06-02 12:38:14,635 INFO:Processing teamID 21 (MIN)
+2025-06-02 12:38:14,635 INFO:Processing teamID 22 (NE)
+2025-06-02 12:38:14,635 INFO:Processing teamID 23 (NO)
+2025-06-02 12:38:14,635 INFO:Processing teamID 24 (NYG)
+2025-06-02 12:38:14,635 INFO:Processing teamID 25 (NYJ)
+2025-06-02 12:38:14,635 INFO:Processing teamID 26 (PIT)
+2025-06-02 12:38:14,635 INFO:Processing teamID 27 (PHI)
+2025-06-02 12:38:14,635 INFO:Processing teamID 28 (SF)
+2025-06-02 12:38:14,636 INFO:Processing teamID 29 (SEA)
+2025-06-02 12:38:14,636 INFO:Processing teamID 30 (TB)
+2025-06-02 12:38:14,636 INFO:Processing teamID 31 (TEN)
+2025-06-02 12:38:14,636 INFO:Processing teamID 32 (WSH)
+2025-06-02 12:38:14,637 INFO:Processed 1184 team stats across 32 teams.
+2025-06-02 12:38:14,643 INFO:Team stats processed. DataFrame head:
+  teamID      Level1              Level2   Value PlayerID    dataDate
+0      1  Team Stats     Rushing.rushYds  2451.0     None  2025-06-02
+1      1  Team Stats     Rushing.carries   463.0     None  2025-06-02
+2      1  Team Stats      Rushing.rushTD    18.0     None  2025-06-02
+3      1  Team Stats  Kicking.fgAttempts    38.0     None  2025-06-02
+4      1  Team Stats      Kicking.fgMade    34.0     None  2025-06-02
+2025-06-02 12:38:14,644 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-02 12:38:14,644 INFO:Starting Processing Top Performers from raw JSON
+2025-06-02 12:38:14,644 INFO:Found 32 teams in input
+2025-06-02 12:38:14,644 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,644 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,645 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-02 12:38:14,647 INFO:Processed 1056 top performers.
+2025-06-02 12:38:14,651 INFO:Top performers processed. DataFrame head:
+  teamID          Level1      Level2   Value PlayerID    dataDate
+0      1  Top Performers     rushYds  1094.0  3045147  2025-06-02
+1      1  Top Performers     carries   236.0  3045147  2025-06-02
+2      1  Top Performers      rushTD     8.0  3045147  2025-06-02
+3      1  Top Performers  fgAttempts    32.0  4363538  2025-06-02
+4      1  Top Performers      fgMade    28.0  4363538  2025-06-02
+2025-06-02 12:38:14,651 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-02 12:38:14,661 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-02 12:38:14,670 INFO:BigQuery payload size: 2528 rows.
+2025-06-02 12:38:14,671 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-02'}]
+2025-06-02 12:38:18,201 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-02 12:38:18,201 INFO:Inserted 2528 rows for 2025-06-02 into BigQuery.
+2025-06-02 12:38:18,202 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 12:38:18,202 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 12:38:18,203 INFO:127.0.0.1 - - [02/Jun/2025 12:38:18] "POST / HTTP/1.1" 200 -
+2025-06-02 13:22:04,236 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 13:22:04,236 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 13:22:19,288 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 13:22:19,288 INFO:load_date parameter received: None
+2025-06-02 13:22:19,288 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 13:22:19,288 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 13:22:24,556 INFO:Data already exists for 2025-06-02 for teamIDs: ['11', '30', '32', '8', '1']... Skipping load.
+2025-06-02 13:22:24,558 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 13:22:24,558 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 13:22:24,558 INFO:127.0.0.1 - - [02/Jun/2025 13:22:24] "POST / HTTP/1.1" 200 -
+2025-06-02 13:29:45,818 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 13:29:45,821 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 13:29:58,055 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 13:29:58,055 INFO:load_date parameter received: None
+2025-06-02 13:29:58,055 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 13:29:58,055 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 13:29:58,055 INFO:Starting NFL games fetch job...
+2025-06-02 13:30:02,845 INFO:Fetching games for date: 20250601
+2025-06-02 13:30:04,574 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 40, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 13:30:04,574 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 13:30:09,542 INFO:Data already exists for 2025-06-02 for teamIDs: ['13', '31', '30', '19', '7']... Skipping load.
+2025-06-02 13:30:09,544 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 13:30:09,544 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 13:30:09,546 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 13:30:09,546 INFO:Starting NFL games fetch job...
+2025-06-02 13:30:12,398 INFO:Fetching games for date: 20250601
+2025-06-02 13:30:13,240 ERROR:Error while running NFL Games API Call: 'NoneType' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 40, in fetch_nfl_games
+    logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
+                                             ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+2025-06-02 13:30:13,242 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 13:30:18,037 INFO:Data already exists for 2025-06-02 for teamIDs: ['13', '31', '30', '19', '7']... Skipping load.
+2025-06-02 13:30:18,038 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-02 13:30:18,038 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-02 13:30:18,038 INFO:127.0.0.1 - - [02/Jun/2025 13:30:18] "POST / HTTP/1.1" 200 -
+2025-06-02 15:18:40,549 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 15:18:40,549 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 15:18:47,897 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 15:18:47,897 INFO:load_date parameter received: None
+2025-06-02 15:18:47,897 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 15:18:47,897 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:18:47,897 INFO:Starting NFL games fetch job...
+2025-06-02 15:18:52,125 INFO:Fetching games for date: 20250601
+2025-06-02 15:18:53,644 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 15:18:53,646 INFO:Fetching games for date: 20250602
+2025-06-02 15:18:54,314 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 15:18:54,314 INFO:Fetching games for date: 20250603
+2025-06-02 15:18:54,947 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 15:18:54,947 INFO:Fetching games for date: 20250604
+2025-06-02 15:18:55,593 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 15:18:55,593 INFO:NFL games fetch job completed successfully.
+2025-06-02 15:18:55,593 ERROR:Error while running NFL Games API Call: 'NFL Games API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Games API Call'
+2025-06-02 15:18:55,593 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:18:59,539 INFO:Data already exists for 2025-06-02 for teamIDs: ['9', '6', '21', '12', '26']... Skipping load.
+2025-06-02 15:18:59,539 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:18:59,539 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 15:18:59,539 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:18:59,539 INFO:Starting NFL games fetch job...
+2025-06-02 15:19:01,968 INFO:Fetching games for date: 20250601
+2025-06-02 15:19:02,619 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 15:19:02,619 INFO:Fetching games for date: 20250602
+2025-06-02 15:19:03,398 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 15:19:03,398 INFO:Fetching games for date: 20250603
+2025-06-02 15:19:04,036 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 15:19:04,037 INFO:Fetching games for date: 20250604
+2025-06-02 15:19:04,747 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 15:19:04,747 INFO:NFL games fetch job completed successfully.
+2025-06-02 15:19:04,747 ERROR:Error while running NFL Games API Call: 'NFL Games API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Games API Call'
+2025-06-02 15:19:04,748 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:19:08,351 INFO:Data already exists for 2025-06-02 for teamIDs: ['9', '6', '21', '12', '26']... Skipping load.
+2025-06-02 15:19:08,351 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:19:08,352 INFO:127.0.0.1 - - [02/Jun/2025 15:19:08] "POST / HTTP/1.1" 200 -
+2025-06-02 15:33:16,057 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 15:33:16,057 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 15:33:22,569 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 15:33:22,569 INFO:load_date parameter received: None
+2025-06-02 15:33:22,569 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 15:33:22,569 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:33:22,569 INFO:Starting NFL games fetch job...
+2025-06-02 15:33:25,253 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 15:33:25,253 ERROR:Error while running NFL Games API Call: name 'delete_yesterdays_games_from_bigquery' is not defined
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 30, in fetch_nfl_games
+    delete_yesterdays_games_from_bigquery(table_id)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'delete_yesterdays_games_from_bigquery' is not defined
+2025-06-02 15:33:25,253 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:33:29,091 INFO:Data already exists for 2025-06-02 for teamIDs: ['4', '25', '21', '22', '31']... Skipping load.
+2025-06-02 15:33:29,091 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:33:29,091 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 15:33:29,091 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:33:29,093 INFO:Starting NFL games fetch job...
+2025-06-02 15:33:31,601 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 15:33:31,601 ERROR:Error while running NFL Games API Call: name 'delete_yesterdays_games_from_bigquery' is not defined
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 36, in run_api_calls
+    api_call['function']()
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_games.py", line 30, in fetch_nfl_games
+    delete_yesterdays_games_from_bigquery(table_id)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'delete_yesterdays_games_from_bigquery' is not defined
+2025-06-02 15:33:31,605 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:33:35,282 INFO:Data already exists for 2025-06-02 for teamIDs: ['4', '25', '21', '22', '31']... Skipping load.
+2025-06-02 15:33:35,282 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:33:35,282 INFO:127.0.0.1 - - [02/Jun/2025 15:33:35] "POST / HTTP/1.1" 200 -
+2025-06-02 15:37:22,982 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 15:37:22,982 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 15:37:29,084 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 15:37:29,084 INFO:load_date parameter received: None
+2025-06-02 15:37:29,084 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 15:37:29,084 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:37:29,084 INFO:Starting NFL games fetch job...
+2025-06-02 15:37:31,574 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 15:37:37,045 INFO:Fetching games for date: 20250601
+2025-06-02 15:37:38,449 WARNING:No data found for the specified request. 
+2025-06-02 15:37:38,451 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 15:37:38,452 INFO:Fetching games for date: 20250602
+2025-06-02 15:37:39,084 WARNING:No data found for the specified request. 
+2025-06-02 15:37:39,100 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 15:37:39,100 INFO:Fetching games for date: 20250603
+2025-06-02 15:37:39,746 WARNING:No data found for the specified request. 
+2025-06-02 15:37:39,748 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 15:37:39,749 INFO:Fetching games for date: 20250604
+2025-06-02 15:37:40,380 WARNING:No data found for the specified request. 
+2025-06-02 15:37:40,380 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 15:37:40,380 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 15:37:40,380 INFO:NFL games fetch job completed successfully.
+2025-06-02 15:37:40,380 ERROR:Error while running NFL Games API Call: 'NFL Games API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Games API Call'
+2025-06-02 15:37:40,380 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:37:43,945 INFO:Data already exists for 2025-06-02 for teamIDs: ['21', '17', '7', '2', '11']... Skipping load.
+2025-06-02 15:37:43,945 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:37:43,947 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 15:37:43,947 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 15:37:43,947 INFO:Starting NFL games fetch job...
+2025-06-02 15:37:46,294 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 15:37:51,853 INFO:Fetching games for date: 20250601
+2025-06-02 15:37:52,701 WARNING:No data found for the specified request. 
+2025-06-02 15:37:52,701 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 15:37:52,701 INFO:Fetching games for date: 20250602
+2025-06-02 15:37:53,384 WARNING:No data found for the specified request. 
+2025-06-02 15:37:53,389 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 15:37:53,389 INFO:Fetching games for date: 20250603
+2025-06-02 15:37:54,092 WARNING:No data found for the specified request. 
+2025-06-02 15:37:54,092 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 15:37:54,092 INFO:Fetching games for date: 20250604
+2025-06-02 15:37:54,784 WARNING:No data found for the specified request. 
+2025-06-02 15:37:54,784 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 15:37:54,784 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 15:37:54,784 INFO:NFL games fetch job completed successfully.
+2025-06-02 15:37:54,784 ERROR:Error while running NFL Games API Call: 'NFL Games API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Games API Call'
+2025-06-02 15:37:54,784 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 15:37:58,382 INFO:Data already exists for 2025-06-02 for teamIDs: ['21', '17', '7', '2', '11']... Skipping load.
+2025-06-02 15:37:58,382 ERROR:Error while running NFL Teams API Call: 'NFL Teams API Call'
+Traceback (most recent call last):
+  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 39, in run_api_calls
+    api_cycles[api_call['name']] += 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'NFL Teams API Call'
+2025-06-02 15:37:58,382 INFO:127.0.0.1 - - [02/Jun/2025 15:37:58] "POST / HTTP/1.1" 200 -
+2025-06-02 16:18:54,117 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-02 16:18:54,118 INFO:[33mPress CTRL+C to quit[0m
+2025-06-02 16:19:07,458 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 16:19:07,458 INFO:load_date parameter received: None
+2025-06-02 16:19:07,458 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 16:19:07,458 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 16:19:07,458 INFO:Starting NFL games fetch job...
+2025-06-02 16:19:11,293 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 16:19:16,899 INFO:Fetching games for date: 20250601
+2025-06-02 16:19:18,273 WARNING:No data found for the specified request. 
+2025-06-02 16:19:18,278 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 16:19:18,278 INFO:Fetching games for date: 20250602
+2025-06-02 16:19:18,964 WARNING:No data found for the specified request. 
+2025-06-02 16:19:18,968 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 16:19:18,968 INFO:Fetching games for date: 20250603
+2025-06-02 16:19:19,594 WARNING:No data found for the specified request. 
+2025-06-02 16:19:19,604 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 16:19:19,604 INFO:Fetching games for date: 20250604
+2025-06-02 16:19:20,226 WARNING:No data found for the specified request. 
+2025-06-02 16:19:20,230 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 16:19:20,230 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 16:19:20,231 INFO:NFL games fetch job completed successfully.
+2025-06-02 16:19:20,231 WARNING:API call name 'NFL Games API Call' not found in api_cycles keys: []
+2025-06-02 16:19:20,231 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 16:19:23,810 INFO:Data already exists for 2025-06-02 for teamIDs: ['31', '16', '6', '13', '30']... Skipping load.
+2025-06-02 16:19:23,810 WARNING:API call name 'NFL Teams API Call' not found in api_cycles keys: []
+2025-06-02 16:19:23,810 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 16:19:23,810 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 16:19:23,810 INFO:Starting NFL games fetch job...
+2025-06-02 16:19:26,145 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 16:19:31,311 INFO:Fetching games for date: 20250601
+2025-06-02 16:19:32,041 WARNING:No data found for the specified request. 
+2025-06-02 16:19:32,041 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 16:19:32,041 INFO:Fetching games for date: 20250602
+2025-06-02 16:19:32,685 WARNING:No data found for the specified request. 
+2025-06-02 16:19:32,698 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 16:19:32,698 INFO:Fetching games for date: 20250603
+2025-06-02 16:19:33,363 WARNING:No data found for the specified request. 
+2025-06-02 16:19:33,377 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 16:19:33,377 INFO:Fetching games for date: 20250604
+2025-06-02 16:19:34,033 WARNING:No data found for the specified request. 
+2025-06-02 16:19:34,048 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 16:19:34,048 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 16:19:34,048 INFO:NFL games fetch job completed successfully.
+2025-06-02 16:19:34,050 WARNING:API call name 'NFL Games API Call' not found in api_cycles keys: []
+2025-06-02 16:19:34,050 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 16:19:37,641 INFO:Data already exists for 2025-06-02 for teamIDs: ['31', '16', '6', '13', '30']... Skipping load.
+2025-06-02 16:19:37,643 WARNING:API call name 'NFL Teams API Call' not found in api_cycles keys: []
+2025-06-02 16:19:37,643 INFO:127.0.0.1 - - [02/Jun/2025 16:19:37] "POST / HTTP/1.1" 200 -
+2025-06-02 16:21:45,360 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-02 16:21:45,360 INFO:load_date parameter received: None
+2025-06-02 16:21:45,360 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-02 16:21:45,360 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 16:21:45,360 INFO:Starting NFL games fetch job...
+2025-06-02 16:21:47,719 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 16:21:54,432 INFO:Fetching games for date: 20250601
+2025-06-02 16:21:55,280 WARNING:No data found for the specified request. 
+2025-06-02 16:21:55,281 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 16:21:55,281 INFO:Fetching games for date: 20250602
+2025-06-02 16:21:55,924 WARNING:No data found for the specified request. 
+2025-06-02 16:21:55,928 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 16:21:55,928 INFO:Fetching games for date: 20250603
+2025-06-02 16:21:56,567 WARNING:No data found for the specified request. 
+2025-06-02 16:21:56,568 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 16:21:56,568 INFO:Fetching games for date: 20250604
+2025-06-02 16:21:57,263 WARNING:No data found for the specified request. 
+2025-06-02 16:21:57,266 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 16:21:57,266 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 16:21:57,267 INFO:NFL games fetch job completed successfully.
+2025-06-02 16:21:57,267 WARNING:API call name 'NFL Games API Call' not found in api_cycles keys: []
+2025-06-02 16:21:57,267 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 16:22:02,223 INFO:Data already exists for 2025-06-02 for teamIDs: ['31', '16', '6', '13', '30']... Skipping load.
+2025-06-02 16:22:02,223 WARNING:API call name 'NFL Teams API Call' not found in api_cycles keys: []
+2025-06-02 16:22:02,223 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-02 16:22:02,223 INFO:Running NFL Games API Call API call with load_date=None
+2025-06-02 16:22:02,223 INFO:Starting NFL games fetch job...
+2025-06-02 16:22:04,829 INFO:Deleting yesterday's games from BigQuery...
+2025-06-02 16:22:15,869 INFO:Fetching games for date: 20250601
+2025-06-02 16:22:16,537 WARNING:No data found for the specified request. 
+2025-06-02 16:22:16,539 WARNING:No valid response structure for 20250601, skipping.
+2025-06-02 16:22:16,539 INFO:Fetching games for date: 20250602
+2025-06-02 16:22:17,158 WARNING:No data found for the specified request. 
+2025-06-02 16:22:17,162 WARNING:No valid response structure for 20250602, skipping.
+2025-06-02 16:22:17,162 INFO:Fetching games for date: 20250603
+2025-06-02 16:22:17,804 WARNING:No data found for the specified request. 
+2025-06-02 16:22:17,807 WARNING:No valid response structure for 20250603, skipping.
+2025-06-02 16:22:17,808 INFO:Fetching games for date: 20250604
+2025-06-02 16:22:18,478 WARNING:No data found for the specified request. 
+2025-06-02 16:22:18,481 WARNING:No valid response structure for 20250604, skipping.
+2025-06-02 16:22:18,482 WARNING:No valid games data found for any of the queried dates.
+2025-06-02 16:22:18,482 INFO:NFL games fetch job completed successfully.
+2025-06-02 16:22:18,482 WARNING:API call name 'NFL Games API Call' not found in api_cycles keys: []
+2025-06-02 16:22:18,482 INFO:Running NFL Teams API Call API call with load_date=None
+2025-06-02 16:22:22,020 INFO:Data already exists for 2025-06-02 for teamIDs: ['31', '16', '6', '13', '30']... Skipping load.
+2025-06-02 16:22:22,020 WARNING:API call name 'NFL Teams API Call' not found in api_cycles keys: []
+2025-06-02 16:22:22,020 INFO:127.0.0.1 - - [02/Jun/2025 16:22:22] "POST / HTTP/1.1" 200 -

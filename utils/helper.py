@@ -1,4 +1,5 @@
 import requests
+import logging
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import secretmanager
@@ -29,31 +30,29 @@ def check_existing_records(table_id, key_column, keys):
     existing_keys = set(row[key_column] for row in query_job)
     return existing_keys
     
-def check_existing_today(table_id, date_column='date_column'):
+def check_existing_today(table_id, date_column='dataDate', check_date=None):
     """
-    Check if today's data already exists in the table.
-    Returns the count of rows matching today's date.
+    Check if data for a specific date exists in the table.
+    If no check_date is provided, uses CURRENT_DATE().
     """
     client = bigquery.Client(project=PROJECT_ID)
+    date_condition = f"{date_column} = DATE('{check_date}')" if check_date else f"{date_column} = CURRENT_DATE()"
     
     query = f"""
         SELECT COUNT(*) as count
         FROM `{table_id}`
-        WHERE {date_column} = CURRENT_DATE()
+        WHERE {date_condition}
     """
-    
+
     try:
         query_job = client.query(query)
         result = query_job.result()
-        
-        # Fetch and return the count
         for row in result:
-            return row["count"]
+            return row["count"] > 0
     except (GoogleAPICallError, NotFound) as e:
         print(f"Error querying BigQuery: {e}")
-        return None  # None indicates an error occurred
-
-
+        return False  # Assume no data if there's an error
+    
 def filter_new_records(existing_keys, records, key_column):
     """Filter out records that already exist in the table."""
     return [record for record in records if record[key_column] not in existing_keys]
@@ -64,7 +63,7 @@ def insert_into_bigquery(table_id, rows_to_insert):
     errors = client.insert_rows_json(table_id, rows_to_insert)
     if errors:
         raise RuntimeError(f"Encountered errors while inserting rows: {errors}")
-def fetch_and_validate_api_data(url, headers, querystring):
+def fetch_and_validate_api_data(url, headers, querystring, context=None):
     """
     Fetches and validates data from an API, ensuring it's a valid JSON response.
     
@@ -97,8 +96,8 @@ def fetch_and_validate_api_data(url, headers, querystring):
 
     # Check if the 'body' field exists and contains data
     if 'body' not in data or not data['body']:
-        print("No data found for the specified request.")
-        return None  # You can return a more meaningful message or handle it differently
+        logging.warning(f"No data found for the specified request. {context or ''}")
+        return None
 
     return data  # Return the parsed JSON
 
@@ -121,3 +120,23 @@ def delete_yesterdays_games_from_bigquery(table_id):
     query_job = client.query(query)
     query_job.result()  # Wait for the query to complete
     print(f"Deleted records from {table_id} where gameDate = {yesterday}")
+    
+def check_existing_team_records(table_id, key_column, target_date):
+    """
+    Check if team records exist for a specific date in the table using a composite key.
+    Returns a set of teamIDs.
+    """
+    client = bigquery.Client(project=PROJECT_ID)
+    query = f"""
+        SELECT {key_column}
+        FROM `{table_id}`
+        WHERE dataDate = @target_date
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("target_date", "DATE", target_date)
+        ]
+    )
+    query_job = client.query(query, job_config=job_config)
+    existing_keys = set(row[key_column] for row in query_job)
+    return existing_keys

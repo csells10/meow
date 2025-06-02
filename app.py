@@ -6,6 +6,13 @@ import os
 import logging
 from config import API_CALLS
 
+#Creating logging file
+logging.basicConfig(
+    filename='app.log',
+    filemode='a',  # Appends to file; creates it if missing
+    format='%(asctime)s %(levelname)s:%(message)s',
+    level=logging.INFO
+)
 
 # Setup structured logging
 setup_logging() 
@@ -29,14 +36,18 @@ def run_api_calls(load_date=None):
                 api_call['function']()
             
             # Increment cycle count
-            api_cycles[api_call['name']] += 1
-            logging.info(f"Cycle count for {api_call['name']} incremented to {api_cycles[api_call['name']]}")
-            
-            # Check if max cycles reached
-            if api_cycles[api_call['name']] >= api_call['max_cycles']:
-                logging.info(f"Max cycles reached for {api_call['name']}.")
+            if api_call['name'] in api_cycles:
+                api_cycles[api_call['name']] += 1
+                logging.info(f"Cycle count for {api_call['name']} incremented to {api_cycles[api_call['name']]}")
+                
+                # Check if max cycles reached
+                if api_cycles[api_call['name']] >= api_call['max_cycles']:
+                    logging.info(f"Max cycles reached for {api_call['name']}.")
+            else:
+                logging.warning(f"API call name '{api_call['name']}' not found in api_cycles keys: {list(api_cycles.keys())}")
+
         except Exception as e:
-            logging.error(f"Error while running {api_call['name']}: {e}", exc_info=True)  # Capture full traceback
+            logging.error(f"Error while running {api_call['name']}: {e}", exc_info=True)
 
 def setup_schedules(load_date=None):
     """
@@ -46,7 +57,7 @@ def setup_schedules(load_date=None):
         logging.info(f"Scheduling {api_call['name']} to run with load_date={load_date}")
 
         # Initialize cycle count (for max cycles if needed later)
-        api_cycles[api_call['name']] = 0
+        api_cycles = {api['name']: 0 for api in API_CALLS}
 
         # Run the API call directly with the provided load_date
         run_api_calls(load_date=load_date)
