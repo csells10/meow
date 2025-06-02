@@ -139,22 +139,25 @@ def fetch_nfl_teams(load_date=None):
     logging.info(f"Static DataFrame shape: {static_df.shape}")
 
     # Step 6: Dynamically process Team Stats
-    team_stats_df = process_team_stats(teams_df, data_date, team_count)
+    team_stats_df = process_team_stats(teams['body'], data_date, team_count)
     
     # Log the team stats data
     logging.info(f"Team stats processed. DataFrame head:\n{team_stats_df.head(50)}")
     logging.info(f"Team Stats DataFrame shape: {team_stats_df.shape}")
 
     # Step 7: Dynamically process Top Performers (Index 0 only)
-    top_performers_df = process_top_performers(teams_df, data_date, team_count)
+    top_performers_df = process_top_performers(teams['body'], data_date, team_count)
     
     # Log the top performers data
     logging.info(f"Top performers processed. DataFrame head:\n{top_performers_df.head(50)}")
     logging.info(f"Top Performers DataFrame shape: {top_performers_df.shape}")
 
     # Step 8: Combine all processed DataFrames
-    final_df = combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_count)
-
+    
+    # Old code
+    # final_df = combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_count)
+    final_df = build_final_df(melted_dfs, team_stats_df, top_performers_df, teams_df, data_date)
+    
     # Step 9: **Data Type Check** - Ensure that the 'Value' column is numeric
     final_df['Value'] = pd.to_numeric(final_df['Value'], errors='coerce')
 
@@ -168,11 +171,12 @@ def fetch_nfl_teams(load_date=None):
         logging.debug(nan_values.head())  # Log a sample of rows with NaN values for debugging
 
     # Step 11: Log and validate the final DataFrame transformation
-    logging.info(f"Final DataFrame size: {len(final_df)} rows.")
-    validate_transformation(final_df, teams['body'])  # Compare transformed data with original JSON
+    # logging.info(f"Final DataFrame size: {len(final_df)} rows.")
+    # validate_transformation(final_df, teams['body'])  # Compare transformed data with original JSON
 
     # Step 12: Convert the DataFrame to a dictionary format and log the payload
-    rows_to_insert = final_df.to_dict(orient='records')
+    final_df = final_df.where(pd.notnull(final_df), None)
+    rows_to_insert = json.loads(final_df.to_json(orient='records'))
 
     if rows_to_insert:
         logging.info(f"BigQuery payload size: {len(rows_to_insert)} rows.")
@@ -183,7 +187,7 @@ def fetch_nfl_teams(load_date=None):
         logging.info(f"No new teams to insert for {data_date}.")
 
 
-def combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_count):
+def old_combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_count):
     """
     Combine all the processed DataFrames into one final DataFrame.
     This ensures that the team count remains consistent across all sections.
@@ -199,6 +203,25 @@ def combine_all_data(melted_dfs, team_stats_df, top_performers_df, team_count):
     logging.info(f"Final combined DataFrame has {len(final_df)} rows.")
     logging.info(f"First 50 rows of final combined DataFrame:\n{final_df.head(50)}")
     
+    return final_df
+
+def build_final_df(static_dfs, team_stats_df, top_performers_df, teams_df, data_date):
+    # Select unique team metadata fields
+    metadata_fields = ['teamID', 'teamAbv', 'teamCity', 'teamName', 'conference', 'division', 'dataDate']
+    team_metadata_df = teams_df[metadata_fields].drop_duplicates()
+
+    # Combine all value DataFrames
+    combined_df = pd.concat(static_dfs + [team_stats_df, top_performers_df], ignore_index=True)
+
+    # Join on teamID and dataDate
+    final_df = pd.merge(combined_df, team_metadata_df, on=['teamID', 'dataDate'], how='inner')
+
+    # Reorder columns to match BigQuery schema
+    final_df = final_df[[
+        'teamID', 'teamAbv', 'teamCity', 'teamName', 'conference', 'division',
+        'Level1', 'Level2', 'Value', 'PlayerID', 'dataDate'
+    ]]
+
     return final_df
 
 
@@ -257,28 +280,52 @@ def process_static_fields(teams_df, data_date, team_count):
     return melted_dfs
 
 def process_team_stats(teams_df, data_date, team_count):
+    """
+    Process team stats directly from the raw JSON structure to retain original nesting.
+    Includes detailed logging for debugging and validation.
+    """
     team_stats = []
-    team_stats_columns = [col for col in teams_df.columns if col.startswith('teamStats.')]
 
-    for _, team in teams_df.iterrows():
-        team_id = team['teamID']
-        for stat_column in team_stats_columns:
-            stat_value = team.get(stat_column)
-            level2 = '.'.join(stat_column.split('.')[1:])
-            try:
-                stat_value = float(stat_value)
-            except (ValueError, TypeError):
-                stat_value = None
-            team_stats.append({
-                'teamID': team_id,
-                'Level1': 'Team Stats',
-                'Level2': level2,
-                'Value': stat_value,
-                'PlayerID': None,
-                'dataDate': data_date
-            })
+    logging.info("Starting Processing Team Stats from raw JSON")
+    logging.info(f"Found {len(teams_df)} teams in input")
 
-    return pd.DataFrame(team_stats)
+    for team in teams_df:
+        team_id = team.get("teamID")
+        team_abv = team.get("teamAbv")
+        team_stat_block = team.get("teamStats", {})
+
+        logging.info(f"Processing teamID {team_id} ({team_abv})")
+        if not team_stat_block:
+            logging.warning(f"No teamStats data found for teamID {team_id}")
+            continue
+
+        for category, stats in team_stat_block.items():
+            for stat_key, stat_value in stats.items():
+                level2 = f"{category}.{stat_key}"
+                try:
+                    stat_value = float(stat_value)
+                except (ValueError, TypeError):
+                    logging.warning(f"Non-numeric value for {level2} in teamID {team_id}")
+                    stat_value = None
+
+                team_stats.append({
+                    "teamID": team_id,
+                    "Level1": "Team Stats",
+                    "Level2": level2,
+                    "Value": stat_value,
+                    "PlayerID": None,
+                    "dataDate": data_date
+                })
+
+    df = pd.DataFrame(team_stats)
+
+    if df['teamID'].nunique() != team_count:
+        logging.warning(f"Expected {team_count} teams in Team Stats, but found {df['teamID'].nunique()}.")
+
+    logging.info(f"Processed {len(team_stats)} team stats across {df['teamID'].nunique()} teams.")
+    return df
+
+
 def old_process_team_stats(teams_df, data_date, team_count):
     """
     Process team stats data from the API response.
@@ -341,33 +388,58 @@ def old_process_team_stats(teams_df, data_date, team_count):
     
     return team_stats_df
 
+import logging
+import pandas as pd
+
 def process_top_performers(teams_df, data_date, team_count):
+    """
+    Process top performers' data using raw JSON format to preserve nested structure.
+    Adds detailed logging to track issues and transformations.
+    """
     top_performers = []
 
-    for _, team in teams_df.iterrows():
-        team_id = team['teamID']
-        performers_data = team.get('topPerformers', {})
+    logging.info("Starting Processing Top Performers from raw JSON")
+    logging.info(f"Found {len(teams_df)} teams in input")
+
+    for team in teams_df:
+        team_id = team.get("teamID")
+        team_abv = team.get("teamAbv")
+
+        performers_data = team.get("topPerformers", {})
+        logging.info(f"Team {team_id} ({team_abv}) - Top Performers Keys: {list(performers_data.keys()) if performers_data else 'None'}")
+
         if not performers_data:
+            logging.warning(f"No top performers data found for teamID {team_id}")
             continue
 
         for category, stats in performers_data.items():
             for stat_name, stat_details in stats.items():
-                value = stat_details.get('total')
-                player_ids = stat_details.get('playerID', [])
+                value = stat_details.get("total")
+                player_ids = stat_details.get("playerID", [])
+
                 try:
                     value = float(value)
                 except (ValueError, TypeError):
+                    logging.warning(f"Non-numeric value for {stat_name} in team {team_id}")
                     value = None
+
                 top_performers.append({
-                    'teamID': team_id,
-                    'Level1': 'Top Performers',
-                    'Level2': stat_name,
-                    'Value': value,
-                    'PlayerID': player_ids[0] if isinstance(player_ids, list) and player_ids else None,
-                    'dataDate': data_date
+                    "teamID": team_id,
+                    "Level1": "Top Performers",
+                    "Level2": stat_name,
+                    "Value": value,
+                    "PlayerID": player_ids[0] if isinstance(player_ids, list) and player_ids else None,
+                    "dataDate": data_date
                 })
 
-    return pd.DataFrame(top_performers)
+    df = pd.DataFrame(top_performers)
+
+    if df['teamID'].nunique() != team_count:
+        logging.warning(f"Expected {team_count} teams in Top Performers, but found {df['teamID'].nunique()}.")
+
+    logging.info(f"Processed {len(top_performers)} top performers.")
+    return df
+
 
 
 def old_process_top_performers(teams_df, data_date, team_count):

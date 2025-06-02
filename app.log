@@ -1,350 +1,251 @@
-2024-09-29 10:50:22,848 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2025-06-01 19:47:42,345 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:8080
  * Running on http://192.168.1.186:8080
-2024-09-29 10:50:22,848 INFO:[33mPress CTRL+C to quit[0m
-2024-09-29 10:50:34,027 INFO:Testing API calls with load_date=None
-2024-09-29 10:50:34,028 INFO:Scheduling NFL Teams API Call to run with load_date=None
-2024-09-29 10:50:34,028 INFO:Running NFL Teams API Call API call with load_date=None
-2024-09-29 10:50:37,753 INFO:Fetched team data for 2024-09-29.
-2024-09-29 10:50:37,778 INFO:Saved raw API response to nfl_teams_raw_response_2024-09-29.json
-2024-09-29 10:50:37,786 INFO:API flatten response shape: (32, 122)
-2024-09-29 10:50:37,787 INFO:Detected 32 unique teams in the API response.
-2024-09-29 10:50:37,792 INFO:Processed 192 rows for Team Info.
-2024-09-29 10:50:37,795 INFO:Processed 96 rows for Bye Weeks.
-2024-09-29 10:50:37,803 INFO:Static fields processed. DataFrame head:
+2025-06-01 19:47:42,346 INFO:[33mPress CTRL+C to quit[0m
+2025-06-01 19:48:46,535 INFO:Testing API calls with load_date=2025-06-01
+2025-06-01 19:48:46,535 INFO:Scheduling NFL Teams API Call to run with load_date=2025-06-01
+2025-06-01 19:48:46,535 INFO:Running NFL Teams API Call API call with load_date=2025-06-01
+2025-06-01 19:48:50,821 INFO:Fetched team data for 2025-06-01.
+2025-06-01 19:48:50,860 INFO:Saved raw API response to nfl_teams_raw_response_2025-06-01.json
+2025-06-01 19:48:50,865 INFO:API flatten response shape: (32, 123)
+2025-06-01 19:48:50,866 INFO:Detected 32 unique teams in the API response.
+2025-06-01 19:48:50,871 INFO:Processed 192 rows for Team Info.
+2025-06-01 19:48:50,874 INFO:Processed 96 rows for Bye Weeks.
+2025-06-01 19:48:50,885 INFO:Static fields processed. DataFrame head:
    teamID    Level2         Value     Level1 PlayerID    dataDate
-0       1  teamName     Cardinals  Team Info     None  2024-09-29
-1       2  teamName       Falcons  Team Info     None  2024-09-29
-2       3  teamName        Ravens  Team Info     None  2024-09-29
-3       4  teamName         Bills  Team Info     None  2024-09-29
-4       5  teamName      Panthers  Team Info     None  2024-09-29
-5       6  teamName         Bears  Team Info     None  2024-09-29
-6       7  teamName       Bengals  Team Info     None  2024-09-29
-7       8  teamName        Browns  Team Info     None  2024-09-29
-8       9  teamName       Cowboys  Team Info     None  2024-09-29
-9      10  teamName       Broncos  Team Info     None  2024-09-29
-10     11  teamName         Lions  Team Info     None  2024-09-29
-11     12  teamName       Packers  Team Info     None  2024-09-29
-12     13  teamName        Texans  Team Info     None  2024-09-29
-13     14  teamName         Colts  Team Info     None  2024-09-29
-14     15  teamName       Jaguars  Team Info     None  2024-09-29
-15     16  teamName        Chiefs  Team Info     None  2024-09-29
-16     17  teamName       Raiders  Team Info     None  2024-09-29
-17     18  teamName      Chargers  Team Info     None  2024-09-29
-18     19  teamName          Rams  Team Info     None  2024-09-29
-19     20  teamName      Dolphins  Team Info     None  2024-09-29
-20     21  teamName       Vikings  Team Info     None  2024-09-29
-21     22  teamName      Patriots  Team Info     None  2024-09-29
-22     23  teamName        Saints  Team Info     None  2024-09-29
-23     24  teamName        Giants  Team Info     None  2024-09-29
-24     25  teamName          Jets  Team Info     None  2024-09-29
-25     26  teamName      Steelers  Team Info     None  2024-09-29
-26     27  teamName        Eagles  Team Info     None  2024-09-29
-27     28  teamName         49ers  Team Info     None  2024-09-29
-28     29  teamName      Seahawks  Team Info     None  2024-09-29
-29     30  teamName    Buccaneers  Team Info     None  2024-09-29
-30     31  teamName        Titans  Team Info     None  2024-09-29
-31     32  teamName    Commanders  Team Info     None  2024-09-29
-32      1  teamCity       Arizona  Team Info     None  2024-09-29
-33      2  teamCity       Atlanta  Team Info     None  2024-09-29
-34      3  teamCity     Baltimore  Team Info     None  2024-09-29
-35      4  teamCity       Buffalo  Team Info     None  2024-09-29
-36      5  teamCity      Carolina  Team Info     None  2024-09-29
-37      6  teamCity       Chicago  Team Info     None  2024-09-29
-38      7  teamCity    Cincinnati  Team Info     None  2024-09-29
-39      8  teamCity     Cleveland  Team Info     None  2024-09-29
-40      9  teamCity        Dallas  Team Info     None  2024-09-29
-41     10  teamCity        Denver  Team Info     None  2024-09-29
-42     11  teamCity       Detroit  Team Info     None  2024-09-29
-43     12  teamCity     Green Bay  Team Info     None  2024-09-29
-44     13  teamCity       Houston  Team Info     None  2024-09-29
-45     14  teamCity  Indianapolis  Team Info     None  2024-09-29
-46     15  teamCity  Jacksonville  Team Info     None  2024-09-29
-47     16  teamCity   Kansas City  Team Info     None  2024-09-29
-48     17  teamCity     Las Vegas  Team Info     None  2024-09-29
-49     18  teamCity   Los Angeles  Team Info     None  2024-09-29
-2024-09-29 10:50:37,803 INFO:Static DataFrame shape: (288, 6)
-2024-09-29 10:50:37,803 INFO:Incoming dataframe shape: (32, 123)
-2024-09-29 10:50:37,804 INFO:Columns in Teams Dataframe ['teamAbv', 'teamCity', 'loss', 'teamName', 'nflComLogo1', 'teamID', 'tie', 'division', 'conferenceAbv', 'pa', 'pf', 'espnLogo1', 'wins', 'conference', 'currentStreak.result', 'currentStreak.length', 'byeWeeks.2023', 'byeWeeks.2022', 'byeWeeks.2024', 'topPerformers.Rushing.rushYds.total', 'topPerformers.Rushing.rushYds.playerID', 'topPerformers.Rushing.carries.total', 'topPerformers.Rushing.carries.playerID', 'topPerformers.Rushing.rushTD.total', 'topPerformers.Rushing.rushTD.playerID', 'topPerformers.Kicking.fgAttempts.total', 'topPerformers.Kicking.fgAttempts.playerID', 'topPerformers.Kicking.fgMade.total', 'topPerformers.Kicking.fgMade.playerID', 'topPerformers.Kicking.xpMade.total', 'topPerformers.Kicking.xpMade.playerID', 'topPerformers.Kicking.fgYds.total', 'topPerformers.Kicking.fgYds.playerID', 'topPerformers.Kicking.kickYards.total', 'topPerformers.Kicking.kickYards.playerID', 'topPerformers.Kicking.xpAttempts.total', 'topPerformers.Kicking.xpAttempts.playerID', 'topPerformers.Passing.passAttempts.total', 'topPerformers.Passing.passAttempts.playerID', 'topPerformers.Passing.passTD.total', 'topPerformers.Passing.passTD.playerID', 'topPerformers.Passing.passYds.total', 'topPerformers.Passing.passYds.playerID', 'topPerformers.Passing.int.total', 'topPerformers.Passing.int.playerID', 'topPerformers.Passing.passCompletions.total', 'topPerformers.Passing.passCompletions.playerID', 'topPerformers.Punting.puntYds.total', 'topPerformers.Punting.puntYds.playerID', 'topPerformers.Punting.punts.total', 'topPerformers.Punting.punts.playerID', 'topPerformers.Punting.puntsin20.total', 'topPerformers.Punting.puntsin20.playerID', 'topPerformers.Punting.puntTouchBacks.total', 'topPerformers.Punting.puntTouchBacks.playerID', 'topPerformers.Receiving.receptions.total', 'topPerformers.Receiving.receptions.playerID', 'topPerformers.Receiving.recTD.total', 'topPerformers.Receiving.recTD.playerID', 'topPerformers.Receiving.targets.total', 'topPerformers.Receiving.targets.playerID', 'topPerformers.Receiving.recYds.total', 'topPerformers.Receiving.recYds.playerID', 'topPerformers.Defense.totalTackles.total', 'topPerformers.Defense.totalTackles.playerID', 'topPerformers.Defense.fumblesLost.total', 'topPerformers.Defense.fumblesLost.playerID', 'topPerformers.Defense.defTD.total', 'topPerformers.Defense.defTD.playerID', 'topPerformers.Defense.fumbles.total', 'topPerformers.Defense.fumbles.playerID', 'topPerformers.Defense.fumblesRecovered.total', 'topPerformers.Defense.fumblesRecovered.playerID', 'topPerformers.Defense.soloTackles.total', 'topPerformers.Defense.soloTackles.playerID', 'topPerformers.Defense.defensiveInterceptions.total', 'topPerformers.Defense.defensiveInterceptions.playerID', 'topPerformers.Defense.qbHits.total', 'topPerformers.Defense.qbHits.playerID', 'topPerformers.Defense.tfl.total', 'topPerformers.Defense.tfl.playerID', 'topPerformers.Defense.passDeflections.total', 'topPerformers.Defense.passDeflections.playerID', 'topPerformers.Defense.sacks.total', 'topPerformers.Defense.sacks.playerID', 'teamStats.Rushing.rushYds', 'teamStats.Rushing.carries', 'teamStats.Rushing.rushTD', 'teamStats.Kicking.fgAttempts', 'teamStats.Kicking.fgMade', 'teamStats.Kicking.xpMade', 'teamStats.Kicking.fgYds', 'teamStats.Kicking.kickYards', 'teamStats.Kicking.xpAttempts', 'teamStats.Passing.passAttempts', 'teamStats.Passing.passTD', 'teamStats.Passing.passYds', 'teamStats.Passing.int', 'teamStats.Passing.passCompletions', 'teamStats.Punting.puntYds', 'teamStats.Punting.punts', 'teamStats.Punting.puntsin20', 'teamStats.Punting.puntTouchBacks', 'teamStats.Receiving.receptions', 'teamStats.Receiving.recTD', 'teamStats.Receiving.targets', 'teamStats.Receiving.recYds', 'teamStats.Defense.fumblesLost', 'teamStats.Defense.defTD', 'teamStats.Defense.fumbles', 'teamStats.Defense.fumblesRecovered', 'teamStats.Defense.soloTackles', 'teamStats.Defense.qbHits', 'teamStats.Defense.passingTDAllowed', 'teamStats.Defense.passDeflections', 'teamStats.Defense.passingYardsAllowed', 'teamStats.Defense.totalTackles', 'teamStats.Defense.defensiveInterceptions', 'teamStats.Defense.tfl', 'teamStats.Defense.rushingYardsAllowed', 'teamStats.Defense.sacks', 'teamStats.Defense.rushingTDAllowed', 'dataDate']
-2024-09-29 10:50:37,804 INFO:Processing teamID 1: teamAbv = ARI
-2024-09-29 10:50:37,804 INFO:Processed teamID 1 stats (first 5 entries): [{'teamID': '1', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '1', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 23.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '1', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 370.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '1', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 9.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '1', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,804 INFO:Processing teamID 2: teamAbv = ATL
-2024-09-29 10:50:37,804 INFO:Processed teamID 2 stats (first 5 entries): [{'teamID': '2', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '2', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 13.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '2', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 451.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '2', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '2', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,804 INFO:Processing teamID 3: teamAbv = BAL
-2024-09-29 10:50:37,804 INFO:Processed teamID 3 stats (first 5 entries): [{'teamID': '3', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '3', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 13.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '3', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 150.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '3', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 10.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '3', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,804 INFO:Processing teamID 4: teamAbv = BUF
-2024-09-29 10:50:37,804 INFO:Processed teamID 4 stats (first 5 entries): [{'teamID': '4', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '4', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 20.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '4', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 355.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '4', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '4', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,805 INFO:Processing teamID 5: teamAbv = CAR
-2024-09-29 10:50:37,805 INFO:Processed teamID 5 stats (first 5 entries): [{'teamID': '5', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '5', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 10.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '5', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 454.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '5', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '5', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,805 INFO:Processing teamID 6: teamAbv = CHI
-2024-09-29 10:50:37,805 INFO:Processed teamID 6 stats (first 5 entries): [{'teamID': '6', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '6', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 17.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '6', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 365.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '6', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 7.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '6', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,805 INFO:Processing teamID 7: teamAbv = CIN
-2024-09-29 10:50:37,805 INFO:Processed teamID 7 stats (first 5 entries): [{'teamID': '7', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '7', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '7', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 427.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '7', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '7', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,805 INFO:Processing teamID 8: teamAbv = CLE
-2024-09-29 10:50:37,805 INFO:Processed teamID 8 stats (first 5 entries): [{'teamID': '8', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '8', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 19.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '8', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 341.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '8', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 9.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '8', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,805 INFO:Processing teamID 9: teamAbv = DAL
-2024-09-29 10:50:37,805 INFO:Processed teamID 9 stats (first 5 entries): [{'teamID': '9', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '9', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 14.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '9', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 583.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '9', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '9', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 10: teamAbv = DEN
-2024-09-29 10:50:37,806 INFO:Processed teamID 10 stats (first 5 entries): [{'teamID': '10', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '10', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 18.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '10', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 378.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '10', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '10', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 11: teamAbv = DET
-2024-09-29 10:50:37,806 INFO:Processed teamID 11 stats (first 5 entries): [{'teamID': '11', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '11', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 17.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '11', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 230.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '11', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '11', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 12: teamAbv = GB
-2024-09-29 10:50:37,806 INFO:Processed teamID 12 stats (first 5 entries): [{'teamID': '12', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 7.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '12', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 17.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '12', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 317.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '12', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '12', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 13: teamAbv = HOU
-2024-09-29 10:50:37,806 INFO:Processed teamID 13 stats (first 5 entries): [{'teamID': '13', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '13', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 20.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '13', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 293.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '13', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 13.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '13', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 14: teamAbv = IND
-2024-09-29 10:50:37,806 INFO:Processed teamID 14 stats (first 5 entries): [{'teamID': '14', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '14', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 17.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '14', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 537.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '14', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '14', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,806 INFO:Processing teamID 15: teamAbv = JAX
-2024-09-29 10:50:37,807 INFO:Processed teamID 15 stats (first 5 entries): [{'teamID': '15', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '15', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 18.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '15', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 328.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '15', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '15', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,807 INFO:Processing teamID 16: teamAbv = KC
-2024-09-29 10:50:37,807 INFO:Processed teamID 16 stats (first 5 entries): [{'teamID': '16', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '16', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 14.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '16', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 341.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '16', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 6.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '16', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,807 INFO:Processing teamID 17: teamAbv = LV
-2024-09-29 10:50:37,807 INFO:Processed teamID 17 stats (first 5 entries): [{'teamID': '17', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '17', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 10.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '17', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 458.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '17', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '17', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,807 INFO:Processing teamID 18: teamAbv = LAC
-2024-09-29 10:50:37,807 INFO:Processed teamID 18 stats (first 5 entries): [{'teamID': '18', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '18', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 15.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '18', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 275.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '18', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '18', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,807 INFO:Processing teamID 19: teamAbv = LAR
-2024-09-29 10:50:37,807 INFO:Processed teamID 19 stats (first 5 entries): [{'teamID': '19', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '19', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 13.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '19', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 531.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '19', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '19', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 20: teamAbv = MIA
-2024-09-29 10:50:37,808 INFO:Processed teamID 20 stats (first 5 entries): [{'teamID': '20', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '20', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 15.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '20', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 336.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '20', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 6.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '20', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 21: teamAbv = MIN
-2024-09-29 10:50:37,808 INFO:Processed teamID 21 stats (first 5 entries): [{'teamID': '21', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '21', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 23.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '21', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 214.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '21', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 16.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '21', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 22: teamAbv = NE
-2024-09-29 10:50:37,808 INFO:Processed teamID 22 stats (first 5 entries): [{'teamID': '22', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '22', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 12.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '22', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 249.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '22', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '22', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 23: teamAbv = NO
-2024-09-29 10:50:37,808 INFO:Processed teamID 23 stats (first 5 entries): [{'teamID': '23', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 5.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '23', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 15.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '23', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 298.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '23', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '23', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 24: teamAbv = NYG
-2024-09-29 10:50:37,808 INFO:Processed teamID 24 stats (first 5 entries): [{'teamID': '24', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '24', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 24.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '24', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 475.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '24', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 15.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '24', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,808 INFO:Processing teamID 25: teamAbv = NYJ
-2024-09-29 10:50:37,809 INFO:Processed teamID 25 stats (first 5 entries): [{'teamID': '25', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '25', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 14.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '25', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 388.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '25', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 14.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '25', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 26: teamAbv = PIT
-2024-09-29 10:50:37,809 INFO:Processed teamID 26 stats (first 5 entries): [{'teamID': '26', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '26', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 16.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '26', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 214.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '26', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 9.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '26', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 27: teamAbv = PHI
-2024-09-29 10:50:37,809 INFO:Processed teamID 27 stats (first 5 entries): [{'teamID': '27', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '27', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 12.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '27', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 404.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '27', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '27', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 1.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 28: teamAbv = SF
-2024-09-29 10:50:37,809 INFO:Processed teamID 28 stats (first 5 entries): [{'teamID': '28', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '28', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '28', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 312.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '28', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 8.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '28', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 3.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 29: teamAbv = SEA
-2024-09-29 10:50:37,809 INFO:Processed teamID 29 stats (first 5 entries): [{'teamID': '29', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '29', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 18.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '29', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 349.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '29', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 11.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '29', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 30: teamAbv = TB
-2024-09-29 10:50:37,809 INFO:Processed teamID 30 stats (first 5 entries): [{'teamID': '30', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '30', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 9.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '30', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 413.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '30', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '30', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 6.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,809 INFO:Processing teamID 31: teamAbv = TEN
-2024-09-29 10:50:37,810 INFO:Processed teamID 31 stats (first 5 entries): [{'teamID': '31', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '31', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 20.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '31', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 373.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '31', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 7.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '31', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,810 INFO:Processing teamID 32: teamAbv = WSH
-2024-09-29 10:50:37,810 INFO:Processed teamID 32 stats (first 5 entries): [{'teamID': '32', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.defensiveInterceptions', 'Value': 0.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '32', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.tfl', 'Value': 13.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '32', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingYardsAllowed', 'Value': 365.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '32', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.sacks', 'Value': 4.0, 'PlayerID': None, 'dataDate': '2024-09-29'}, {'teamID': '32', 'Level1': 'Team Stats', 'Level2': 'teamStats.Defense.rushingTDAllowed', 'Value': 2.0, 'PlayerID': None, 'dataDate': '2024-09-29'}]
-2024-09-29 10:50:37,811 INFO:Team stats DataFrame shape: (1184, 6)
-2024-09-29 10:50:37,816 INFO:Team stats DataFrame (head):
-  teamID      Level1                          Level2  Value PlayerID    dataDate
-0      1  Team Stats       teamStats.Rushing.rushYds  432.0     None  2024-09-29
-1      1  Team Stats       teamStats.Rushing.carries   83.0     None  2024-09-29
-2      1  Team Stats        teamStats.Rushing.rushTD    2.0     None  2024-09-29
-3      1  Team Stats    teamStats.Kicking.fgAttempts    6.0     None  2024-09-29
-4      1  Team Stats        teamStats.Kicking.fgMade    6.0     None  2024-09-29
-5      1  Team Stats        teamStats.Kicking.xpMade    8.0     None  2024-09-29
-6      1  Team Stats         teamStats.Kicking.fgYds    0.0     None  2024-09-29
-7      1  Team Stats     teamStats.Kicking.kickYards    0.0     None  2024-09-29
-8      1  Team Stats    teamStats.Kicking.xpAttempts    8.0     None  2024-09-29
-9      1  Team Stats  teamStats.Passing.passAttempts   86.0     None  2024-09-29
-2024-09-29 10:50:37,816 INFO:Processed 1184 team stats across 32 teams.
-2024-09-29 10:50:37,825 INFO:Team stats processed. DataFrame head:
-   teamID      Level1                                    Level2  Value PlayerID    dataDate
-0       1  Team Stats                 teamStats.Rushing.rushYds  432.0     None  2024-09-29
-1       1  Team Stats                 teamStats.Rushing.carries   83.0     None  2024-09-29
-2       1  Team Stats                  teamStats.Rushing.rushTD    2.0     None  2024-09-29
-3       1  Team Stats              teamStats.Kicking.fgAttempts    6.0     None  2024-09-29
-4       1  Team Stats                  teamStats.Kicking.fgMade    6.0     None  2024-09-29
-5       1  Team Stats                  teamStats.Kicking.xpMade    8.0     None  2024-09-29
-6       1  Team Stats                   teamStats.Kicking.fgYds    0.0     None  2024-09-29
-7       1  Team Stats               teamStats.Kicking.kickYards    0.0     None  2024-09-29
-8       1  Team Stats              teamStats.Kicking.xpAttempts    8.0     None  2024-09-29
-9       1  Team Stats            teamStats.Passing.passAttempts   86.0     None  2024-09-29
-10      1  Team Stats                  teamStats.Passing.passTD    5.0     None  2024-09-29
-11      1  Team Stats                 teamStats.Passing.passYds  635.0     None  2024-09-29
-12      1  Team Stats                     teamStats.Passing.int    1.0     None  2024-09-29
-13      1  Team Stats         teamStats.Passing.passCompletions   59.0     None  2024-09-29
-14      1  Team Stats                 teamStats.Punting.puntYds  398.0     None  2024-09-29
-15      1  Team Stats                   teamStats.Punting.punts    8.0     None  2024-09-29
-16      1  Team Stats               teamStats.Punting.puntsin20    1.0     None  2024-09-29
-17      1  Team Stats          teamStats.Punting.puntTouchBacks    0.0     None  2024-09-29
-18      1  Team Stats            teamStats.Receiving.receptions   59.0     None  2024-09-29
-19      1  Team Stats                 teamStats.Receiving.recTD    5.0     None  2024-09-29
-20      1  Team Stats               teamStats.Receiving.targets   86.0     None  2024-09-29
-21      1  Team Stats                teamStats.Receiving.recYds  635.0     None  2024-09-29
-22      1  Team Stats             teamStats.Defense.fumblesLost    2.0     None  2024-09-29
-23      1  Team Stats                   teamStats.Defense.defTD    2.0     None  2024-09-29
-24      1  Team Stats                 teamStats.Defense.fumbles    3.0     None  2024-09-29
-25      1  Team Stats        teamStats.Defense.fumblesRecovered    3.0     None  2024-09-29
-26      1  Team Stats             teamStats.Defense.soloTackles  122.0     None  2024-09-29
-27      1  Team Stats                  teamStats.Defense.qbHits   14.0     None  2024-09-29
-28      1  Team Stats        teamStats.Defense.passingTDAllowed    4.0     None  2024-09-29
-29      1  Team Stats         teamStats.Defense.passDeflections    5.0     None  2024-09-29
-30      1  Team Stats     teamStats.Defense.passingYardsAllowed  600.0     None  2024-09-29
-31      1  Team Stats            teamStats.Defense.totalTackles  218.0     None  2024-09-29
-32      1  Team Stats  teamStats.Defense.defensiveInterceptions    1.0     None  2024-09-29
-33      1  Team Stats                     teamStats.Defense.tfl   23.0     None  2024-09-29
-34      1  Team Stats     teamStats.Defense.rushingYardsAllowed  370.0     None  2024-09-29
-35      1  Team Stats                   teamStats.Defense.sacks    9.0     None  2024-09-29
-36      1  Team Stats        teamStats.Defense.rushingTDAllowed    4.0     None  2024-09-29
-37      2  Team Stats                 teamStats.Rushing.rushYds  323.0     None  2024-09-29
-38      2  Team Stats                 teamStats.Rushing.carries   75.0     None  2024-09-29
-39      2  Team Stats                  teamStats.Rushing.rushTD    1.0     None  2024-09-29
-40      2  Team Stats              teamStats.Kicking.fgAttempts    5.0     None  2024-09-29
-41      2  Team Stats                  teamStats.Kicking.fgMade    5.0     None  2024-09-29
-42      2  Team Stats                  teamStats.Kicking.xpMade    4.0     None  2024-09-29
-43      2  Team Stats                   teamStats.Kicking.fgYds    0.0     None  2024-09-29
-44      2  Team Stats               teamStats.Kicking.kickYards    0.0     None  2024-09-29
-45      2  Team Stats              teamStats.Kicking.xpAttempts    4.0     None  2024-09-29
-46      2  Team Stats            teamStats.Passing.passAttempts   84.0     None  2024-09-29
-47      2  Team Stats                  teamStats.Passing.passTD    4.0     None  2024-09-29
-48      2  Team Stats                 teamStats.Passing.passYds  626.0     None  2024-09-29
-49      2  Team Stats                     teamStats.Passing.int    3.0     None  2024-09-29
-2024-09-29 10:50:37,825 INFO:Team Stats DataFrame shape: (1184, 6)
-2024-09-29 10:50:37,825 INFO:Starting Processing Top Performers
-2024-09-29 10:50:37,825 INFO:API flatten response shape: (32, 123)
-2024-09-29 10:50:37,960 INFO:Incoming files    teamAbv       teamCity loss    teamName  ... teamStats.Defense.rushingYardsAllowed teamStats.Defense.sacks teamStats.Defense.rushingTDAllowed    dataDate
-0      ARI        Arizona    2   Cardinals  ...                                   370                       9                                  4  2024-09-29
-1      ATL        Atlanta    2     Falcons  ...                                   451                       3                                  1  2024-09-29
-2      BAL      Baltimore    2      Ravens  ...                                   150                      10                                  4  2024-09-29
-3      BUF        Buffalo    0       Bills  ...                                   355                      11                                  1  2024-09-29
-4      CAR       Carolina    2    Panthers  ...                                   454                       5                                  4  2024-09-29
-5      CHI        Chicago    2       Bears  ...                                   365                       7                                  4  2024-09-29
-6      CIN     Cincinnati    3     Bengals  ...                                   427                       5                                  4  2024-09-29
-7      CLE      Cleveland    2      Browns  ...                                   341                       9                                  3  2024-09-29
-8      DAL         Dallas    2     Cowboys  ...                                   583                       8                                  8  2024-09-29
-9      DEN         Denver    2     Broncos  ...                                   378                      11                                  2  2024-09-29
-10     DET        Detroit    1       Lions  ...                                   230                       8                                  2  2024-09-29
-11      GB      Green Bay    1     Packers  ...                                   317                      11                                  2  2024-09-29
-12     HOU        Houston    1      Texans  ...                                   293                      13                                  3  2024-09-29
-13     IND   Indianapolis    2       Colts  ...                                   537                       8                                  1  2024-09-29
-14     JAX   Jacksonville    3     Jaguars  ...                                   328                       5                                  4  2024-09-29
-15      KC    Kansas City    0      Chiefs  ...                                   341                       6                                  2  2024-09-29
-16      LV      Las Vegas    2     Raiders  ...                                   458                       5                                  3  2024-09-29
-17     LAC    Los Angeles    1    Chargers  ...                                   275                       8                                  1  2024-09-29
-18     LAR    Los Angeles    2        Rams  ...                                   531                       4                                  3  2024-09-29
-19     MIA          Miami    2    Dolphins  ...                                   336                       6                                  5  2024-09-29
-20     MIN      Minnesota    0     Vikings  ...                                   214                      16                                  1  2024-09-29
-21      NE    New England    2    Patriots  ...                                   249                       8                                  3  2024-09-29
-22      NO    New Orleans    1      Saints  ...                                   298                      11                                  3  2024-09-29
-23     NYG       New York    3      Giants  ...                                   475                      15                                  1  2024-09-29
-24     NYJ       New York    1        Jets  ...                                   388                      14                                  3  2024-09-29
-25     PIT     Pittsburgh    0    Steelers  ...                                   214                       9                                  0  2024-09-29
-26     PHI   Philadelphia    1      Eagles  ...                                   404                       4                                  1  2024-09-29
-27      SF  San Francisco    2       49ers  ...                                   312                       8                                  3  2024-09-29
-28     SEA        Seattle    0    Seahawks  ...                                   349                      11                                  2  2024-09-29
-29      TB      Tampa Bay    1  Buccaneers  ...                                   413                       2                                  6  2024-09-29
-30     TEN      Tennessee    3      Titans  ...                                   373                       7                                  2  2024-09-29
-31     WSH     Washington    1  Commanders  ...                                   365                       4                                  2  2024-09-29
-
-[32 rows x 123 columns]
-2024-09-29 10:50:37,960 INFO:1
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,960 WARNING:No top performers data found for teamID 1
-2024-09-29 10:50:37,960 INFO:2
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,960 WARNING:No top performers data found for teamID 2
-2024-09-29 10:50:37,960 INFO:3
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,960 WARNING:No top performers data found for teamID 3
-2024-09-29 10:50:37,960 INFO:4
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,960 WARNING:No top performers data found for teamID 4
-2024-09-29 10:50:37,960 INFO:5
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,960 WARNING:No top performers data found for teamID 5
-2024-09-29 10:50:37,960 INFO:6
-2024-09-29 10:50:37,960 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 6
-2024-09-29 10:50:37,961 INFO:7
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 7
-2024-09-29 10:50:37,961 INFO:8
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 8
-2024-09-29 10:50:37,961 INFO:9
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 9
-2024-09-29 10:50:37,961 INFO:10
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 10
-2024-09-29 10:50:37,961 INFO:11
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 11
-2024-09-29 10:50:37,961 INFO:12
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 12
-2024-09-29 10:50:37,961 INFO:13
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 13
-2024-09-29 10:50:37,961 INFO:14
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 14
-2024-09-29 10:50:37,961 INFO:15
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,961 WARNING:No top performers data found for teamID 15
-2024-09-29 10:50:37,961 INFO:16
-2024-09-29 10:50:37,961 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 16
-2024-09-29 10:50:37,963 INFO:17
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 17
-2024-09-29 10:50:37,963 INFO:18
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 18
-2024-09-29 10:50:37,963 INFO:19
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 19
-2024-09-29 10:50:37,963 INFO:20
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 20
-2024-09-29 10:50:37,963 INFO:21
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 21
-2024-09-29 10:50:37,963 INFO:22
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 22
-2024-09-29 10:50:37,963 INFO:23
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 23
-2024-09-29 10:50:37,963 INFO:24
-2024-09-29 10:50:37,963 INFO:{}
-2024-09-29 10:50:37,963 WARNING:No top performers data found for teamID 24
-2024-09-29 10:50:37,963 INFO:25
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 25
-2024-09-29 10:50:37,964 INFO:26
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 26
-2024-09-29 10:50:37,964 INFO:27
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 27
-2024-09-29 10:50:37,964 INFO:28
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 28
-2024-09-29 10:50:37,964 INFO:29
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 29
-2024-09-29 10:50:37,964 INFO:30
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 30
-2024-09-29 10:50:37,964 INFO:31
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 31
-2024-09-29 10:50:37,964 INFO:32
-2024-09-29 10:50:37,964 INFO:{}
-2024-09-29 10:50:37,964 WARNING:No top performers data found for teamID 32
-2024-09-29 10:50:37,965 ERROR:Error while running NFL Teams API Call: 'teamID'
-Traceback (most recent call last):
-  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\app.py", line 29, in run_api_calls
-    api_call['function']()
-  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_teams.py", line 149, in fetch_nfl_teams
-    top_performers_df = process_top_performers(teams_df, data_date, team_count)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\api_calls\api_call_nfl_teams.py", line 373, in process_top_performers
-    if top_performers_df['teamID'].nunique() != team_count:
-       ~~~~~~~~~~~~~~~~~^^^^^^^^^^
-  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\.venv\Lib\site-packages\pandas\core\frame.py", line 4102, in __getitem__
-    indexer = self.columns.get_loc(key)
-              ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\.venv\Lib\site-packages\pandas\core\indexes\range.py", line 417, in get_loc
-    raise KeyError(key)
-KeyError: 'teamID'
-2024-09-29 10:50:37,968 INFO:127.0.0.1 - - [29/Sep/2024 10:50:37] "GET /test HTTP/1.1" 200 -
+0       1  teamName     Cardinals  Team Info     None  2025-06-01
+1       2  teamName       Falcons  Team Info     None  2025-06-01
+2       3  teamName        Ravens  Team Info     None  2025-06-01
+3       4  teamName         Bills  Team Info     None  2025-06-01
+4       5  teamName      Panthers  Team Info     None  2025-06-01
+5       6  teamName         Bears  Team Info     None  2025-06-01
+6       7  teamName       Bengals  Team Info     None  2025-06-01
+7       8  teamName        Browns  Team Info     None  2025-06-01
+8       9  teamName       Cowboys  Team Info     None  2025-06-01
+9      10  teamName       Broncos  Team Info     None  2025-06-01
+10     11  teamName         Lions  Team Info     None  2025-06-01
+11     12  teamName       Packers  Team Info     None  2025-06-01
+12     13  teamName        Texans  Team Info     None  2025-06-01
+13     14  teamName         Colts  Team Info     None  2025-06-01
+14     15  teamName       Jaguars  Team Info     None  2025-06-01
+15     16  teamName        Chiefs  Team Info     None  2025-06-01
+16     17  teamName       Raiders  Team Info     None  2025-06-01
+17     18  teamName      Chargers  Team Info     None  2025-06-01
+18     19  teamName          Rams  Team Info     None  2025-06-01
+19     20  teamName      Dolphins  Team Info     None  2025-06-01
+20     21  teamName       Vikings  Team Info     None  2025-06-01
+21     22  teamName      Patriots  Team Info     None  2025-06-01
+22     23  teamName        Saints  Team Info     None  2025-06-01
+23     24  teamName        Giants  Team Info     None  2025-06-01
+24     25  teamName          Jets  Team Info     None  2025-06-01
+25     26  teamName      Steelers  Team Info     None  2025-06-01
+26     27  teamName        Eagles  Team Info     None  2025-06-01
+27     28  teamName         49ers  Team Info     None  2025-06-01
+28     29  teamName      Seahawks  Team Info     None  2025-06-01
+29     30  teamName    Buccaneers  Team Info     None  2025-06-01
+30     31  teamName        Titans  Team Info     None  2025-06-01
+31     32  teamName    Commanders  Team Info     None  2025-06-01
+32      1  teamCity       Arizona  Team Info     None  2025-06-01
+33      2  teamCity       Atlanta  Team Info     None  2025-06-01
+34      3  teamCity     Baltimore  Team Info     None  2025-06-01
+35      4  teamCity       Buffalo  Team Info     None  2025-06-01
+36      5  teamCity      Carolina  Team Info     None  2025-06-01
+37      6  teamCity       Chicago  Team Info     None  2025-06-01
+38      7  teamCity    Cincinnati  Team Info     None  2025-06-01
+39      8  teamCity     Cleveland  Team Info     None  2025-06-01
+40      9  teamCity        Dallas  Team Info     None  2025-06-01
+41     10  teamCity        Denver  Team Info     None  2025-06-01
+42     11  teamCity       Detroit  Team Info     None  2025-06-01
+43     12  teamCity     Green Bay  Team Info     None  2025-06-01
+44     13  teamCity       Houston  Team Info     None  2025-06-01
+45     14  teamCity  Indianapolis  Team Info     None  2025-06-01
+46     15  teamCity  Jacksonville  Team Info     None  2025-06-01
+47     16  teamCity   Kansas City  Team Info     None  2025-06-01
+48     17  teamCity     Las Vegas  Team Info     None  2025-06-01
+49     18  teamCity   Los Angeles  Team Info     None  2025-06-01
+2025-06-01 19:48:50,886 INFO:Static DataFrame shape: (288, 6)
+2025-06-01 19:48:50,886 INFO:Starting Processing Team Stats from raw JSON
+2025-06-01 19:48:50,886 INFO:Found 32 teams in input
+2025-06-01 19:48:50,886 INFO:Processing teamID 1 (ARI)
+2025-06-01 19:48:50,886 INFO:Processing teamID 2 (ATL)
+2025-06-01 19:48:50,886 INFO:Processing teamID 3 (BAL)
+2025-06-01 19:48:50,886 INFO:Processing teamID 4 (BUF)
+2025-06-01 19:48:50,886 INFO:Processing teamID 5 (CAR)
+2025-06-01 19:48:50,886 INFO:Processing teamID 6 (CHI)
+2025-06-01 19:48:50,886 INFO:Processing teamID 7 (CIN)
+2025-06-01 19:48:50,886 INFO:Processing teamID 8 (CLE)
+2025-06-01 19:48:50,886 INFO:Processing teamID 9 (DAL)
+2025-06-01 19:48:50,886 INFO:Processing teamID 10 (DEN)
+2025-06-01 19:48:50,886 INFO:Processing teamID 11 (DET)
+2025-06-01 19:48:50,886 INFO:Processing teamID 12 (GB)
+2025-06-01 19:48:50,886 INFO:Processing teamID 13 (HOU)
+2025-06-01 19:48:50,886 INFO:Processing teamID 14 (IND)
+2025-06-01 19:48:50,886 INFO:Processing teamID 15 (JAX)
+2025-06-01 19:48:50,886 INFO:Processing teamID 16 (KC)
+2025-06-01 19:48:50,886 INFO:Processing teamID 17 (LV)
+2025-06-01 19:48:50,887 INFO:Processing teamID 18 (LAC)
+2025-06-01 19:48:50,887 INFO:Processing teamID 19 (LAR)
+2025-06-01 19:48:50,887 INFO:Processing teamID 20 (MIA)
+2025-06-01 19:48:50,887 INFO:Processing teamID 21 (MIN)
+2025-06-01 19:48:50,887 INFO:Processing teamID 22 (NE)
+2025-06-01 19:48:50,887 INFO:Processing teamID 23 (NO)
+2025-06-01 19:48:50,887 INFO:Processing teamID 24 (NYG)
+2025-06-01 19:48:50,887 INFO:Processing teamID 25 (NYJ)
+2025-06-01 19:48:50,887 INFO:Processing teamID 26 (PIT)
+2025-06-01 19:48:50,887 INFO:Processing teamID 27 (PHI)
+2025-06-01 19:48:50,887 INFO:Processing teamID 28 (SF)
+2025-06-01 19:48:50,887 INFO:Processing teamID 29 (SEA)
+2025-06-01 19:48:50,887 INFO:Processing teamID 30 (TB)
+2025-06-01 19:48:50,887 INFO:Processing teamID 31 (TEN)
+2025-06-01 19:48:50,887 INFO:Processing teamID 32 (WSH)
+2025-06-01 19:48:50,888 INFO:Processed 1184 team stats across 32 teams.
+2025-06-01 19:48:50,896 INFO:Team stats processed. DataFrame head:
+   teamID      Level1                          Level2   Value PlayerID    dataDate
+0       1  Team Stats                 Rushing.rushYds  2451.0     None  2025-06-01
+1       1  Team Stats                 Rushing.carries   463.0     None  2025-06-01
+2       1  Team Stats                  Rushing.rushTD    18.0     None  2025-06-01
+3       1  Team Stats              Kicking.fgAttempts    38.0     None  2025-06-01
+4       1  Team Stats                  Kicking.fgMade    34.0     None  2025-06-01
+5       1  Team Stats                  Kicking.xpMade    36.0     None  2025-06-01
+6       1  Team Stats                   Kicking.fgYds     0.0     None  2025-06-01
+7       1  Team Stats               Kicking.kickYards     0.0     None  2025-06-01
+8       1  Team Stats              Kicking.xpAttempts    37.0     None  2025-06-01
+9       1  Team Stats            Passing.passAttempts   543.0     None  2025-06-01
+10      1  Team Stats                  Passing.passTD    21.0     None  2025-06-01
+11      1  Team Stats                 Passing.passYds  3859.0     None  2025-06-01
+12      1  Team Stats                     Passing.int    11.0     None  2025-06-01
+13      1  Team Stats         Passing.passCompletions   374.0     None  2025-06-01
+14      1  Team Stats                 Punting.puntYds  2563.0     None  2025-06-01
+15      1  Team Stats                   Punting.punts    54.0     None  2025-06-01
+16      1  Team Stats               Punting.puntsin20    20.0     None  2025-06-01
+17      1  Team Stats          Punting.puntTouchBacks     2.0     None  2025-06-01
+18      1  Team Stats            Receiving.receptions   374.0     None  2025-06-01
+19      1  Team Stats                 Receiving.recTD    21.0     None  2025-06-01
+20      1  Team Stats               Receiving.targets   523.0     None  2025-06-01
+21      1  Team Stats                Receiving.recYds  3859.0     None  2025-06-01
+22      1  Team Stats             Defense.fumblesLost     9.0     None  2025-06-01
+23      1  Team Stats                   Defense.defTD     2.0     None  2025-06-01
+24      1  Team Stats                 Defense.fumbles    21.0     None  2025-06-01
+25      1  Team Stats        Defense.fumblesRecovered    18.0     None  2025-06-01
+26      1  Team Stats             Defense.soloTackles   656.0     None  2025-06-01
+27      1  Team Stats                  Defense.qbHits    76.0     None  2025-06-01
+28      1  Team Stats        Defense.passingTDAllowed    20.0     None  2025-06-01
+29      1  Team Stats         Defense.passDeflections    63.0     None  2025-06-01
+30      1  Team Stats     Defense.passingYardsAllowed  3674.0     None  2025-06-01
+31      1  Team Stats            Defense.totalTackles  1155.0     None  2025-06-01
+32      1  Team Stats  Defense.defensiveInterceptions     9.0     None  2025-06-01
+33      1  Team Stats                     Defense.tfl    87.0     None  2025-06-01
+34      1  Team Stats     Defense.rushingYardsAllowed  2149.0     None  2025-06-01
+35      1  Team Stats                   Defense.sacks    41.0     None  2025-06-01
+36      1  Team Stats        Defense.rushingTDAllowed    18.0     None  2025-06-01
+37      2  Team Stats                 Rushing.rushYds  2219.0     None  2025-06-01
+38      2  Team Stats                 Rushing.carries   495.0     None  2025-06-01
+39      2  Team Stats                  Rushing.rushTD    18.0     None  2025-06-01
+40      2  Team Stats              Kicking.fgAttempts    41.0     None  2025-06-01
+41      2  Team Stats                  Kicking.fgMade    29.0     None  2025-06-01
+42      2  Team Stats                  Kicking.xpMade    38.0     None  2025-06-01
+43      2  Team Stats                   Kicking.fgYds     0.0     None  2025-06-01
+44      2  Team Stats               Kicking.kickYards     0.0     None  2025-06-01
+45      2  Team Stats              Kicking.xpAttempts    38.0     None  2025-06-01
+46      2  Team Stats            Passing.passAttempts   559.0     None  2025-06-01
+47      2  Team Stats                  Passing.passTD    21.0     None  2025-06-01
+48      2  Team Stats                 Passing.passYds  4283.0     None  2025-06-01
+49      2  Team Stats                     Passing.int    19.0     None  2025-06-01
+2025-06-01 19:48:50,896 INFO:Team Stats DataFrame shape: (1184, 6)
+2025-06-01 19:48:50,896 INFO:Starting Processing Top Performers from raw JSON
+2025-06-01 19:48:50,896 INFO:Found 32 teams in input
+2025-06-01 19:48:50,896 INFO:Team 1 (ARI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 2 (ATL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 3 (BAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 4 (BUF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 5 (CAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 6 (CHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 7 (CIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 8 (CLE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 9 (DAL) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 10 (DEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 11 (DET) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 12 (GB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 13 (HOU) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 14 (IND) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 15 (JAX) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,896 INFO:Team 16 (KC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 17 (LV) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 18 (LAC) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 19 (LAR) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 20 (MIA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 21 (MIN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 22 (NE) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 23 (NO) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 24 (NYG) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 25 (NYJ) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 26 (PIT) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 27 (PHI) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 28 (SF) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 29 (SEA) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 30 (TB) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 31 (TEN) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,897 INFO:Team 32 (WSH) - Top Performers Keys: ['Rushing', 'Kicking', 'Passing', 'Punting', 'Receiving', 'Defense']
+2025-06-01 19:48:50,898 INFO:Processed 1056 top performers.
+2025-06-01 19:48:50,906 INFO:Top performers processed. DataFrame head:
+   teamID          Level1                  Level2   Value PlayerID    dataDate
+0       1  Top Performers                 rushYds  1094.0  3045147  2025-06-01
+1       1  Top Performers                 carries   236.0  3045147  2025-06-01
+2       1  Top Performers                  rushTD     8.0  3045147  2025-06-01
+3       1  Top Performers              fgAttempts    32.0  4363538  2025-06-01
+4       1  Top Performers                  fgMade    28.0  4363538  2025-06-01
+5       1  Top Performers                  xpMade    26.0  4363538  2025-06-01
+6       1  Top Performers                   fgYds     0.0     None  2025-06-01
+7       1  Top Performers               kickYards     0.0     None  2025-06-01
+8       1  Top Performers              xpAttempts    27.0  4363538  2025-06-01
+9       1  Top Performers            passAttempts   541.0  3917315  2025-06-01
+10      1  Top Performers                  passTD    21.0  3917315  2025-06-01
+11      1  Top Performers                 passYds  3851.0  3917315  2025-06-01
+12      1  Top Performers                     int    11.0  3917315  2025-06-01
+13      1  Top Performers         passCompletions   372.0  3917315  2025-06-01
+14      1  Top Performers                 puntYds  1887.0  4045180  2025-06-01
+15      1  Top Performers                   punts    38.0  4045180  2025-06-01
+16      1  Top Performers               puntsin20    19.0  4045180  2025-06-01
+17      1  Top Performers          puntTouchBacks     1.0  4045180  2025-06-01
+18      1  Top Performers              receptions   111.0  4361307  2025-06-01
+19      1  Top Performers                   recTD     8.0  4432708  2025-06-01
+20      1  Top Performers                 targets   147.0  4361307  2025-06-01
+21      1  Top Performers                  recYds  1146.0  4361307  2025-06-01
+22      1  Top Performers            totalTackles   164.0  3127287  2025-06-01
+23      1  Top Performers             fumblesLost     4.0  3917315  2025-06-01
+24      1  Top Performers                   defTD     1.0  4361307  2025-06-01
+25      1  Top Performers                 fumbles     8.0  3917315  2025-06-01
+26      1  Top Performers        fumblesRecovered     3.0  3917315  2025-06-01
+27      1  Top Performers             soloTackles    95.0  3127287  2025-06-01
+28      1  Top Performers  defensiveInterceptions     3.0  3932886  2025-06-01
+29      1  Top Performers                  qbHits    18.0  2979860  2025-06-01
+30      1  Top Performers                     tfl    12.0    11284  2025-06-01
+31      1  Top Performers         passDeflections     9.0  4568506  2025-06-01
+32      1  Top Performers                   sacks     8.0  3693166  2025-06-01
+33      2  Top Performers                 rushYds  1456.0  4430807  2025-06-01
+34      2  Top Performers                 carries   304.0  4430807  2025-06-01
+35      2  Top Performers                  rushTD    14.0  4430807  2025-06-01
+36      2  Top Performers              fgAttempts    34.0  3049899  2025-06-01
+37      2  Top Performers                  fgMade    25.0  3049899  2025-06-01
+38      2  Top Performers                  xpMade    26.0  3049899  2025-06-01
+39      2  Top Performers                   fgYds     0.0     None  2025-06-01
+40      2  Top Performers               kickYards     0.0     None  2025-06-01
+41      2  Top Performers              xpAttempts    26.0  3049899  2025-06-01
+42      2  Top Performers            passAttempts   453.0    14880  2025-06-01
+43      2  Top Performers                  passTD    18.0    14880  2025-06-01
+44      2  Top Performers                 passYds  3508.0    14880  2025-06-01
+45      2  Top Performers                     int    16.0    14880  2025-06-01
+46      2  Top Performers         passCompletions   303.0    14880  2025-06-01
+47      2  Top Performers                 puntYds  2209.0  2977680  2025-06-01
+48      2  Top Performers                   punts    47.0  2977680  2025-06-01
+49      2  Top Performers               puntsin20    14.0  2977680  2025-06-01
+2025-06-01 19:48:50,906 INFO:Top Performers DataFrame shape: (1056, 6)
+2025-06-01 19:48:50,914 WARNING:There are 224 rows with non-numeric 'Value' fields.
+2025-06-01 19:48:50,924 INFO:BigQuery payload size: 2528 rows.
+2025-06-01 19:48:50,925 INFO:First 5 rows of BigQuery payload: [{'teamID': '1', 'teamAbv': 'ARI', 'teamCity': 'Arizona', 'teamName': 'Cardinals', 'conference': 'National Football Conference', 'division': 'West', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '2', 'teamAbv': 'ATL', 'teamCity': 'Atlanta', 'teamName': 'Falcons', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '3', 'teamAbv': 'BAL', 'teamCity': 'Baltimore', 'teamName': 'Ravens', 'conference': 'American Football Conference', 'division': 'North', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '4', 'teamAbv': 'BUF', 'teamCity': 'Buffalo', 'teamName': 'Bills', 'conference': 'American Football Conference', 'division': 'East', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}, {'teamID': '5', 'teamAbv': 'CAR', 'teamCity': 'Carolina', 'teamName': 'Panthers', 'conference': 'National Football Conference', 'division': 'South', 'Level1': 'Team Info', 'Level2': 'teamName', 'Value': None, 'PlayerID': None, 'dataDate': '2025-06-01'}]
+2025-06-01 19:48:54,246 INFO:Successfully inserted 2528 rows into BigQuery.
+2025-06-01 19:48:54,246 INFO:Inserted 2528 rows for 2025-06-01 into BigQuery.
+2025-06-01 19:48:54,247 INFO:Cycle count for NFL Teams API Call incremented to 1
+2025-06-01 19:48:54,248 INFO:Max cycles reached for NFL Teams API Call.
+2025-06-01 19:48:54,248 INFO:127.0.0.1 - - [01/Jun/2025 19:48:54] "GET /test?load_date=2025-06-01 HTTP/1.1" 200 -
