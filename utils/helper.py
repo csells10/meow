@@ -96,7 +96,7 @@ def fetch_and_validate_api_data(url, headers, querystring, context=None):
 
     # Check if the 'body' field exists and contains data
     if 'body' not in data or not data['body']:
-        logging.warning(f"No data found for the specified request. {context or ''}")
+        # logging.warning(f"No data found for the specified request. {context or ''}")
         return None
 
     return data  # Return the parsed JSON
@@ -119,16 +119,17 @@ def delete_yesterdays_games_from_bigquery(table_id):
     """
     query_job = client.query(query)
     query_job.result()  # Wait for the query to complete
-    print(f"Deleted records from {table_id} where gameDate = {yesterday}")
+    logging.info(f"Deleted records from {table_id} where gameDate = {yesterday}")
     
 def check_existing_team_records(table_id, key_column, target_date):
     """
-    Check if team records exist for a specific date in the table using a composite key.
-    Returns a set of teamIDs.
+    Check if team records exist for a specific date in the table.
+    Returns a dictionary: {teamID: {column: value, ...}} for comparison.
     """
     client = bigquery.Client(project=PROJECT_ID)
+
     query = f"""
-        SELECT {key_column}
+        SELECT *
         FROM `{table_id}`
         WHERE dataDate = @target_date
     """
@@ -137,6 +138,13 @@ def check_existing_team_records(table_id, key_column, target_date):
             bigquery.ScalarQueryParameter("target_date", "DATE", target_date)
         ]
     )
+
     query_job = client.query(query, job_config=job_config)
-    existing_keys = set(row[key_column] for row in query_job)
-    return existing_keys
+
+    existing_records = {}
+    for row in query_job:
+        key = row[key_column]
+        record = dict(row)
+        existing_records[key] = record
+
+    return existing_records

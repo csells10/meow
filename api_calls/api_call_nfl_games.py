@@ -31,20 +31,22 @@ def fetch_nfl_games():
 
     days_range = 4
     any_valid_data = False
+    failed_dates = []  # NEW: to accumulate dates where fetch failed or was invalid
 
     for day_offset in range(-1, days_range - 1):
         game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
-        logging.info(f"Fetching games for date: {game_date}")
+        # logging.info(f"Fetching games for date: {game_date}")
         querystring = {"gameDate": game_date}
 
         try:
             games = fetch_and_validate_api_data(url, headers, querystring)
             if not games or 'body' not in games:
-                logging.warning(f"No valid response structure for {game_date}, skipping.")
+                failed_dates.append(game_date)  # NEW: log date silently for final summary
                 continue
             logging.info(f"Successfully fetched {len(games.get('body', []))} games for {game_date}")
         except (ValueError, TypeError) as e:
             logging.error(f"Error fetching data for {game_date}: {e}", exc_info=True)
+            failed_dates.append(game_date)  # NEW: track failed date due to error
             continue
 
         any_valid_data = True
@@ -60,9 +62,12 @@ def fetch_nfl_games():
         else:
             logging.info(f"No new games to insert for {game_date}")
 
+    # NEW: single summary warning if all attempts failed
     if not any_valid_data:
-        logging.warning("No valid games data found for any of the queried dates.")
+        logging.warning(f"No valid games data found for any of the queried dates: {failed_dates}")
+    else:
+        logging.info("NFL games fetch job completed successfully.")
 
-    logging.info("NFL games fetch job completed successfully.")
     return 'Data inserted successfully!'
+
 

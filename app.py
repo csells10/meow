@@ -9,7 +9,7 @@ from config import API_CALLS
 #Creating logging file
 logging.basicConfig(
     filename='app.log',
-    filemode='a',  # Appends to file; creates it if missing
+    filemode='w',  # Overwrites file on each app run
     format='%(asctime)s %(levelname)s:%(message)s',
     level=logging.INFO
 )
@@ -27,27 +27,27 @@ def run_api_calls(load_date=None):
     Function to run the scheduled API calls with optional date parameter.
     """
     for api_call in API_CALLS:
-        logging.info(f"Running {api_call['name']} API call with load_date={load_date}")
+        api_name = api_call['name']
+        logging.info(f"Starting API call: {api_name} (load_date={load_date})")
+
         try:
-            # Pass the load_date if available
+            # Call the API with or without the load_date
             if load_date:
                 api_call['function'](load_date=load_date)
             else:
                 api_call['function']()
-            
-            # Increment cycle count
-            if api_call['name'] in api_cycles:
-                api_cycles[api_call['name']] += 1
-                logging.info(f"Cycle count for {api_call['name']} incremented to {api_cycles[api_call['name']]}")
-                
-                # Check if max cycles reached
-                if api_cycles[api_call['name']] >= api_call['max_cycles']:
-                    logging.info(f"Max cycles reached for {api_call['name']}.")
-            else:
-                logging.warning(f"API call name '{api_call['name']}' not found in api_cycles keys: {list(api_cycles.keys())}")
+
+            # If the API call is tracked, update cycle counts
+            if api_name in api_cycles:
+                api_cycles[api_name] += 1
+                logging.info(f"Cycle count for '{api_name}' is now {api_cycles[api_name]}")
+
+                # Check for max cycle threshold
+                if 'max_cycles' in api_call and api_cycles[api_name] >= api_call['max_cycles']:
+                    logging.info(f"Max cycles reached for '{api_name}' ({api_cycles[api_name]} cycles).")
 
         except Exception as e:
-            logging.error(f"Error while running {api_call['name']}: {e}", exc_info=True)
+            logging.error(f"Error while running '{api_name}': {e}", exc_info=True)
 
 def setup_schedules(load_date=None):
     """
@@ -60,7 +60,7 @@ def setup_schedules(load_date=None):
         api_cycles = {api['name']: 0 for api in API_CALLS}
 
         # Run the API call directly with the provided load_date
-        run_api_calls(load_date=load_date)
+    run_api_calls(load_date=load_date)
 
 @app.route("/", methods=["POST"])
 def run_scheduled_job():
