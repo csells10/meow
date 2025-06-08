@@ -48,6 +48,7 @@ def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
                 raise
 
 def fetch_nfl_teams(load_date=None):
+    log_event("info", "nfl_teams_job_started")
     global original_json_response
 
     data_date = load_date or datetime.now().strftime('%Y-%m-%d')
