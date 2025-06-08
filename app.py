@@ -1,94 +1,78 @@
 from flask import Flask, request
-from utils.logging import setup_logging 
- 
-import sys
 import os
-import logging
+import sys
 from config import API_CALLS
-
-#Creating logging file
-logging.basicConfig(
-    filename='app.log',
-    filemode='w',  # Overwrites file on each app run
-    format='%(asctime)s %(levelname)s:%(message)s',
-    level=logging.INFO
-)
+from utils.logging_setup import setup_logging, log_event  # ✅ use new helper
 
 # Setup structured logging
-setup_logging() 
+setup_logging()
 
-# Dictionary to keep track of the cycles for each API call
+# Dictionary to track cycles per API call
 api_cycles = {}
 
 app = Flask(__name__)
 
 def run_api_calls(load_date=None):
     """
-    Function to run the scheduled API calls with optional date parameter.
+    Run scheduled API calls with optional load_date.
     """
     for api_call in API_CALLS:
         api_name = api_call['name']
-        logging.info(f"Starting API call: {api_name} (load_date={load_date})")
+        log_event("info", "start_api_call", api_name=api_name, load_date=load_date)
 
         try:
-            # Call the API with or without the load_date
             if load_date:
                 api_call['function'](load_date=load_date)
             else:
                 api_call['function']()
 
-            # If the API call is tracked, update cycle counts
             if api_name in api_cycles:
                 api_cycles[api_name] += 1
-                logging.info(f"Cycle count for '{api_name}' is now {api_cycles[api_name]}")
+                log_event("info", "api_cycle_incremented", api_name=api_name, cycle_count=api_cycles[api_name])
 
-                # Check for max cycle threshold
                 if 'max_cycles' in api_call and api_cycles[api_name] >= api_call['max_cycles']:
-                    logging.info(f"Max cycles reached for '{api_name}' ({api_cycles[api_name]} cycles).")
+                    log_event("info", "max_cycles_reached", api_name=api_name, cycle_count=api_cycles[api_name])
 
         except Exception as e:
-            logging.error(f"Error while running '{api_name}': {e}", exc_info=True)
+            log_event("error", "api_call_error", api_name=api_name, error=str(e))
 
 def setup_schedules(load_date=None):
     """
-    Setup the API call schedules with optional load_date.
+    Set up and run scheduled API calls.
     """
-    for api_call in API_CALLS:
-        logging.info(f"Scheduling {api_call['name']} to run with load_date={load_date}")
+    log_event("info", "setup_schedules", load_date=load_date)
 
-        # Initialize cycle count (for max cycles if needed later)
-        api_cycles = {api['name']: 0 for api in API_CALLS}
-
-        # Run the API call directly with the provided load_date
+    global api_cycles
+    api_cycles = {api['name']: 0 for api in API_CALLS}
     run_api_calls(load_date=load_date)
 
 @app.route("/", methods=["POST"])
 def run_scheduled_job():
     """
-    Endpoint that will be triggered by Cloud Scheduler.
+    Triggered by Cloud Scheduler to initiate API call routines.
     """
-    logging.info("Received POST request from Cloud Scheduler to / endpoint.")
-    
+    log_event("info", "scheduler_trigger_received")
+
     request_data = request.get_json(silent=True)
     load_date = request_data.get('load_date') if request_data else None
-    logging.info(f"load_date parameter received: {load_date}")
-    
+    log_event("info", "load_date_extracted", load_date=load_date)
+
     setup_schedules(load_date=load_date)
     return "API calls executed successfully", 200
 
 @app.route("/test", methods=["GET"])
 def test_api_calls():
     """
-    Endpoint for testing API calls manually without the need for Cloud Scheduler.
+    Manual test endpoint to trigger API routines with optional load_date.
     """
     load_date = request.args.get('load_date')
-    logging.info(f"Testing API calls with load_date={load_date}")
-    
+    log_event("info", "test_route_triggered", load_date=load_date)
+
     try:
         setup_schedules(load_date=load_date)
         return f"Test successful. API calls executed with load_date={load_date}", 200
     except Exception as e:
-        logging.error(f"Error during test: {e}", exc_info=True)
+        log_event("error", "test_api_call_error", error=str(e))
         return f"Error: {e}", 500
 
 if __name__ == "__main__":
