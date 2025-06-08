@@ -8,7 +8,8 @@ from utils.helper import (
     insert_into_bigquery,
     get_secret,
     fetch_and_validate_api_data,
-    check_existing_team_records
+    check_existing_team_records,
+    filter_changed_team_records
 )
 from deepdiff import DeepDiff
 
@@ -48,17 +49,14 @@ def insert_with_retry(table_id, rows_to_insert, retries=3, delay=2):
                 raise
 
 def fetch_nfl_teams(load_date=None):
+    # === 1a. Initialization and Setup ===
     log_event("info", "nfl_teams_job_started")
     global original_json_response
 
     data_date = load_date or datetime.now().strftime('%Y-%m-%d')
     table_id = 'nfl-stream-406420.Teams.teams'
 
-    existing_team_ids = check_existing_team_records(table_id, 'teamID', data_date)
-    if existing_team_ids:
-        log_event("info", "data_already_exists", data_date=data_date, sample_teamIDs=list(existing_team_ids)[:5])
-        return
-
+    # === 1b. API Configuration ===
     api_key = get_secret('Tank_Rapidapi')
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLTeams"
     headers = {
@@ -66,13 +64,14 @@ def fetch_nfl_teams(load_date=None):
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
     }
     querystring = {
-        "sortBy": "teamID", 
-        "rosters": "false", 
-        "schedules": "false", 
-        "topPerformers": "true", 
+        "sortBy": "teamID",
+        "rosters": "false",
+        "schedules": "false",
+        "topPerformers": "true",
         "teamStats": "true"
     }
 
+    # === 2a. API Request ===
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
         log_event("info", "fetched_team_data", data_date=data_date)
@@ -85,12 +84,14 @@ def fetch_nfl_teams(load_date=None):
         log_event("warning", "no_team_data_found", data_date=data_date)
         return
 
+    # === 2b. Normalize Response to DataFrame ===
     teams_df = pd.json_normalize(teams['body'])
     team_count = teams_df['teamID'].nunique()
     log_event("info", "api_response_parsed", shape=str(teams_df.shape), team_count=team_count)
 
     teams_df['dataDate'] = data_date
 
+    # === 3. Transform Sections: Static, Stats, Performers ===
     melted_dfs = process_static_fields(teams_df, data_date, team_count)
     static_df = pd.concat(melted_dfs)
     log_event("info", "static_fields_processed", shape=str(static_df.shape))
@@ -101,16 +102,27 @@ def fetch_nfl_teams(load_date=None):
     top_performers_df = process_top_performers(teams['body'], data_date, team_count)
     log_event("info", "top_performers_processed", shape=str(top_performers_df.shape))
 
+    # === 4. Merge All Sections into Final Dataset ===
     final_df = build_final_df(melted_dfs, team_stats_df, top_performers_df, teams_df, data_date)
     final_df['Value'] = pd.to_numeric(final_df['Value'], errors='coerce')
     final_df = final_df.where(pd.notnull(final_df), None)
 
     rows_to_insert = json.loads(final_df.to_json(orient='records'))
-    if rows_to_insert:
-        log_event("info", "bigquery_payload_ready", row_count=len(rows_to_insert), sample=rows_to_insert[:5])
-        insert_with_retry(table_id, rows_to_insert)
+
+    # === 5. Compare Against Existing Records ===
+    ###<------CHATGPT MADE THIS CHANGE
+    existing_records = check_existing_team_records(table_id, 'teamID', data_date)
+    filtered_rows = filter_changed_team_records(existing_records, rows_to_insert)
+
+    # === 6. Insert Only New or Changed Rows ===
+    if filtered_rows:
+        log_event("info", "bigquery_payload_ready", row_count=len(filtered_rows), sample=filtered_rows[:5])
+        insert_with_retry(table_id, filtered_rows)
     else:
-        log_event("info", "no_new_rows_to_insert", data_date=data_date)
+        log_event("info", "no_changes_detected", data_date=data_date)
+
+    # === 7. Complete Job ===
+    log_event("info", "nfl_teams_job_completed")
 
 # -- Helper Functions (unchanged except logging converted to log_event) --
 

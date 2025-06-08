@@ -23,14 +23,46 @@ def fetch_nfl_games():
     table_id = 'nfl-stream-406420.League.schedule'
     start_date = datetime.now().date()
 
-    log_event("info", "delete_yesterday_games")
-    delete_yesterdays_games_from_bigquery(table_id)
+    # Step 1: Pre-fetch and validate yesterday's data
+    yesterday_date = (start_date + timedelta(days=-1)).strftime('%Y%m%d')
+    yesterday_data = None
+    try:
+        log_event("info", "prefetch_yesterday_games", game_date=yesterday_date)
+        querystring = {"gameDate": yesterday_date}
+        response = fetch_and_validate_api_data(url, headers, querystring)
+        if response and 'body' in response:
+            yesterday_data = response['body']
+            log_event("info", "yesterday_games_fetched", count=len(yesterday_data))
+        else:
+            log_event("warning", "yesterday_games_fetch_empty", game_date=yesterday_date)
+    except Exception as e:
+        log_event("error", "yesterday_games_fetch_failed", game_date=yesterday_date, error=str(e))
 
+    # Step 2: Only delete if yesterday's data is pre-fetched successfully
+    if yesterday_data:
+        log_event("info", "delete_yesterday_games")
+        delete_yesterdays_games_from_bigquery(table_id)
+    else:
+        log_event("warning", "yesterday_data_not_deleted_due_to_fetch_failure", game_date=yesterday_date)
+
+    # Step 3: Insert yesterday's pre-fetched data if available
+    if yesterday_data:
+        game_ids = [game.get('gameID') for game in yesterday_data]
+        existing_game_ids = check_existing_records(table_id, 'gameID', game_ids)
+        rows_to_insert = filter_new_records(existing_game_ids, yesterday_data, 'gameID')
+
+        if rows_to_insert:
+            insert_into_bigquery(table_id, rows_to_insert)
+            log_event("info", "games_inserted", game_date=yesterday_date, inserted=len(rows_to_insert))
+        else:
+            log_event("info", "no_new_games", game_date=yesterday_date)
+
+    # Step 4: Continue with today + next days
     days_range = 4
     any_valid_data = False
     failed_dates = []
 
-    for day_offset in range(-1, days_range - 1):
+    for day_offset in range(0, days_range - 1):  # skip yesterday (-1) since already handled
         game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
         querystring = {"gameDate": game_date}
 

@@ -123,8 +123,8 @@ def delete_yesterdays_games_from_bigquery(table_id):
     
 def check_existing_team_records(table_id, key_column, target_date):
     """
-    Check if team records exist for a specific date in the table.
-    Returns a dictionary: {teamID: {column: value, ...}} for comparison.
+    Fetches existing team records for a specific date from BigQuery.
+    Returns a dictionary: {(teamID, Level1, Level2, dataDate): full_record}
     """
     client = bigquery.Client(project=PROJECT_ID)
 
@@ -143,8 +143,26 @@ def check_existing_team_records(table_id, key_column, target_date):
 
     existing_records = {}
     for row in query_job:
-        key = row[key_column]
-        record = dict(row)
-        existing_records[key] = record
+        key = (row["teamID"], row["Level1"], row["Level2"], row["dataDate"])
+        existing_records[key] = dict(row)
 
     return existing_records
+
+def filter_changed_team_records(existing_records, new_records):
+    """
+    Filters new_records to include only those that are new or have a different 'Value'.
+    Uses composite key: (teamID, Level1, Level2, dataDate)
+    """
+    def make_key(r):
+        return (r['teamID'], r['Level1'], r['Level2'], r['dataDate'])
+
+    existing_by_key = existing_records
+    changed_records = []
+
+    for record in new_records:
+        key = make_key(record)
+        existing = existing_by_key.get(key)
+        if not existing or str(record.get('Value')) != str(existing.get('Value')):
+            changed_records.append(record)
+
+    return changed_records
