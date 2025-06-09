@@ -1,0 +1,17 @@
+2025-06-04 20:31:28,288 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.186:8080
+2025-06-04 20:31:28,289 INFO:[33mPress CTRL+C to quit[0m
+2025-06-04 20:31:35,152 INFO:Received POST request from Cloud Scheduler to / endpoint.
+2025-06-04 20:31:35,152 INFO:load_date parameter received: None
+2025-06-04 20:31:35,152 INFO:Scheduling NFL Games API Call to run with load_date=None
+2025-06-04 20:31:35,152 INFO:Scheduling NFL Teams API Call to run with load_date=None
+2025-06-04 20:31:35,152 INFO:Starting API call: NFL Games API Call (load_date=None)
+2025-06-04 20:31:35,152 INFO:Starting NFL games fetch job...
+2025-06-04 20:31:37,864 INFO:Deleting yesterday's games from BigQuery...
+2025-06-04 20:31:43,013 INFO:Deleted records from nfl-stream-406420.League.schedule where gameDate = 2025-06-03
+2025-06-04 20:31:46,397 WARNING:No valid games data found for any of the queried dates: ['20250603', '20250604', '20250605', '20250606']
+2025-06-04 20:31:46,398 INFO:Starting API call: NFL Teams API Call (load_date=None)
+2025-06-04 20:31:50,064 INFO:Data already exists for 2025-06-04 for teamIDs: ['1', '2', '3', '4', '5']... Skipping load.
+2025-06-04 20:31:50,064 INFO:127.0.0.1 - - [04/Jun/2025 20:31:50] "POST / HTTP/1.1" 200 -

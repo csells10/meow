@@ -1,6 +1,6 @@
-import requests
-from google.cloud import secretmanager
 from datetime import datetime, timedelta
+import requests
+from utils.logging_setup import log_event
 from utils.helper import (
     insert_into_bigquery,
     get_secret,
@@ -11,9 +11,10 @@ from utils.helper import (
 )
 
 def fetch_nfl_games():
+    log_event("info", "nfl_games_job_started")
+
     api_key = get_secret('Tank_Rapidapi')
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForDate"
-    
     headers = {
         'x-rapidapi-key': api_key,
         'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
@@ -22,60 +23,78 @@ def fetch_nfl_games():
     table_id = 'nfl-stream-406420.League.schedule'
     start_date = datetime.now().date()
 
-    # Step 1: Delete yesterday's data
-    delete_yesterdays_games_from_bigquery(table_id)
+    # Step 1: Pre-fetch and validate yesterday's data
+    yesterday_date = (start_date + timedelta(days=-1)).strftime('%Y%m%d')
+    yesterday_data = None
+    try:
+        log_event("info", "prefetch_yesterday_games", game_date=yesterday_date)
+        querystring = {"gameDate": yesterday_date}
+        response = fetch_and_validate_api_data(url, headers, querystring)
+        if response and 'body' in response:
+            yesterday_data = response['body']
+            log_event("info", "yesterday_games_fetched", count=len(yesterday_data))
+        else:
+            log_event("warning", "yesterday_games_fetch_empty", game_date=yesterday_date)
+    except Exception as e:
+        log_event("error", "yesterday_games_fetch_failed", game_date=yesterday_date, error=str(e))
 
-    # Step 2: Fetch new data for yesterday, today, tomorrow, and day after tomorrow
-    days_range = 4  # Fetch games for yesterday, today, tomorrow, and day after tomorrow
-    for day_offset in range(-1, days_range - 1):  # Start from yesterday
-        game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
-        querystring = {"gameDate": game_date}
-        
-        # Fetch and validate API data using the helper function
-        try:
-            games = fetch_and_validate_api_data(url, headers, querystring)
-        except (ValueError, TypeError) as e:
-            print(f"Error fetching data for {game_date}: {e}")
-            continue
-        
-        if not games:
-            print(f"No games found for {game_date}")
-            continue
+    # Step 2: Only delete if yesterday's data is pre-fetched successfully
+    if yesterday_data:
+        log_event("info", "delete_yesterday_games")
+        delete_yesterdays_games_from_bigquery(table_id)
+    else:
+        log_event("warning", "yesterday_data_not_deleted_due_to_fetch_failure", game_date=yesterday_date)
 
-        # Extract the game IDs
-        game_ids = [game.get('gameID') for game in games['body']]
-        
-        # Check for existing records in BigQuery to avoid duplicates
+    # Step 3: Insert yesterday's pre-fetched data if available
+    if yesterday_data:
+        game_ids = [game.get('gameID') for game in yesterday_data]
         existing_game_ids = check_existing_records(table_id, 'gameID', game_ids)
-        
-        # Prepare data for BigQuery
-        rows_to_insert = [{
-            'gameID': game.get('gameID'),
-            'seasonType': game.get('seasonType'),
-            'away': game.get('away'),
-            'gameDate': datetime.strptime(game.get('gameDate'), '%Y%m%d').strftime('%Y-%m-%d'),  # Convert to YYYY-MM-DD
-            'espnID': game.get('espnID'),
-            'teamIDHome': game.get('teamIDHome'),
-            'gameStatus': game.get('gameStatus'),
-            'gameWeek': game.get('gameWeek'),
-            'teamIDAway': game.get('teamIDAway'),
-            'home': game.get('home'),
-            'espnLink': game.get('espnLink'),
-            'cbsLink': game.get('cbsLink'),
-            'gameTime': game.get('gameTime'),
-            'gameTime_epoch': datetime.utcfromtimestamp(float(game.get('gameTime_epoch'))).isoformat(),
-            'season': game.get('season'),
-            'neutralSite': game.get('neutralSite') == 'True',
-            'gameStatusCode': game.get('gameStatusCode')
-        } for game in games['body']]
-        
-        # Filter out records that already exist
-        rows_to_insert = filter_new_records(existing_game_ids, rows_to_insert, 'gameID')
+        rows_to_insert = filter_new_records(existing_game_ids, yesterday_data, 'gameID')
 
         if rows_to_insert:
             insert_into_bigquery(table_id, rows_to_insert)
-            print(f"Inserted {len(rows_to_insert)} games for {game_date}")
+            log_event("info", "games_inserted", game_date=yesterday_date, inserted=len(rows_to_insert))
         else:
-            print(f"No new games to insert for {game_date}")
+            log_event("info", "no_new_games", game_date=yesterday_date)
 
-    return 'Data inserted successfully!'
+    # Step 4: Continue with today + next days
+    days_range = 4
+    any_valid_data = False
+    failed_dates = []
+
+    for day_offset in range(0, days_range - 1):  # skip yesterday (-1) since already handled
+        game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
+        querystring = {"gameDate": game_date}
+
+        try:
+            games = fetch_and_validate_api_data(url, headers, querystring)
+            if not games or 'body' not in games:
+                failed_dates.append(game_date)
+                continue
+
+            game_body = games.get('body', [])
+            log_event("info", "games_fetched", game_date=game_date, count=len(game_body))
+
+        except (ValueError, TypeError) as e:
+            log_event("error", "games_fetch_failed", game_date=game_date, error=str(e))
+            failed_dates.append(game_date)
+            continue
+
+        any_valid_data = True
+
+        game_ids = [game.get('gameID') for game in game_body]
+        existing_game_ids = check_existing_records(table_id, 'gameID', game_ids)
+        rows_to_insert = filter_new_records(existing_game_ids, game_body, 'gameID')
+
+        if rows_to_insert:
+            insert_into_bigquery(table_id, rows_to_insert)
+            log_event("info", "games_inserted", game_date=game_date, inserted=len(rows_to_insert))
+        else:
+            log_event("info", "no_new_games", game_date=game_date)
+
+    if not any_valid_data:
+        log_event("warning", "no_valid_games_found", failed_dates=failed_dates)
+    else:
+        log_event("info", 'Data inserted successfully!')
+        log_event("info", "nfl_games_job_completed")
+

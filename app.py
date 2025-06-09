@@ -1,59 +1,79 @@
 from flask import Flask, request
-import sys
 import os
-import logging
+import sys
 from config import API_CALLS
+from utils.logging_setup import setup_logging, log_event  # ✅ use new helper
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+# Setup structured logging
+setup_logging()
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'api_calls'))
-
-# Dictionary to keep track of the cycles for each API call
+# Dictionary to track cycles per API call
 api_cycles = {}
 
 app = Flask(__name__)
 
-def run_api_calls():
+def run_api_calls(load_date=None):
     """
-    Function to run the scheduled API calls.
+    Run scheduled API calls with optional load_date.
     """
     for api_call in API_CALLS:
-        logging.info(f"Running {api_call['name']} API call")
-        try:
-            api_call['function']()  # Call the API function
-            
-            # Increment cycle count
-            api_cycles[api_call['name']] += 1
-            logging.info(f"Cycle count for {api_call['name']} incremented to {api_cycles[api_call['name']]}")
-            
-            # Check if max cycles reached
-            if api_cycles[api_call['name']] >= api_call['max_cycles']:
-                logging.info(f"Max cycles reached for {api_call['name']}.")
-        except Exception as e:
-            logging.error(f"Error while running {api_call['name']}: {e}")
+        api_name = api_call['name']
+        log_event("info", "start_api_call", api_name=api_name, load_date=load_date)
 
-def setup_schedules():
+        try:
+            if load_date:
+                api_call['function'](load_date=load_date)
+            else:
+                api_call['function']()
+
+            if api_name in api_cycles:
+                api_cycles[api_name] += 1
+                log_event("info", "api_cycle_incremented", api_name=api_name, cycle_count=api_cycles[api_name])
+
+                if 'max_cycles' in api_call and api_cycles[api_name] >= api_call['max_cycles']:
+                    log_event("info", "max_cycles_reached", api_name=api_name, cycle_count=api_cycles[api_name])
+
+        except Exception as e:
+            log_event("error", "api_call_error", api_name=api_name, error=str(e))
+
+def setup_schedules(load_date=None):
     """
-    Setup the API call schedules.
+    Set up and run scheduled API calls.
     """
-    for api_call in API_CALLS:
-        logging.info(f"Scheduling {api_call['name']} to run.")
-        # Initialize cycle count (for max cycles if needed later)
-        api_cycles[api_call['name']] = 0
-        # Run the API call directly
-        run_api_calls()
+    log_event("info", "setup_schedules", load_date=load_date)
+
+    global api_cycles
+    api_cycles = {api['name']: 0 for api in API_CALLS}
+    run_api_calls(load_date=load_date)
 
 @app.route("/", methods=["POST"])
 def run_scheduled_job():
     """
-    Endpoint that will be triggered by Cloud Scheduler.
-    It sets up and runs the scheduled API calls.
+    Triggered by Cloud Scheduler to initiate API call routines.
     """
-    logging.info("Received POST request from Cloud Scheduler to / endpoint.")
-    
-    setup_schedules()  # Setup and run the scheduled API calls when the POST request is received.
+    log_event("info", "scheduler_trigger_received")
+
+    request_data = request.get_json(silent=True)
+    load_date = request_data.get('load_date') if request_data else None
+    log_event("info", "load_date_extracted", load_date=load_date)
+
+    setup_schedules(load_date=load_date)
     return "API calls executed successfully", 200
 
+@app.route("/test", methods=["GET"])
+def test_api_calls():
+    """
+    Manual test endpoint to trigger API routines with optional load_date.
+    """
+    load_date = request.args.get('load_date')
+    log_event("info", "test_route_triggered", load_date=load_date)
+
+    try:
+        setup_schedules(load_date=load_date)
+        return f"Test successful. API calls executed with load_date={load_date}", 200
+    except Exception as e:
+        log_event("error", "test_api_call_error", error=str(e))
+        return f"Error: {e}", 500
+
 if __name__ == "__main__":
-    # Run Flask app (Cloud Run will handle invoking the function)
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
