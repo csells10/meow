@@ -95,6 +95,6 @@ def fetch_nfl_games():
     if not any_valid_data:
         log_event("warning", "no_valid_games_found", failed_dates=failed_dates)
     else:
+        log_event("info", 'Data inserted successfully!')
         log_event("info", "nfl_games_job_completed")
 
-    return log_event("info", 'Data inserted successfully!')
