@@ -2,6 +2,7 @@ from flask import Flask, request
 import os
 import sys
 from config import API_CALLS
+from utils.gcs import upload_file_to_gcs
 from utils.logging_setup import setup_logging, log_event  # ✅ use new helper
 
 # Setup structured logging

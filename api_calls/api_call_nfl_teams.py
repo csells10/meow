@@ -11,6 +11,8 @@ from utils.helper import (
     check_existing_team_records,
     filter_changed_team_records
 )
+from utils.gcs import upload_file_to_gcs
+import os
 from deepdiff import DeepDiff
 
 original_json_response = None  # Store original response for comparison
@@ -22,8 +24,19 @@ def save_raw_response(response, data_date):
     filename = f"nfl_teams_raw_response_{data_date}.json"
     with open(filename, 'w') as f:
         json.dump(response, f, indent=4)
+        
     log_event("info", "saved_raw_response", file=filename)
 
+    # Upload to GCS
+    bucket = os.getenv("GCS_BUCKET_NAME", "xtra_point")
+    local_path = os.path.abspath(filename)
+
+    try:
+        gcs_path = upload_file_to_gcs(bucket, local_path)
+        log_event("info", "backup_to_gcs_complete", gcs_path=gcs_path)
+    except Exception as e:
+        log_event("error", "gcs_backup_failed", error=str(e), file=local_path)
+        
 def validate_transformation(final_df, original_json):
     transformed_data = final_df.to_dict(orient='records')
     diff = DeepDiff(original_json, transformed_data, ignore_order=True)

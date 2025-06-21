@@ -1,17 +1,51 @@
-2025-06-04 20:31:28,288 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:8080
- * Running on http://192.168.1.186:8080
-2025-06-04 20:31:28,289 INFO:[33mPress CTRL+C to quit[0m
-2025-06-04 20:31:35,152 INFO:Received POST request from Cloud Scheduler to / endpoint.
-2025-06-04 20:31:35,152 INFO:load_date parameter received: None
-2025-06-04 20:31:35,152 INFO:Scheduling NFL Games API Call to run with load_date=None
-2025-06-04 20:31:35,152 INFO:Scheduling NFL Teams API Call to run with load_date=None
-2025-06-04 20:31:35,152 INFO:Starting API call: NFL Games API Call (load_date=None)
-2025-06-04 20:31:35,152 INFO:Starting NFL games fetch job...
-2025-06-04 20:31:37,864 INFO:Deleting yesterday's games from BigQuery...
-2025-06-04 20:31:43,013 INFO:Deleted records from nfl-stream-406420.League.schedule where gameDate = 2025-06-03
-2025-06-04 20:31:46,397 WARNING:No valid games data found for any of the queried dates: ['20250603', '20250604', '20250605', '20250606']
-2025-06-04 20:31:46,398 INFO:Starting API call: NFL Teams API Call (load_date=None)
-2025-06-04 20:31:50,064 INFO:Data already exists for 2025-06-04 for teamIDs: ['1', '2', '3', '4', '5']... Skipping load.
-2025-06-04 20:31:50,064 INFO:127.0.0.1 - - [04/Jun/2025 20:31:50] "POST / HTTP/1.1" 200 -
+{"level": "INFO", "message": "\u001b[31m\u001b[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.\u001b[0m\n * Running on all addresses (0.0.0.0)\n * Running on http://127.0.0.1:8080\n * Running on http://192.168.1.186:8080", "timestamp": "2025-06-21 16:58:47,997", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "\u001b[33mPress CTRL+C to quit\u001b[0m", "timestamp": "2025-06-21 16:58:47,998", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'test_route_triggered', 'load_date': None}", "timestamp": "2025-06-21 16:58:58,541", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'setup_schedules', 'load_date': None}", "timestamp": "2025-06-21 16:58:58,542", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'start_api_call', 'api_name': 'NFL Teams API Call', 'load_date': None}", "timestamp": "2025-06-21 16:58:58,542", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'nfl_teams_job_started'}", "timestamp": "2025-06-21 16:58:58,542", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking None for explicit credentials as part of auth process...", "timestamp": "2025-06-21 16:58:58,545", "module": "_default", "line": 256, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking Cloud SDK credentials as part of auth process...", "timestamp": "2025-06-21 16:58:58,546", "module": "_default", "line": 228, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Making request: POST https://oauth2.googleapis.com/token", "timestamp": "2025-06-21 16:59:00,457", "module": "requests", "line": 186, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): oauth2.googleapis.com:443", "timestamp": "2025-06-21 16:59:00,471", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://oauth2.googleapis.com:443 \"POST /token HTTP/11\" 200 None", "timestamp": "2025-06-21 16:59:01,146", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443", "timestamp": "2025-06-21 16:59:01,296", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443 \"GET /getNFLTeams?sortBy=teamID&rosters=false&schedules=false&topPerformers=true&teamStats=true HTTP/11\" 200 114", "timestamp": "2025-06-21 16:59:02,094", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'fetched_team_data', 'data_date': '2025-06-21'}", "timestamp": "2025-06-21 16:59:02,097", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'saved_raw_response', 'file': 'nfl_teams_raw_response_2025-06-21.json'}", "timestamp": "2025-06-21 16:59:02,099", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "ERROR", "message": "{'event': 'api_call_error', 'api_name': 'NFL Teams API Call', 'error': \"name 'os' is not defined\"}", "timestamp": "2025-06-21 16:59:02,099", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "127.0.0.1 - - [21/Jun/2025 16:59:02] \"GET /test HTTP/1.1\" 200 -", "timestamp": "2025-06-21 16:59:02,101", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "\u001b[31m\u001b[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.\u001b[0m\n * Running on all addresses (0.0.0.0)\n * Running on http://127.0.0.1:8080\n * Running on http://192.168.1.186:8080", "timestamp": "2025-06-21 17:16:45,643", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "\u001b[33mPress CTRL+C to quit\u001b[0m", "timestamp": "2025-06-21 17:16:45,644", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'test_route_triggered', 'load_date': None}", "timestamp": "2025-06-21 17:17:05,751", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'setup_schedules', 'load_date': None}", "timestamp": "2025-06-21 17:17:05,752", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'start_api_call', 'api_name': 'NFL Teams API Call', 'load_date': None}", "timestamp": "2025-06-21 17:17:05,752", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'nfl_teams_job_started'}", "timestamp": "2025-06-21 17:17:05,753", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking None for explicit credentials as part of auth process...", "timestamp": "2025-06-21 17:17:05,757", "module": "_default", "line": 256, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking Cloud SDK credentials as part of auth process...", "timestamp": "2025-06-21 17:17:05,758", "module": "_default", "line": 228, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Making request: POST https://oauth2.googleapis.com/token", "timestamp": "2025-06-21 17:17:07,730", "module": "requests", "line": 186, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): oauth2.googleapis.com:443", "timestamp": "2025-06-21 17:17:07,733", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://oauth2.googleapis.com:443 \"POST /token HTTP/11\" 200 None", "timestamp": "2025-06-21 17:17:08,276", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443", "timestamp": "2025-06-21 17:17:08,445", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443 \"GET /getNFLTeams?sortBy=teamID&rosters=false&schedules=false&topPerformers=true&teamStats=true HTTP/11\" 200 114", "timestamp": "2025-06-21 17:17:09,526", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'fetched_team_data', 'data_date': '2025-06-21'}", "timestamp": "2025-06-21 17:17:09,528", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'saved_raw_response', 'file': 'nfl_teams_raw_response_2025-06-21.json'}", "timestamp": "2025-06-21 17:17:09,531", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "ERROR", "message": "{'event': 'api_call_error', 'api_name': 'NFL Teams API Call', 'error': \"name 'os' is not defined\"}", "timestamp": "2025-06-21 17:17:09,532", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "127.0.0.1 - - [21/Jun/2025 17:17:09] \"GET /test HTTP/1.1\" 200 -", "timestamp": "2025-06-21 17:17:09,533", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "\u001b[31m\u001b[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.\u001b[0m\n * Running on all addresses (0.0.0.0)\n * Running on http://127.0.0.1:8080\n * Running on http://192.168.1.186:8080", "timestamp": "2025-06-21 17:21:30,541", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "\u001b[33mPress CTRL+C to quit\u001b[0m", "timestamp": "2025-06-21 17:21:30,542", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'test_route_triggered', 'load_date': None}", "timestamp": "2025-06-21 17:21:39,915", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'setup_schedules', 'load_date': None}", "timestamp": "2025-06-21 17:21:39,916", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'start_api_call', 'api_name': 'NFL Teams API Call', 'load_date': None}", "timestamp": "2025-06-21 17:21:39,917", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'nfl_teams_job_started'}", "timestamp": "2025-06-21 17:21:39,918", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking None for explicit credentials as part of auth process...", "timestamp": "2025-06-21 17:21:39,929", "module": "_default", "line": 256, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Checking Cloud SDK credentials as part of auth process...", "timestamp": "2025-06-21 17:21:39,931", "module": "_default", "line": 228, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Making request: POST https://oauth2.googleapis.com/token", "timestamp": "2025-06-21 17:21:41,808", "module": "requests", "line": 186, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): oauth2.googleapis.com:443", "timestamp": "2025-06-21 17:21:41,812", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://oauth2.googleapis.com:443 \"POST /token HTTP/11\" 200 None", "timestamp": "2025-06-21 17:21:42,413", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "Starting new HTTPS connection (1): tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443", "timestamp": "2025-06-21 17:21:42,576", "module": "connectionpool", "line": 1051, "service": "local", "revision": "local"}
+{"level": "DEBUG", "message": "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com:443 \"GET /getNFLTeams?sortBy=teamID&rosters=false&schedules=false&topPerformers=true&teamStats=true HTTP/11\" 200 114", "timestamp": "2025-06-21 17:21:43,352", "module": "connectionpool", "line": 546, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'fetched_team_data', 'data_date': '2025-06-21'}", "timestamp": "2025-06-21 17:21:43,356", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "{'event': 'saved_raw_response', 'file': 'nfl_teams_raw_response_2025-06-21.json'}", "timestamp": "2025-06-21 17:21:43,359", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "ERROR", "message": "{'event': 'api_call_error', 'api_name': 'NFL Teams API Call', 'error': \"name 'os' is not defined\"}", "timestamp": "2025-06-21 17:21:43,359", "module": "logging_setup", "line": 50, "service": "local", "revision": "local"}
+{"level": "INFO", "message": "127.0.0.1 - - [21/Jun/2025 17:21:43] \"GET /test HTTP/1.1\" 200 -", "timestamp": "2025-06-21 17:21:43,361", "module": "_internal", "line": 97, "service": "local", "revision": "local"}
