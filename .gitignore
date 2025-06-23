@@ -1,34 +1,55 @@
-# Python
-*.pyc
+# Byte-compiled / optimized / DLL files
+*.py[cod]
 __pycache__/
 *.pyo
 *.pyd
 *.pkl
-.Python
+
+# Python virtual environments
 env/
 venv/
 ENV/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-# Environments
-*.env
+meow/
 *.venv
-# VS Code
+*.env
+.Python
+
+# VS Code settings
 .vscode/
 .codeoss/
-# Cloud Shell logs and Go modules
+
+# Logs and system caches
+*.log
+logs/
 .npm/
 .config/
 .cache/
-logs/
-gopath/
-go/
-# Jupyter Notebook checkpoints
+coverage/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# Jupyter
 .ipynb_checkpoints/
+
 # IDEs
 .idea/
 *.iml
-# Operating system files
-.DS_Store
-Thumbs.db
+
+# Pip metadata
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Google Cloud SDK / Credentials
+*.json
+*.gcloudignore
+.gcloud/
+
+# Notebooks
+*.ipynb
+
+# Retool exports or backups
+*.bak
+*.tmp
