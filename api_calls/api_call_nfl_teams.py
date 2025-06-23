@@ -67,7 +67,8 @@ def fetch_nfl_teams(load_date=None):
     global original_json_response
 
     data_date = load_date or datetime.now().strftime('%Y-%m-%d')
-    table_id = 'nfl-stream-406420.Teams.teams'
+    # DEV table in big query
+    table_id = 'nfl-stream-406420.Teams.teams_dev'
 
     # === 1b. API Configuration ===
     api_key = get_secret('Tank_Rapidapi')
@@ -153,20 +154,27 @@ def build_final_df(static_dfs, team_stats_df, top_performers_df, teams_df, data_
 def process_static_fields(teams_df, data_date, team_count):
     configs = [
         {
-            'fields': ['teamID', 'teamName', 'teamCity', 'conference', 'division', 'wins', 'loss'],
+            'fields': ['teamID', 'teamName', 'teamCity', 'conference', 'division'],
             'level1': 'Team Info'
         },
         {
             'fields': ['teamID', 'byeWeeks.2022', 'byeWeeks.2023', 'byeWeeks.2024'],
             'level1': 'Bye Weeks',
-            'rename': {'byeWeeks.2022': '2022-Byes', 'byeWeeks.2023': '2023-Byes', 'byeWeeks.2024': '2024-Byes'}
+            'rename': {
+                'byeWeeks.2022': '2022-Byes',
+                'byeWeeks.2023': '2023-Byes',
+                'byeWeeks.2024': '2024-Byes'
+            }
+        },
+        {
+            'fields': ['teamID', 'wins', 'loss'],
+            'level1': 'Scoring Summary'
         }
     ]
 
     melted_dfs = []
     for config in configs:
-        fields = config['fields']
-        level1 = config['level1']
+        fields, level1 = config['fields'], config['level1']
         rename = config.get('rename', {})
 
         missing = [f for f in fields if f not in teams_df.columns]
@@ -185,7 +193,12 @@ def process_static_fields(teams_df, data_date, team_count):
             df['Level2'] = df['Level2'].map(rename)
 
         if df['teamID'].nunique() != team_count:
-            log_event("warning", "static_field_team_count_mismatch", level1=level1, found=df['teamID'].nunique(), expected=team_count)
+            log_event(
+                "warning", "static_field_team_count_mismatch",
+                level1=level1,
+                found=df['teamID'].nunique(),
+                expected=team_count
+            )
 
         log_event("info", "static_field_processed", level1=level1, rows=len(df))
         melted_dfs.append(df)

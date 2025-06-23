@@ -4,7 +4,7 @@ def create_bigquery_table():
     # Define your Google Cloud project and dataset
     project_id = 'nfl-stream-406420'  # Replace with your actual project ID
     dataset_id = 'Teams'  # Replace with your actual dataset ID
-    table_id = 'teams'  # Replace with your table name
+    table_id = 'teams_dev'  # Replace with your table name
 
     client = bigquery.Client(project=project_id)
 
