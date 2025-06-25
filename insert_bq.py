@@ -1,53 +1,35 @@
 from google.cloud import bigquery
 
 def create_bigquery_table():
-    # Define your Google Cloud project and dataset
-    project_id = 'nfl-stream-406420'  # Replace with your actual project ID
-    dataset_id = 'Teams'  # Replace with your actual dataset ID
-    table_id = 'teams_dev'  # Replace with your table name
+    project_id = 'nfl-stream-406420'
+    dataset_id = 'Scores'
+    table_id = 'scores_dev'
 
     client = bigquery.Client(project=project_id)
 
-    # Define the schema based on the Level 1 / Level 2 structure with all necessary fields
     schema = [
-        # Team Info Columns
-        bigquery.SchemaField('teamID', 'STRING', mode='REQUIRED', description="Unique identifier for the team"),
-        bigquery.SchemaField('teamAbv', 'STRING', mode='NULLABLE', description="Team abbreviation (e.g., MIA for Miami Dolphins)"),
-        bigquery.SchemaField('teamCity', 'STRING', mode='NULLABLE', description="The city the team is from"),
-        bigquery.SchemaField('teamName', 'STRING', mode='NULLABLE', description="The name of the team"),
-        bigquery.SchemaField('conference', 'STRING', mode='NULLABLE', description="Conference the team belongs to"),
-        bigquery.SchemaField('division', 'STRING', mode='NULLABLE', description="The team's division"),
-        
-        # Level 1: High-level category like 'Team Stats', 'Top Performers', 'Bye Weeks'
-        bigquery.SchemaField('Level1', 'STRING', mode='REQUIRED', description="High-level category like 'Team Stats', 'Top Performers', 'Bye Weeks'"),
-        
-        # Level 2: The specific stat or metric under the Level 1 category
-        bigquery.SchemaField('Level2', 'STRING', mode='REQUIRED', description="Specific stat or metric under the Level 1 category (e.g., 'RushingYards', 'PassingAttempts')"),
-        
-        # Value: The actual value for the stat (e.g., 2308 for RushingYards)
-        bigquery.SchemaField('Value', 'FLOAT', mode='NULLABLE', description="The value of the stat or metric (e.g., 'RushingYards', 'PassingAttempts')"),
-        
-        # PlayerID: The player ID, if applicable, for top performers
-        bigquery.SchemaField('PlayerID', 'STRING', mode='NULLABLE', description="Player ID for top performers (only applicable for Level1='Top Performers')"),
-        
-        # Date: The date the data pertains to (used for partitioning)
-        bigquery.SchemaField('dataDate', 'DATE', mode='REQUIRED', description="The date the data pertains to, used for partitioning")
+        bigquery.SchemaField('gameID', 'STRING', mode='REQUIRED', description="Unique identifier for the game"),
+        bigquery.SchemaField('gameTime_epoch', 'FLOAT', mode='NULLABLE', description="Epoch timestamp of game start time in UTC"),
+        bigquery.SchemaField('game_datetime_est', 'TIMESTAMP', mode='NULLABLE', description="Localized game start time in America/New_York timezone"),
+        bigquery.SchemaField('game_date_est', 'DATE', mode='REQUIRED', description="Date of game in America/New_York timezone, used for partitioning"),
+        bigquery.SchemaField('homePts', 'INTEGER', mode='NULLABLE', description="Total points scored by the home team"),
+        bigquery.SchemaField('awayPts', 'INTEGER', mode='NULLABLE', description="Total points scored by the away team"),
+        bigquery.SchemaField('teamID', 'STRING', mode='REQUIRED', description="Team identifier (one row per team, home and away)"),
+        bigquery.SchemaField('Q1', 'INTEGER', mode='NULLABLE', description="Points scored in Q1 by the team"),
+        bigquery.SchemaField('Q2', 'INTEGER', mode='NULLABLE', description="Points scored in Q2 by the team"),
+        bigquery.SchemaField('Q3', 'INTEGER', mode='NULLABLE', description="Points scored in Q3 by the team"),
+        bigquery.SchemaField('Q4', 'INTEGER', mode='NULLABLE', description="Points scored in Q4 by the team"),
     ]
 
-    # Define the table reference
     table_ref = client.dataset(dataset_id).table(table_id)
-
-    # Create the table with partitioning on the dataDate column
     table = bigquery.Table(table_ref, schema=schema)
 
-    # Partitioning based on the dataDate column
     table.time_partitioning = bigquery.TimePartitioning(
         type_=bigquery.TimePartitioningType.DAY,
-        field='dataDate'  # The date the data pertains to
+        field='game_date_est'  # Partitioning on localized date
     )
 
-    # Create the table
-    table = client.create_table(table)  # Make an API request.
+    table = client.create_table(table)
     print(f"Table {table_id} created in dataset {dataset_id}.")
 
 # Call the function to create the table
