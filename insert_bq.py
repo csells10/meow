@@ -1,36 +1,34 @@
 from google.cloud import bigquery
 
-def create_bigquery_table():
+def create_production_table():
     project_id = 'nfl-stream-406420'
     dataset_id = 'Scores'
-    table_id = 'scores_dev'
+    table_id = 'scores'
+
 
     client = bigquery.Client(project=project_id)
 
     schema = [
-        bigquery.SchemaField('gameID', 'STRING', mode='REQUIRED', description="Unique identifier for the game"),
-        bigquery.SchemaField('gameTime_epoch', 'FLOAT', mode='NULLABLE', description="Epoch timestamp of game start time in UTC"),
-        bigquery.SchemaField('game_datetime_est', 'TIMESTAMP', mode='NULLABLE', description="Localized game start time in America/New_York timezone"),
-        bigquery.SchemaField('game_date_est', 'DATE', mode='REQUIRED', description="Date of game in America/New_York timezone, used for partitioning"),
-        bigquery.SchemaField('homePts', 'INTEGER', mode='NULLABLE', description="Total points scored by the home team"),
-        bigquery.SchemaField('awayPts', 'INTEGER', mode='NULLABLE', description="Total points scored by the away team"),
-        bigquery.SchemaField('teamID', 'STRING', mode='REQUIRED', description="Team identifier (one row per team, home and away)"),
-        bigquery.SchemaField('Q1', 'INTEGER', mode='NULLABLE', description="Points scored in Q1 by the team"),
-        bigquery.SchemaField('Q2', 'INTEGER', mode='NULLABLE', description="Points scored in Q2 by the team"),
-        bigquery.SchemaField('Q3', 'INTEGER', mode='NULLABLE', description="Points scored in Q3 by the team"),
-        bigquery.SchemaField('Q4', 'INTEGER', mode='NULLABLE', description="Points scored in Q4 by the team"),
+        bigquery.SchemaField("gameID", "STRING", mode="REQUIRED", description="Unique game identifier, typically includes date and teams"),
+        bigquery.SchemaField("teamID", "STRING", mode="REQUIRED", description="Team identifier (away or home)"),
+        bigquery.SchemaField("teamAbv", "STRING", mode="NULLABLE", description="Team abbreviation, e.g., 'DAL' for Dallas"),
+        bigquery.SchemaField("team_type", "STRING", mode="REQUIRED", description="'home' or 'away' to indicate team side"),
+        bigquery.SchemaField("Q1", "INTEGER", mode="NULLABLE", description="Points scored in the 1st quarter"),
+        bigquery.SchemaField("Q2", "INTEGER", mode="NULLABLE", description="Points scored in the 2nd quarter"),
+        bigquery.SchemaField("Q3", "INTEGER", mode="NULLABLE", description="Points scored in the 3rd quarter"),
+        bigquery.SchemaField("Q4", "INTEGER", mode="NULLABLE", description="Points scored in the 4th quarter"),
+        bigquery.SchemaField("OT", "INTEGER", mode="NULLABLE", description="Points scored in overtime, if applicable"),
+        bigquery.SchemaField("homePts", "INTEGER", mode="NULLABLE", description="Total points scored by the home team"),
+        bigquery.SchemaField("awayPts", "INTEGER", mode="NULLABLE", description="Total points scored by the away team"),
+        bigquery.SchemaField("game_date_est", "DATE", mode="REQUIRED", description="Game date in Eastern Time"),
+        bigquery.SchemaField("game_datetime_est", "DATETIME", mode="NULLABLE", description="Game start date and time in Eastern Time, no timezone suffix"),
     ]
 
-    table_ref = client.dataset(dataset_id).table(table_id)
+    table_ref = f"{project_id}.{dataset_id}.{table_id}"
     table = bigquery.Table(table_ref, schema=schema)
 
-    table.time_partitioning = bigquery.TimePartitioning(
-        type_=bigquery.TimePartitioningType.DAY,
-        field='game_date_est'  # Partitioning on localized date
-    )
-
-    table = client.create_table(table)
-    print(f"Table {table_id} created in dataset {dataset_id}.")
-
-# Call the function to create the table
-create_bigquery_table()
+    try:
+        client.create_table(table)
+        print(f"✅ Production table created: {table_ref}")
+    except Exception as e:
+        print(f"⚠️ Failed to create table: {e}")
