@@ -1,5 +1,6 @@
 import requests
 import logging
+import json
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import secretmanager
@@ -71,6 +72,7 @@ def fetch_and_validate_api_data(url, headers, querystring, context=None):
     - url: The API endpoint.
     - headers: The request headers (e.g., API key).
     - querystring: The query parameters for the API call.
+    - context: Optional string for logging/debugging context (e.g., which API or date)
 
     Returns:
     - Parsed JSON response if successful.
@@ -94,9 +96,20 @@ def fetch_and_validate_api_data(url, headers, querystring, context=None):
     if not isinstance(data, dict):
         raise TypeError(f"Expected JSON object, got {type(data).__name__}")
 
+    # TEMP: Print full response for debugging
+    # print("Full API response:")
+    # print(json.dumps(data, indent=2))
+
+    # TEMP: Log full data for troubleshooting
+    try:
+        log_event("debug", "api_response_debug", context=context, raw_data=data)
+    except Exception as e:
+        print("Failed to log debug event:", e)
+
     # Check if the 'body' field exists and contains data
     if 'body' not in data or not data['body']:
-        # logging.warning(f"No data found for the specified request. {context or ''}")
+        # Optionally raise an error or just return None
+        # raise ValueError("Missing or empty 'body' in response")
         return None
 
     return data  # Return the parsed JSON
