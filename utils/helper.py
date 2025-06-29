@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import secretmanager
 from google.api_core.exceptions import GoogleAPICallError, NotFound
+from utils.logging_setup import log_event
 
 PROJECT_ID = "nfl-stream-406420" 
 

@@ -4,19 +4,29 @@ import json
 import sys
 import os
 from logging.handlers import RotatingFileHandler
+
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
             'level': record.levelname,
-            'message': record.getMessage(),
             'timestamp': self.formatTime(record),
             'module': record.module,
             'line': record.lineno,
             'service': os.getenv('K_SERVICE', 'local'),
             'revision': os.getenv('K_REVISION', 'local')
         }
+
+        # Include structured fields passed via log_event
+        if hasattr(record, 'event'):
+            log_record['event'] = record.event
+        if hasattr(record, 'message'):
+            log_record['message'] = record.message
+        else:
+            log_record['message'] = record.getMessage()
+
         if record.exc_info:
             log_record['exception'] = self.formatException(record.exc_info)
+
         return json.dumps(log_record)
 
 def setup_logging():
@@ -47,5 +57,6 @@ def log_event(level, event, **kwargs):
     """
     logger = logging.getLogger(__name__)
     log_func = getattr(logger, level, logger.info)
-    log_func({"event": event, **kwargs})
 
+    # Send structured fields to the formatter using `extra`
+    log_func("", extra={"event": event, **kwargs})

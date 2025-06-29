@@ -23,16 +23,9 @@ def fetch_nfl_scores(load_date=None):
     else:
         game_date = load_date  # Must be in "YYYY-MM-DD" format
 
-    print(f"Fetching data for: {game_date}")
+    log_event("info", "fetching_scores", game_date=game_date)  # 🟢 replaced print
 
     # === Step 2: Fetch Game URLs for the Date ===
-    # This step uses your utility functions to:
-    # - Load the API key from secure storage
-    # - Construct and send a request to the Tank01 NFL Scores API
-    # - Validate and parse the response
-    # - Log the data retrieval
-    # - Save the raw API response to Google Cloud Storage for auditing/debugging
-
     api_key = get_secret("Tank_Rapidapi")
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLScoresOnly"
     headers = {
@@ -58,23 +51,20 @@ def fetch_nfl_scores(load_date=None):
         return
 
     game_urls = game_data.get("body", [])
-    print(f"Found {len(game_urls)} game URLs")
+    log_event("info", "game_urls_found", count=len(game_urls), data_date=game_date)  # 🟢 replaced print
 
     # Step 3: Expand and transform all games
     rows = []
     for game_id, game in game_data.get("body", {}).items():
         try:
-            # Convert epoch to EST datetime
             epoch = float(game.get("gameTime_epoch", 0))
             dt = pd.to_datetime(epoch, unit="s").tz_localize("UTC").tz_convert("America/New_York")
             game_datetime_est = dt.strftime("%Y-%m-%d %H:%M")
             game_date_est = dt.strftime("%Y-%m-%d")
 
-            # Extract points for reference
             homePts = pd.to_numeric(game.get("homePts", 0), errors="coerce")
             awayPts = pd.to_numeric(game.get("awayPts", 0), errors="coerce")
 
-            # Line score details
             line_score = game.get("lineScore", {})
             for side in ["home", "away"]:
                 data = line_score.get(side, {})
@@ -95,7 +85,7 @@ def fetch_nfl_scores(load_date=None):
                 rows.append(row)
 
         except Exception as e:
-            print(f"❌ Failed to process game {game_id}: {e}")
+            log_event("error", "game_processing_failed", game_id=game_id, error=str(e))  # 🟢 replaced print
             continue
 
     df = pd.DataFrame(rows)
@@ -104,7 +94,7 @@ def fetch_nfl_scores(load_date=None):
     expected = len(game_urls) * 2
     actual = len(df)
     if actual != expected:
-        print(f"⚠️ Expected {expected} rows (2 per game), but got {actual}. Skipping insert.")
+        log_event("warning", "row_count_mismatch", expected=expected, actual=actual, game_date=game_date)  # 🟢 replaced print
         return
 
     # Step 5: Insert into BigQuery
@@ -112,6 +102,6 @@ def fetch_nfl_scores(load_date=None):
     table_id = "nfl-stream-406420.Scores.scores_dev"
     errors = client.insert_rows_json(table_id, df.to_dict(orient="records"))
     if errors:
-        print(f"❌ BigQuery insert errors: {errors}")
+        log_event("error", "bigquery_insert_failed", error=errors)  # 🟢 replaced print
     else:
-        print(f"✅ Inserted {len(df)} rows into {table_id}")
+        log_event("info", "bigquery_insert_success", rows=len(df), table=table_id)  # 🟢 replaced print

@@ -1,23 +1,28 @@
-import json
-import os
-from utils.gcs import upload_file_to_gcs
 from utils.logging_setup import log_event
+from utils.gcs import upload_file_to_gcs
 
-def save_raw_response(response, data_date, prefix):
-    global original_json_response
-    original_json_response = response
+def save_raw_response(response, data_date, prefix="raw"):
+    import os
+    import json
 
-    filename = f"{prefix}_raw_response_{data_date}.json"
-    with open(filename, 'w') as f:
-        json.dump(response, f, indent=4)
-
-    log_event("info", "saved_raw_response", file=filename)
-
-    bucket = os.getenv("GCS_BUCKET_NAME", "xtra_point")
-    local_path = os.path.abspath(filename)
+    # === Skip if empty ===
+    if not response:
+        log_event("warning", "empty_response_skipped", prefix=prefix, data_date=data_date)
+        return
 
     try:
-        gcs_path = upload_file_to_gcs(bucket, local_path)
+        # Save to local temp file
+        filename = f"{prefix}_{data_date}.json"
+        with open(filename, 'w') as f:
+            json.dump(response, f, indent=4)
+
+        # Upload to GCS
+        bucket = os.getenv("GCS_BUCKET_NAME", "xtra_point")
+        gcs_path = upload_file_to_gcs(bucket, filename)
         log_event("info", "backup_to_gcs_complete", gcs_path=gcs_path)
+
+        # Optional: delete local temp file after upload
+        os.remove(filename)
+
     except Exception as e:
-        log_event("error", "gcs_backup_failed", error=str(e), file=local_path)
+        log_event("error", "gcs_upload_failed", error=str(e), data_date=data_date)
