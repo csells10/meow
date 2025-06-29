@@ -9,6 +9,7 @@ from utils.helper import (
     filter_new_records,
     delete_yesterdays_games_from_bigquery
 )
+from utils.response_helpers import save_raw_response
 
 def fetch_nfl_games():
     log_event("info", "nfl_games_job_started")
@@ -33,6 +34,9 @@ def fetch_nfl_games():
         if response and 'body' in response:
             yesterday_data = response['body']
             log_event("info", "yesterday_games_fetched", count=len(yesterday_data))
+
+            # Save raw response
+            save_raw_response(response, yesterday_date, prefix="nfl_games")
         else:
             log_event("warning", "yesterday_games_fetch_empty", game_date=yesterday_date)
     except Exception as e:
@@ -62,7 +66,7 @@ def fetch_nfl_games():
     any_valid_data = False
     failed_dates = []
 
-    for day_offset in range(0, days_range - 1):  # skip yesterday (-1) since already handled
+    for day_offset in range(0, days_range - 1):
         game_date = (start_date + timedelta(days=day_offset)).strftime('%Y%m%d')
         querystring = {"gameDate": game_date}
 
@@ -74,6 +78,9 @@ def fetch_nfl_games():
 
             game_body = games.get('body', [])
             log_event("info", "games_fetched", game_date=game_date, count=len(game_body))
+
+            # Save raw response
+            save_raw_response(games, game_date, prefix="nfl_games")
 
         except (ValueError, TypeError) as e:
             log_event("error", "games_fetch_failed", game_date=game_date, error=str(e))
@@ -97,4 +104,3 @@ def fetch_nfl_games():
     else:
         log_event("info", 'Data inserted successfully!')
         log_event("info", "nfl_games_job_completed")
-

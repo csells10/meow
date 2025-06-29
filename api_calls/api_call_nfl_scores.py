@@ -99,7 +99,7 @@ def fetch_nfl_scores(load_date=None):
 
     # Step 5: Insert into BigQuery
     client = bigquery.Client()
-    table_id = "nfl-stream-406420.Scores.scores_dev"
+    table_id = "nfl-stream-406420.Scores.scores"
     errors = client.insert_rows_json(table_id, df.to_dict(orient="records"))
     if errors:
         log_event("error", "bigquery_insert_failed", error=errors)  # 🟢 replaced print

@@ -11,31 +11,10 @@ from utils.helper import (
     check_existing_team_records,
     filter_changed_team_records
 )
-from utils.gcs import upload_file_to_gcs
-import os
+from utils.response_helpers import save_raw_response  # using shared helper
 from deepdiff import DeepDiff
 
 original_json_response = None  # Store original response for comparison
-
-def save_raw_response(response, data_date):
-    global original_json_response
-    original_json_response = response
-
-    filename = f"nfl_teams_raw_response_{data_date}.json"
-    with open(filename, 'w') as f:
-        json.dump(response, f, indent=4)
-        
-    log_event("info", "saved_raw_response", file=filename)
-
-    # Upload to GCS
-    bucket = os.getenv("GCS_BUCKET_NAME", "xtra_point")
-    local_path = os.path.abspath(filename)
-
-    try:
-        gcs_path = upload_file_to_gcs(bucket, local_path)
-        log_event("info", "backup_to_gcs_complete", gcs_path=gcs_path)
-    except Exception as e:
-        log_event("error", "gcs_backup_failed", error=str(e), file=local_path)
         
 def validate_transformation(final_df, original_json):
     transformed_data = final_df.to_dict(orient='records')
@@ -68,7 +47,7 @@ def fetch_nfl_teams(load_date=None):
 
     data_date = load_date or datetime.now().strftime('%Y-%m-%d')
     # DEV table in big query
-    table_id = 'nfl-stream-406420.Teams.teams_dev'
+    table_id = 'nfl-stream-406420.Teams.teams'
 
     # === 1b. API Configuration ===
     api_key = get_secret('Tank_Rapidapi')
@@ -89,8 +68,9 @@ def fetch_nfl_teams(load_date=None):
     try:
         teams = fetch_and_validate_api_data(url, headers, querystring)
         log_event("info", "fetched_team_data", data_date=data_date)
-        save_raw_response(teams, data_date)
-    except (ValueError, TypeError) as e:
+        
+        save_raw_response(teams, data_date, prefix="nfl_teams")
+    except Exception as e:                                    # 🟢 broadened
         log_event("error", "team_data_fetch_failed", error=str(e), data_date=data_date)
         return
 
