@@ -5,13 +5,12 @@ from api_calls.api_call_nfl_games import fetch_nfl_games
 # ─────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────
-START_DATE = date(2024, 9, 4)                          # Adjust as needed
-NUM_DAYS = 7                                           # How many days to backfill
-TABLE_ID = "nfl-stream-406420.League.schedule_dev"     # Target table (dev or prod)
+START_DATE = date(2024, 1, 7)                          # Adjust as needed
+NUM_DAYS = 36                                         # How many days to backfill
 SLEEP_SECONDS = 2                                      # Delay between requests
 
 # ─────────────────────────────────────────────────────────────
-def run_backfill(start_date: date, num_days: int, table_id: str):
+def run_backfill(start_date: date, num_days: int):
     for i in range(num_days):
         current_date = start_date + timedelta(days=i)
         percent_complete = round(((i + 1) / num_days) * 100, 1)
@@ -29,4 +28,4 @@ def run_backfill(start_date: date, num_days: int, table_id: str):
 
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    run_backfill(START_DATE, NUM_DAYS, TABLE_ID)
+    run_backfill(START_DATE, NUM_DAYS)

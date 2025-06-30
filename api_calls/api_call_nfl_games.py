@@ -30,7 +30,7 @@ def fetch_nfl_games(load_date=None):
         "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com",
     }
 
-    table_id = "nfl-stream-406420.League.schedule_dev"
+    table_id = "nfl-stream-406420.League.schedule"
     if load_date:
         start_date = datetime.strptime(load_date, "%Y-%m-%d").date()
     else:
@@ -145,9 +145,9 @@ def fetch_nfl_games(load_date=None):
 
     # ────────────────────────────────────────────────────────────────
     log_event("info", "nfl_games_job_completed")
-    # ─────────────────────────────────────────────
-    # Step 5: Run for load_date only if historical
-    # ─────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────
+    # Step 5A: Historical Mode – Fetch and Log API Data
+    # ─────────────────────────────────────────────────────────────
     if is_historical_run:
         game_date = start_date.strftime("%Y%m%d")
         querystring = {"gameDate": game_date}
@@ -155,21 +155,46 @@ def fetch_nfl_games(load_date=None):
             games = fetch_and_validate_api_data(url, headers, querystring)
             if not games or "body" not in games:
                 log_event("warning", "no_games_found", game_date=game_date)
+                print(f"⚠️  No games found for {game_date}")
                 return
 
             game_body = games["body"]
             log_event("info", "games_fetched", game_date=game_date, count=len(game_body))
             save_raw_response(games, game_date, prefix="nfl_games")
 
+            print(f"🧠- {game_date} – API returned {len(game_body)} games")
+
+            # ✅ Overwrite 'gameDate' to ISO string (YYYY-MM-DD)
+            for game in game_body:
+                raw_game_date = game.get("gameDate")
+                if raw_game_date:
+                    try:
+                        parsed_date = datetime.strptime(raw_game_date, "%Y%m%d").date()
+                        game["gameDate"] = parsed_date.isoformat()  # Overwrite with ISO string
+                    except Exception as e:
+                        log_event("error", "gamedate_parse_failed", game_id=game.get("gameID"), error=str(e))
+                        continue
+
+            # ─────────────────────────────────────────────────────────────
+            # Step 5B: Deduplication and Insert to BigQuery
+            # ─────────────────────────────────────────────────────────────
             game_ids = [game.get("gameID") for game in game_body]
             existing_ids = check_existing_records(table_id, "gameID", game_ids)
             rows_to_insert = filter_new_records(existing_ids, game_body, "gameID")
 
             if rows_to_insert:
-                insert_into_bigquery(table_id, rows_to_insert)
-                log_event("info", "games_inserted", game_date=game_date, inserted=len(rows_to_insert))
+                try:
+                    insert_into_bigquery(table_id, rows_to_insert)
+                    log_event("info", "games_inserted", game_date=game_date, inserted=len(rows_to_insert))
+                    print(f"✅ Inserted {len(rows_to_insert)} games for {game_date}")
+                except Exception as e:
+                    log_event("error", "bigquery_insert_failed", game_date=game_date, error=str(e))
+                    print(f"❌ BigQuery insert failed for {game_date}: {e}")
             else:
                 log_event("info", "no_new_games", game_date=game_date)
+                print(f"🟡 No new games inserted for {game_date}")
 
         except Exception as e:
             log_event("error", "games_fetch_failed", game_date=game_date, error=str(e))
+            print(f"❌ API fetch failed for {game_date}: {e}")
+
