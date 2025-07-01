@@ -5,9 +5,9 @@ from api_calls.api_call_nfl_games import fetch_nfl_games
 # ─────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────
-START_DATE = date(2024, 1, 7)                          # Adjust as needed
-NUM_DAYS = 36                                         # How many days to backfill
-SLEEP_SECONDS = 2                                      # Delay between requests
+START_DATE = date(2025, 12, 20)                          # Adjust as needed
+NUM_DAYS = 15                                             # How many days to backfill
+SLEEP_SECONDS = 2                                        # Delay between requests
 
 # ─────────────────────────────────────────────────────────────
 def run_backfill(start_date: date, num_days: int):

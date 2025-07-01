@@ -162,18 +162,18 @@ def fetch_nfl_games(load_date=None):
             log_event("info", "games_fetched", game_date=game_date, count=len(game_body))
             save_raw_response(games, game_date, prefix="nfl_games")
 
-            print(f"🧠- {game_date} – API returned {len(game_body)} games")
+            print(f"🧠 [Debug] {game_date} – API returned {len(game_body)} games")
 
-            # ✅ Overwrite 'gameDate' to ISO string (YYYY-MM-DD)
+            # ✅ Format gamedate and sanitize gametime_epoch
             for game in game_body:
-                raw_game_date = game.get("gameDate")
-                if raw_game_date:
-                    try:
-                        parsed_date = datetime.strptime(raw_game_date, "%Y%m%d").date()
-                        game["gameDate"] = parsed_date.isoformat()  # Overwrite with ISO string
-                    except Exception as e:
-                        log_event("error", "gamedate_parse_failed", game_id=game.get("gameID"), error=str(e))
-                        continue
+                # Format gamedate (string) → DATE format 'YYYY-MM-DD'
+                if "gamedate" in game:
+                    game["gamedate"] = datetime.strptime(game["gamedate"], "%Y%m%d").date()
+
+                # Ensure gametime_epoch is either a valid timestamp or None
+                epoch = game.get("gametime_epoch")
+                if not epoch or not str(epoch).strip():
+                    game["gametime_epoch"] = None
 
             # ─────────────────────────────────────────────────────────────
             # Step 5B: Deduplication and Insert to BigQuery
@@ -181,6 +181,11 @@ def fetch_nfl_games(load_date=None):
             game_ids = [game.get("gameID") for game in game_body]
             existing_ids = check_existing_records(table_id, "gameID", game_ids)
             rows_to_insert = filter_new_records(existing_ids, game_body, "gameID")
+
+            print(f"🧮 [Debug] {game_date} – Found {len(existing_ids)} existing gameIDs")
+            print(f"📤 [Debug] {game_date} – {len(rows_to_insert)} rows remaining after deduping")
+            if rows_to_insert:
+                print(f"📦 [Debug] Sample row:\n{rows_to_insert[0]}")
 
             if rows_to_insert:
                 try:
@@ -197,4 +202,5 @@ def fetch_nfl_games(load_date=None):
         except Exception as e:
             log_event("error", "games_fetch_failed", game_date=game_date, error=str(e))
             print(f"❌ API fetch failed for {game_date}: {e}")
+
 
