@@ -1,32 +1,21 @@
 from google.cloud import bigquery
 
-from google.cloud import bigquery
-
-def create_dev_scores_table():
+def create_game_metrics_flat_table():
     project_id = 'nfl-stream-406420'
-    dataset_id = 'League'
-    table_id = 'schedule_dev'
+    dataset_id = 'Analytics'
+    table_id = 'game_metrics_flat'
 
     client = bigquery.Client(project=project_id)
 
     schema = [
-        bigquery.SchemaField("gameID", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("seasonType", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("away", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("gameDate", "DATE", mode="NULLABLE"),
-        bigquery.SchemaField("espnID", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("teamIDHome", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("gameStatus", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("gameWeek", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("teamIDAway", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("home", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("espnLink", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("cbsLink", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("gameTime", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("gameTime_epoch", "TIMESTAMP", mode="NULLABLE"),
-        bigquery.SchemaField("season", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("neutralSite", "BOOLEAN", mode="NULLABLE"),
-        bigquery.SchemaField("gameStatusCode", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("team_id", "STRING", mode="REQUIRED", description="Unique team identifier"),
+        bigquery.SchemaField("team_abv", "STRING", mode="NULLABLE", description="Team abbreviation (e.g. 'NE', 'DAL')"),
+        bigquery.SchemaField("data_date", "DATE", mode="REQUIRED", description="Calendar date the game was played"),
+        bigquery.SchemaField("category", "STRING", mode="REQUIRED", description="Group or family of related metrics"),
+        bigquery.SchemaField("metric", "STRING", mode="REQUIRED", description="Specific name of the metric recorded"),
+        bigquery.SchemaField("core_area", "STRING", mode="REQUIRED", description="High-level grouping like 'Offense', 'Defense', or 'Special Teams'"),
+        bigquery.SchemaField("value", "FLOAT", mode="REQUIRED", description="Numerical value of the metric"),
+        bigquery.SchemaField("gameID", "STRING", mode="REQUIRED", description="Tank API game ID"),
     ]
 
     table_ref = f"{project_id}.{dataset_id}.{table_id}"
@@ -34,9 +23,9 @@ def create_dev_scores_table():
 
     try:
         client.create_table(table)
-        print(f"✅ Dev table created: {table_ref}")
+        print(f"✅ Table created: {table_ref}")
     except Exception as e:
         print(f"⚠️ Failed to create table: {e}")
 
 if __name__ == "__main__":
-    create_dev_scores_table()
+    create_game_metrics_flat_table()

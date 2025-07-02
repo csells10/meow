@@ -22,8 +22,7 @@ def fetch_nfl_games(load_date=None):
 
     api_key = get_secret("Tank_Rapidapi")
     url = (
-        "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/"
-        "getNFLGamesForDate"
+        "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForDate"
     )
     headers = {
         "x-rapidapi-key": api_key,
