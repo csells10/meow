@@ -23,7 +23,7 @@ BASE_QUERYSTRING = {
 def fetch_games_to_process(client: bigquery.Client) -> List[dict]:
     sql = f"""
         SELECT * FROM `{PROJECT}.{BQ_SOURCE}`
-        ORDER BY gameDate DESC LIMIT 5
+        ORDER BY gameDate DESC
     """
     return [dict(r) for r in client.query(sql).result()]
 
