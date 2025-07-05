@@ -51,7 +51,7 @@ def mark_game_as_loaded(client: bigquery.Client, game_id: str):
 def fetch_nfl_scores_backfill():
     log_event("info", "etl_start")
     bq = bigquery.Client(project=PROJECT)
-    backlog = fetch_games_to_process(bq)
+    backlog = fetch_scores_to_process(bq)
     log_event("info", "backlog_loaded", count=len(backlog))
     if not backlog:
         log_event("info", "no_scores_to_process")
