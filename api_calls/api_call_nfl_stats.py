@@ -2,7 +2,7 @@
 import os, time, json, requests, random
 from typing import List
 
-from api_calls.api_utils.parse_game_stats import parse_game_stats
+from api_calls.api_utils.parse_nfl_stats import parse_game_stats
 from google.cloud import bigquery
 from google.api_core.exceptions import NotFound
 from utils.helper import get_secret, fetch_and_validate_api_data
@@ -25,6 +25,7 @@ def fetch_games_to_process(client: bigquery.Client) -> List[dict]:
             *
         FROM `{PROJECT}.{BQ_SOURCE}`
         ORDER BY gameDate DESC
+        LIMIT 1
     """
     return [dict(r) for r in client.query(sql).result()]
 
@@ -71,7 +72,7 @@ def mark_game_as_loaded(client: bigquery.Client, game_id: str):
 # ─────────────────────────────────────────────
 # MAIN LOOP
 # ─────────────────────────────────────────────
-def main():
+def get_nfl_stats():
     bq = bigquery.Client(project=PROJECT)
 
     # Ensure the target table exists
@@ -115,7 +116,3 @@ def main():
         time.sleep(0.7 + random.uniform(0, 0.3))  # jitter to be safe
 
     log_event("info", "etl_job_complete", processed=len(backlog))
-
-
-if __name__ == "__main__":
-    main()

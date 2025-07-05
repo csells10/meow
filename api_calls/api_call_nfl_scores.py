@@ -1,107 +1,119 @@
-# import json
-# import os
-import pandas as pd
-import requests
-
-from datetime import datetime
+# api_call_nfl_box_scores_backfill.py
+import json, pandas as pd
+from typing import List
 from google.cloud import bigquery
-from utils.gcs import upload_file_to_gcs
+from utils.helper import get_secret, fetch_and_validate_api_data
 from utils.logging_setup import log_event
-from utils.helper import (
-    insert_into_bigquery,
-    get_secret,
-    fetch_and_validate_api_data,
-    check_existing_team_records,
-    filter_changed_team_records
-)
-from utils.response_helpers import save_raw_response
 
-def fetch_nfl_scores(load_date=None):
-    # Step 1: Determine game date using pandas
-    if load_date is None:
-        game_date = pd.Timestamp.now(tz="America/New_York").strftime("%Y-%m-%d")
-    else:
-        game_date = load_date  # Must be in "YYYY-MM-DD" format
+PROJECT = "nfl-stream-406420"
+BQ_SOURCE = "Scores.scores_to_process"
+BQ_TARGET = "League.schedule"
+API_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
+API_URL = f"https://{API_HOST}/getNFLScoresOnly"
+API_KEY = get_secret("Tank_Rapidapi")
 
-    log_event("info", "fetching_scores", game_date=game_date)  # 🟢 replaced print
+HEADERS = {
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": API_HOST,
+}
+BASE_QUERYSTRING = {
+    "topPerformers": "false"
+}
 
-    # === Step 2: Fetch Game URLs for the Date ===
-    api_key = get_secret("Tank_Rapidapi")
-    url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLScoresOnly"
-    headers = {
-        'x-rapidapi-key': api_key,
-        'x-rapidapi-host': "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
-    }
-    querystring = {
-        "gameDate": game_date.replace("-", ""),
-        "topPerformers": "false"
-    }
+def fetch_scores_to_process(client: bigquery.Client) -> List[dict]:
+    sql = f"""
+        SELECT * FROM `{PROJECT}.{BQ_SOURCE}`
+        ORDER BY gameDate DESC
+    """
+    return [dict(r) for r in client.query(sql).result()]
 
-    try:
-        game_data = fetch_and_validate_api_data(url, headers, querystring, context="NFL Scores API Call")
-        log_event("info", "fetched_score_urls", data_date=game_date)
-        
-        save_raw_response(game_data, game_date, prefix="nfl_scores")
-    except (ValueError, TypeError) as e:
-        log_event("error", "score_urls_fetch_failed", error=str(e), data_date=game_date)
+def insert_rows_bq(client: bigquery.Client, rows: List[dict]):
+    errors = client.insert_rows_json(f"{PROJECT}.Scores.scores", rows)
+    if errors:
+        for err in errors:
+            log_event("error", "bq_insert_error_detail", details=err)
+        raise RuntimeError(f"BigQuery insert errors: {errors}")
+    log_event("info", "bq_insert_success", rows=len(rows))
+
+def mark_game_as_loaded(client: bigquery.Client, game_id: str):
+    sql = f"""
+        UPDATE `{PROJECT}.{BQ_TARGET}`
+        SET score_loaded = TRUE
+        WHERE gameID = @game_id
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("game_id", "STRING", game_id)
+        ]
+    )
+    client.query(sql, job_config=job_config).result()
+
+def fetch_nfl_scores_backfill():
+    log_event("info", "etl_start")
+    bq = bigquery.Client(project=PROJECT)
+    backlog = fetch_games_to_process(bq)
+    log_event("info", "backlog_loaded", count=len(backlog))
+    if not backlog:
+        log_event("info", "no_scores_to_process")
         return
 
-    if not game_data:
-        log_event("warning", "no_score_urls_found", data_date=game_date)
-        return
-
-    game_urls = game_data.get("body", [])
-    log_event("info", "game_urls_found", count=len(game_urls), data_date=game_date)  # 🟢 replaced print
-
-    # Step 3: Expand and transform all games
-    rows = []
-    for game_id, game in game_data.get("body", {}).items():
+    for game in backlog:
+        game_id = game["gameID"]
+        querystring = {**BASE_QUERYSTRING, "gameID": game_id}
         try:
-            epoch = float(game.get("gameTime_epoch", 0))
-            dt = pd.to_datetime(epoch, unit="s").tz_localize("UTC").tz_convert("America/New_York")
-            game_datetime_est = dt.strftime("%Y-%m-%d %H:%M")
-            game_date_est = dt.strftime("%Y-%m-%d")
-
-            homePts = pd.to_numeric(game.get("homePts", 0), errors="coerce")
-            awayPts = pd.to_numeric(game.get("awayPts", 0), errors="coerce")
-
-            line_score = game.get("lineScore", {})
-            for side in ["home", "away"]:
-                data = line_score.get(side, {})
-                row = {
-                    "gameID": game_id,
-                    "teamID": game.get(f"teamID{side.capitalize()}"),
-                    "team_type": side,
-                    "Q1": pd.to_numeric(data.get("Q1", 0), errors="coerce"),
-                    "Q2": pd.to_numeric(data.get("Q2", 0), errors="coerce"),
-                    "Q3": pd.to_numeric(data.get("Q3", 0), errors="coerce"),
-                    "Q4": pd.to_numeric(data.get("Q4", 0), errors="coerce"),
-                    "OT": pd.to_numeric(data.get("OT", 0), errors="coerce"),
-                    "homePts": homePts,
-                    "awayPts": awayPts,
-                    "game_date_est": game_date_est,
-                    "game_datetime_est": game_datetime_est,
-                }
-                rows.append(row)
-
+            response = fetch_and_validate_api_data(API_URL, HEADERS, querystring, context=game_id)
         except Exception as e:
-            log_event("error", "game_processing_failed", game_id=game_id, error=str(e))  # 🟢 replaced print
+            log_event("error", "api_call_failed", game_id=game_id, error=str(e))
             continue
 
-    df = pd.DataFrame(rows)
+        if not response:
+            log_event("warning", "no_data_returned", game_id=game_id)
+            continue
 
-    # Step 4: Validate row count
-    expected = len(game_urls) * 2
-    actual = len(df)
-    if actual != expected:
-        log_event("warning", "row_count_mismatch", expected=expected, actual=actual, game_date=game_date)  # 🟢 replaced print
-        return
+        game_data = response.get("body", {}).get(game_id)
+        if not game_data:
+            log_event("warning", "game_not_found_in_api", game_id=game_id)
+            continue
 
-    # Step 5: Insert into BigQuery
-    client = bigquery.Client()
-    table_id = "nfl-stream-406420.Scores.scores"
-    errors = client.insert_rows_json(table_id, df.to_dict(orient="records"))
-    if errors:
-        log_event("error", "bigquery_insert_failed", error=errors)  # 🟢 replaced print
-    else:
-        log_event("info", "bigquery_insert_success", rows=len(df), table=table_id)  # 🟢 replaced print
+        try:
+            epoch = float(game_data.get("gameTime_epoch", 0))
+            dt = pd.to_datetime(epoch, unit="s").tz_localize("UTC").tz_convert("America/New_York")
+            game_datetime_est = dt.strftime("%Y-%m-%d %H:%M:%S")
+            game_date_est = dt.strftime("%Y-%m-%d")
+        except Exception as e:
+            log_event("error", "datetime_conversion_failed", game_id=game_id, error=str(e))
+            continue
+
+        line_score = game_data.get("lineScore", {})
+        rows = []
+        for side in ["home", "away"]:
+            data = line_score.get(side, {})
+            row = {
+                "gameID": game_id,
+                "teamID": game_data.get(f"teamID{side.capitalize()}"),
+                "teamAbv": data.get("teamAbv", ""),
+                "team_type": side,
+                "Q1": int(pd.to_numeric(data.get("Q1", 0), errors="coerce") or 0),
+                "Q2": int(pd.to_numeric(data.get("Q2", 0), errors="coerce") or 0),
+                "Q3": int(pd.to_numeric(data.get("Q3", 0), errors="coerce") or 0),
+                "Q4": int(pd.to_numeric(data.get("Q4", 0), errors="coerce") or 0),
+                "OT": int(pd.to_numeric(data.get("OT", 0), errors="coerce") or 0),
+                "homePts": int(pd.to_numeric(game_data.get("homePts", 0), errors="coerce") or 0),
+                "awayPts": int(pd.to_numeric(game_data.get("awayPts", 0), errors="coerce") or 0),
+                "game_date_est": game_date_est,
+                "game_datetime_est": game_datetime_est
+            }
+            rows.append(row)
+
+        if len(rows) != 2:
+            log_event("warning", "row_count_mismatch", game_id=game_id, expected=2, actual=len(rows), data=line_score)
+            continue
+
+        try:
+            insert_rows_bq(bq, rows)
+            mark_game_as_loaded(bq, game_id)
+            log_event("info", "game_processed", game_id=game_id)
+        except Exception as e:
+            log_event("error", "bq_insert_or_mark_failed", game_id=game_id, error=str(e))
+
+    log_event("info", "etl_job_complete")
