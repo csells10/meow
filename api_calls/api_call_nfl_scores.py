@@ -48,7 +48,7 @@ def mark_game_as_loaded(client: bigquery.Client, game_id: str):
     )
     client.query(sql, job_config=job_config).result()
 
-def fetch_nfl_scores_backfill():
+def fetch_nfl_scores():
     log_event("info", "etl_start")
     bq = bigquery.Client(project=PROJECT)
     backlog = fetch_scores_to_process(bq)

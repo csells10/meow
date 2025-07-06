@@ -72,24 +72,8 @@ def mark_game_as_loaded(client: bigquery.Client, game_id: str):
 # ─────────────────────────────────────────────
 # MAIN LOOP
 # ─────────────────────────────────────────────
-def get_nfl_stats():
+def fetch_nfl_stats():
     bq = bigquery.Client(project=PROJECT)
-
-    # Ensure the target table exists
-    try:
-        bq.get_table(f"{PROJECT}.{BQ_TARGET}")
-    except NotFound:
-        schema = [
-            bigquery.SchemaField("team_id", "STRING"),
-            bigquery.SchemaField("team_abv", "STRING"),
-            bigquery.SchemaField("data_date", "DATE"),
-            bigquery.SchemaField("category", "STRING"),
-            bigquery.SchemaField("metric", "STRING"),
-            bigquery.SchemaField("core_area", "STRING"),
-            bigquery.SchemaField("value", "FLOAT"),
-            bigquery.SchemaField("gameID", "STRING"),
-        ]
-        bq.create_table(bigquery.Table(f"{PROJECT}.{BQ_TARGET}", schema=schema))
 
     backlog = fetch_games_to_process(bq)
     print(f"🗂️  {len(backlog)} games to ingest")
