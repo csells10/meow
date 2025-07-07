@@ -17,6 +17,6 @@ API_CALLS = [
     {
         'name': 'NFL Scores API Call',
         'function': fetch_nfl_scores,
-        'max_cycles': 1    
-     }
+        'max_cycles': 1
+    }
 ]

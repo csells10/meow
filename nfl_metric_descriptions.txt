@@ -1,0 +1,153 @@
+🔥 SCORING & EFFICIENCY
+
+actual_points
+  Formula: Total points scored by the team
+  Meaning: Direct outcome of performance. Higher values indicate more scoring success.
+  Higher is better
+
+points_per_play
+  Formula: points_scored / total_plays
+  Meaning: Measures scoring efficiency per snap. Useful to compare high-tempo vs methodical offenses.
+  Higher is better
+
+points_allowed_per_play
+  Formula: points_allowed / opponent_total_plays
+  Meaning: Defensive efficiency per snap. Reflects how much damage is done against the defense on each play.
+  Lower is better
+
+td_rate
+  Formula: (passing_tds + rushing_tds) / total_plays
+  Meaning: Touchdown scoring frequency. A measure of finishing drives effectively.
+  Higher is better
+
+🟥 RED ZONE & CONVERSION
+
+red_zone_efficiency
+  Formula: red_zone_tds / red_zone_attempts
+  Meaning: Effectiveness at turning red zone visits into touchdowns.
+  Higher is better
+
+third_down_pct
+  Formula: third_down_conversions / third_down_attempts
+  Meaning: Ability to extend drives. Indicates offensive rhythm and clutch performance.
+  Higher is better
+
+fourth_down_pct
+  Formula: fourth_down_conversions / fourth_down_attempts
+  Meaning: Measures aggressiveness and situational efficiency. Useful in analyzing coaching decisions.
+  Higher is better
+
+🔁 PLAY CALLING & STRATEGY
+
+run_play_pct
+  Formula: rushing_attempts / total_plays
+  Meaning: Share of plays that are runs. Indicates offensive approach — ball control or clock management.
+  Context dependent
+
+pass_play_pct
+  Formula: pass_attempts / total_plays
+  Meaning: Share of plays that are passes. Often reflects quarterback trust and game script.
+  Context dependent
+
+pass_run_ratio
+  Formula: pass_attempts / rushing_attempts
+  Meaning: Indicates balance or skew in play-calling. A ratio near 1.0 is balanced; higher favors the pass.
+  Context dependent
+
+🔄 SUSTAINED DRIVES & MOVEMENT
+
+1st_down_rate
+  Formula: first_downs / total_plays
+  Meaning: Frequency of moving the chains. Reflects offensive consistency.
+  Higher is better
+
+pass_td_share
+  Formula: passing_tds / (passing_tds + rushing_tds)
+  Meaning: TD split toward passing. Highlights team identity or QB performance.
+  Context dependent
+
+rush_td_share
+  Formula: rushing_tds / (passing_tds + rushing_tds)
+  Meaning: TD split toward the run. Suggests red zone ground game strength.
+  Context dependent
+
+🧮 SNAP LOAD & USAGE
+
+offensive_snap_load
+  Formula: total_offensive_snaps / total_snaps
+  Meaning: Share of total plays spent on offense. Indicates ability to control possession and tempo.
+  Higher is better
+
+defensive_snap_load
+  Formula: total_defensive_snaps / total_snaps
+  Meaning: Share of time spent on defense. A high value may suggest offensive inefficiency or poor time of possession.
+  Lower is better
+
+special_teams_snap_pct
+  Formula: total_special_teams_snaps / total_snaps
+  Meaning: Indicates special teams’ presence. Useful for spotting game script extremes or field position battles.
+  Context dependent
+
+💥 PRESSURE & TURNOVERS
+
+sack_to_turnover_ratio
+  Formula: sacks / (defensive_interceptions + ε)
+  Meaning: Balance of pressure vs ball-hawking.
+    A lower ratio implies more turnovers per sack (opportunistic defense),
+    while a higher ratio reflects pressure-heavy but possibly inefficient defenses.
+  Context dependent
+
+pressure_rate
+  Formula: (sacks + sacks_taken) / pass_attempts
+  Meaning: Measures how often pressure occurs on passing downs — either applied or absorbed.
+    Can reflect OL weakness or defensive disruption.
+  Lower is better (for offense) / Higher is better (for defense)
+
+turnover_margin
+  Formula: (defensive_interceptions + fumbles_recovered) - (interceptions_thrown + fumbles_lost)
+  Meaning: Net possession gain via turnovers. Key driver of game outcome.
+  Higher is better
+
+🛡 DEFENSIVE CONTROL
+
+defensive_success_rate
+  Formula: yards_allowed / opponent_total_plays
+  Meaning: Average yards allowed per play. Lower means fewer big gains — indicates stingy defense.
+  Lower is better
+
+points_allowed_per_yard
+  Formula: points_allowed / yards_allowed
+  Meaning: Points yielded per yard given up. High value suggests red zone struggles or bend-and-break defense.
+  Lower is better
+
+📈 RAW OUTPUT
+
+passing_yards
+  Formula: Total passing yards gained
+  Meaning: Measures aerial productivity.
+  Higher is better
+
+rushing_yards
+  Formula: Total rushing yards gained
+  Meaning: Reflects ground game strength.
+  Higher is better
+
+total_yards
+  Formula: Passing + Rushing yards;
+  Meaning: Overall offensive yardage production.
+  Higher is better
+
+sacks
+  Formula: Total defensive sacks
+  Meaning: Measures pass rush productivity and pressure.
+  Higher is better
+
+defensive_interceptions
+  Formula: Total interceptions made by the defense
+  Meaning: Indicator of playmaking and ball-hawking secondary.
+  Higher is better
+
+time_of_possession
+  Formula: Time with ball in minutes (from MM:SS)
+  Meaning: Field control and offensive endurance.
+  Higher is generally better

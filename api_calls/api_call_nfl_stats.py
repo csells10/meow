@@ -25,7 +25,6 @@ def fetch_games_to_process(client: bigquery.Client) -> List[dict]:
             *
         FROM `{PROJECT}.{BQ_SOURCE}`
         ORDER BY gameDate DESC
-        LIMIT 1
     """
     return [dict(r) for r in client.query(sql).result()]
 
