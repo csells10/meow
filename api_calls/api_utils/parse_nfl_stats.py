@@ -178,6 +178,11 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         total_def = float(snap_counts.get("totalDefensive", 0))
         total_st  = float(snap_counts.get("totalSpecialTeams", 0))
         total_all = total_off + total_def + total_st
+        
+        add_metric("Snap Load", "total_offensive_snaps", "Offense", total_off)
+        add_metric("Snap Load", "total_defensive_snaps", "Defense", total_def)
+        add_metric("Snap Load", "total_special_teams_snaps", "Special Teams", total_st)
+        add_metric("Snap Load", "total_snaps", "Raw", total_all)
 
         if total_all > 0:
             try_add_metric("Offense", "offensive_snap_load", "Offensive Output", total_off, total_all, "Offensive Snap Load")
@@ -191,14 +196,20 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                     a, b = map(float, t_stats[raw_key].split("-"))
                 except Exception:
                     a, b = 0.0, 0.0
-                # Derive core_area and category based on field name
                 for name, val in zip(new_names, [a, b]):
-                    core_area = "Offensive Output" if "yards" in name or "attempts" in name else "Disruption and Turnovers"
-                    category = "Offense" if "pass" in name or "rush" in name else "Defense"
+                    # Hardcode known edge cases
+                    if name in ("sacks_taken", "sack_yards_lost"):
+                        core_area = "Offensive Output"
+                        category = "Offense"
+                    else:
+                        core_area = "Offensive Output" if "yards" in name or "attempts" in name else "Disruption and Turnovers"
+                        category = "Offense" if "pass" in name or "rush" in name else "Defense"
                     add_metric(category, name, core_area, val)
                     
         stats = game_stats[side]["raw"]
         opp_stats = game_stats["away" if side == "home" else "home"]["raw"]
+
+        add_metric("Defensive Control", "opponent_total_plays", "Defense", opp_stats.get("totalplays", 0))
 
         try:
             points_scored = float(body.get("homePts" if side == "home" else "awayPts", 0))
@@ -213,6 +224,8 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         pass_tds = stats.get("passtd", stats.get("passTD", 0))
         rush_tds = stats.get("rushtd", stats.get("rushTD", 0))
         total_tds = pass_tds + rush_tds + 1e-6
+        
+        add_metric("Sustained Drives", "passing_tds_rushing_tds_sum", "Offense", total_tds)
 
         try_add_metric("Offense", "points_per_play", "Scoring Efficiency", points_scored, stats.get("totalplays", 1), "Points Per Play")
         try_add_metric("Defense", "points_allowed_per_play", "Scoring Efficiency", points_allowed, opp_stats.get("totalplays", 1), "Points Allowed Per Play")
