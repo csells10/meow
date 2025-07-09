@@ -1,7 +1,8 @@
 from api_calls.api_call_nfl_games import fetch_nfl_games
 from api_calls.api_call_nfl_stats import fetch_nfl_stats
 from api_calls.api_call_nfl_scores import fetch_nfl_scores
-from agg.aggregate_nfl_metrics_2023 import aggregate_nfl_metrics
+
+## from agg.aggregate_nfl_metrics_2023 import aggregate_nfl_metrics
 
 # List of API calls and their schedules
 API_CALLS = [

@@ -230,6 +230,7 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         try_add_metric("Offense", "points_per_play", "Scoring Efficiency", points_scored, stats.get("totalplays", 1), "Points Per Play")
         try_add_metric("Defense", "points_allowed_per_play", "Scoring Efficiency", points_allowed, opp_stats.get("totalplays", 1), "Points Allowed Per Play")
         den = stats.get("rushingattempts", 0)
+        add_metric("Offense", "rushing_attempts", "Offensive Output", den)
         try_add_metric("Offense", "pass_run_ratio", "Offensive Output", stats.get("pass_attempts", 0), (den or 1), "Pass to Run Ratio")
         try_add_metric("Offense", "1st_down_rate", "Offensive Output", stats.get("firstdowns", 0), stats.get("totalplays", 1), "1st Down Rate")
         try_add_metric("Offense", "td_rate", "Offensive Output", (pass_tds + rush_tds), stats.get("totalplays", 1), "Touchdown Rate")
@@ -243,6 +244,12 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         add_metric("Defense", "turnover_margin", "Disruption and Turnovers", (stats.get("defensiveinterceptions", 0) + stats.get("fumblesrecovered", 0) - stats.get("interceptionsthrown", 0) - stats.get("fumbleslost", 0)))
         den = stats.get("defensiveinterceptions", 0)
         try_add_metric("Defense", "sack_to_turnover_ratio", "Disruption and Turnovers", stats.get("sacks", 0), (den or 1), "Sack to Turnover Ratio")
+        
+        sacks = stats.get("sacks", 0)
+        sacks_taken = stats.get("sacks_taken", 0)
+        sacks_plus_taken = sacks + sacks_taken
+        add_metric("Disruption and Turnovers", "sacks_plus_sacks_taken", "Defense", sacks_plus_taken)
+        
         try_add_metric("Defense", "pressure_rate", "Disruption and Turnovers", (stats.get("sacks", 0) + stats.get("sacks_taken", 0)), stats.get("pass_attempts", 1), "Pressure Rate")
         numerator = stats.get("ydsallowed", 0)
         denominator = opp_stats.get("totalplays", 1)

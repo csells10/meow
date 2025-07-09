@@ -78,10 +78,13 @@ DERIVED_METRICS = {
     "defensive_snap_load": {"numerator": "total_defensive_snaps", "denominator": "total_snaps", "category": "Snap Load", "core_area": "Defense"},
     "special_teams_snap_pct": {"numerator": "total_special_teams_snaps", "denominator": "total_snaps", "category": "Snap Load", "core_area": "Special Teams"},
     "sack_to_turnover_ratio": {"numerator": "sacks", "denominator": "defensive_interceptions", "category": "Pressure & Turnovers", "core_area": "Defense"},
-    "pressure_rate": {"numerator": "sacks_plus_taken", "denominator": "pass_attempts", "category": "Pressure & Turnovers", "core_area": "Defense"},
+    "pressure_rate": {"numerator": "sacks_plus_sacks_taken", "denominator": "pass_attempts", "category": "Pressure & Turnovers", "core_area": "Defense"},
     "turnover_margin": {"numerator": "turnover_margin", "denominator": None, "category": "Pressure & Turnovers", "core_area": "Defense"},
-    "defensive_success_rate": {"numerator": "yards_allowed", "denominator": "opponent_total_plays", "category": "Defensive Control", "core_area": "Defense", "inverse": True},
-    "points_allowed_per_yard": {"numerator": "points_allowed", "denominator": "yards_allowed", "category": "Defensive Control", "core_area": "Defense"}
+    "defensive_success_rate": {"numerator": "yards_allowed", "denominator": "opponent_total_plays", "category": "Defensive Control", "core_area": "Defense"},
+    "points_allowed_per_yard": {"numerator": "points_allowed", "denominator": "yards_allowed", "category": "Defensive Control", "core_area": "Defense"},
+    "yards_per_play": {"numerator": "total_yards", "denominator": "total_plays", "category": "Offensive Output", "core_area": "Offense"},
+    "yards_per_pass": {"numerator": "passing_yards", "denominator": "pass_attempts", "category": "Offensive Output", "core_area": "Passing"},
+    "yards_per_rush": {"numerator": "rushing_yards", "denominator": "rushing_attempts", "category": "Offensive Output", "core_area": "Rushing"}
 }
 
 RAW_METRICS = list(set([
@@ -89,8 +92,9 @@ RAW_METRICS = list(set([
     "sacks", "defensive_interceptions", "first_downs", "fumbles_recovered", "interceptions_thrown", "fumbles_lost",
     "time_of_possession", "third_down_conversions", "third_down_attempts", "fourth_down_conversions", "fourth_down_attempts",
     "total_plays", "total_drives", "red_zone_tds", "red_zone_attempts", "yards_allowed", "opponent_total_plays",
-    "rushing_attempts", "pass_attempts", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
-    "total_special_teams_snaps", "total_snaps", "turnover_margin", "sacks_taken", "sacks_plus_taken", "pass_attempts"
+    "rushing_attempts", "pass_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
+    "total_special_teams_snaps", "total_snaps", "turnover_margin", "sacks_taken", "sacks_plus_taken", "sack_yards_lost", "pass_attempts",
+    "sacks_plus_sacks_taken", "passing_completions", "passing_tds_rushing_tds_sum"
 ]))
 
 # ---------------------------------------------
@@ -108,10 +112,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
         aggfunc="first"
     ).reset_index()
 
-    log_event("info", "pivot_table_created",
-              season=season,
-              shape=pivot.shape,
-              sample_columns=list(pivot.columns[:10]))
+    log_event("info", f"pivot_table_created | season={season} | shape={pivot.shape} | sample_columns={list(pivot.columns[:10])}")
 
     # Step 4C: Prepare lookup for category/core_area so we can match it later for raw metrics
     flat_lookup = df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]].to_dict("index")
@@ -129,11 +130,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
         cumsum["data_date"] = team_df["data_date"].values
         cumsum["season"] = season
 
-        log_event("info", "cumsum_built",
-                  team_id=team_id,
-                  num_rows=len(cumsum),
-                  dates=list(cumsum["data_date"].astype(str)),
-                  metrics=list(cumsum.columns[:10]))
+        log_event("info", f"cumsum_built | team_id={team_id} | num_rows={len(cumsum)} | dates={list(cumsum['data_date'].astype(str))} | metrics={list(cumsum.columns[:10])}")
 
         # Step 4E: Recalculate derived metrics based on summed inputs
         for metric, meta in DERIVED_METRICS.items():
@@ -182,7 +179,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
 
     # Step 4G: Return full long-format table
     result_df = pd.DataFrame(results)
-    log_event("info", "final_result_ready", season=season, rows=len(result_df))
+    log_event("info", f"final_result_ready | season={season} | rows={len(result_df)}")
 
     log_to_file(
         filename="debug_metrics_sample.log",
@@ -200,22 +197,22 @@ if __name__ == "__main__":
     client = bigquery.Client(project=PROJECT)
 
     for season in ["2023"]:    #["2023", "2024", "2025"]
-        log_event("info", "season_start", season=season)
+        log_event("info", f"season_start | season={season}")
 
         min_date, max_date = get_season_date_bounds(client, season)
         if not min_date or not max_date:
-            log_event("warning", "season_skipped", reason="no final games", season=season)
+            log_event("warning", f"season_skipped | season={season}", reason="no final games")
             continue
         print(min_date, max_date)
 
         df = load_game_metrics(client, min_date, max_date)
-        log_event("info", "metrics_loaded", season=season, rows=len(df))
+        log_event("info", f"metrics_loaded | season={season} | rows={len(df)}")
 
         result_df = build_incremental_metrics(df, season)
-        log_event("info", "metrics_aggregated", season=season, rows=len(result_df))
+        log_event("info", f"metrics_aggregated | season={season} | rows={len(result_df)}")
 
         OUTPUT_TABLE = f"Analytics.team_metrics_season_{season}"
-        log_event("info", "write_to_bq", table=OUTPUT_TABLE)
+        log_event("info", f"write_to_bq | table={OUTPUT_TABLE}")
 
         bad_rows = result_df[result_df[["season", "data_date", "team_id", "metric", "category", "core_area", "value"]].isnull().any(axis=1)]
 
@@ -227,4 +224,4 @@ if __name__ == "__main__":
         
         to_gbq(result_df, destination_table=OUTPUT_TABLE, project_id=PROJECT, if_exists="replace")
 
-        log_event("info", "season_complete", season=season)
+        log_event("info", f"season_complete | season={season}")
