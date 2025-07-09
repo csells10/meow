@@ -192,36 +192,31 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
 # ---------------------------------------------
 # Entry point
 # ---------------------------------------------
-if __name__ == "__main__":
+def run_aggregate_for_season(season: str = "2025"):
     setup_logging()
     client = bigquery.Client(project=PROJECT)
 
-    for season in ["2023"]:
-        log_event("info", f"season_start | season={season}")
+    log_event("info", f"season_start | season={season}")
+    min_date, max_date = get_season_date_bounds(client, season)
+    if not min_date or not max_date:
+        log_event("warning", f"season_skipped | season={season}", reason="no final games")
+        return
 
-        min_date, max_date = get_season_date_bounds(client, season)
-        if not min_date or not max_date:
-            log_event("warning", f"season_skipped | season={season}", reason="no final games")
-            continue
-        print(min_date, max_date)
+    df = load_game_metrics(client, min_date, max_date)
+    log_event("info", f"metrics_loaded | season={season} | rows={len(df)}")
 
-        df = load_game_metrics(client, min_date, max_date)
-        log_event("info", f"metrics_loaded | season={season} | rows={len(df)}")
+    result_df = build_incremental_metrics(df, season)
+    log_event("info", f"metrics_aggregated | season={season} | rows={len(result_df)}")
 
-        result_df = build_incremental_metrics(df, season)
-        log_event("info", f"metrics_aggregated | season={season} | rows={len(result_df)}")
+    OUTPUT_TABLE = f"Analytics.team_metrics_season_{season}"
+    log_event("info", f"write_to_bq | table={OUTPUT_TABLE}")
 
-        OUTPUT_TABLE = f"Analytics.team_metrics_season_{season}"
-        log_event("info", f"write_to_bq | table={OUTPUT_TABLE}")
+    bad_rows = result_df[result_df[["season", "data_date", "team_id", "metric", "category", "core_area", "value"]].isnull().any(axis=1)]
+    if not bad_rows.empty:
+        print("❌ Bad rows with nulls:")
+        print(bad_rows.head(10).to_string())
+        bad_rows.to_csv("debug_bad_rows.csv", index=False)
+        raise ValueError("Found rows with nulls in required fields.")
 
-        bad_rows = result_df[result_df[["season", "data_date", "team_id", "metric", "category", "core_area", "value"]].isnull().any(axis=1)]
-
-        if not bad_rows.empty:
-            print("❌ Bad rows with nulls:")
-            print(bad_rows.head(10).to_string())
-            bad_rows.to_csv("debug_bad_rows.csv", index=False)
-            raise ValueError("Found rows with nulls in required fields.")
-        
-        to_gbq(result_df, destination_table=OUTPUT_TABLE, project_id=PROJECT, if_exists="replace")
-
-        log_event("info", f"season_complete | season={season}")
+    to_gbq(result_df, destination_table=OUTPUT_TABLE, project_id=PROJECT, if_exists="replace")
+    log_event("info", f"season_complete | season={season}")

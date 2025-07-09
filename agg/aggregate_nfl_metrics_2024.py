@@ -196,7 +196,7 @@ if __name__ == "__main__":
     setup_logging()
     client = bigquery.Client(project=PROJECT)
 
-    for season in ["2023"]:
+    for season in ["2024"]:
         log_event("info", f"season_start | season={season}")
 
         min_date, max_date = get_season_date_bounds(client, season)
