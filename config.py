@@ -1,7 +1,6 @@
 from api_calls.api_call_nfl_games import fetch_nfl_games
 from api_calls.api_call_nfl_stats import fetch_nfl_stats
 from api_calls.api_call_nfl_scores import fetch_nfl_scores
-# from agg.aggregate_nfl_metrics_2025 import run_aggregate_for_season
 
 # List of API calls and their schedules
 API_CALLS = [
@@ -20,10 +19,5 @@ API_CALLS = [
         'function': fetch_nfl_scores,
         'max_cycles': 1
     }
-    # {
-    #     'name': 'Aggregate 2025 NFL Metrics',
-    #     'function': run_aggregate_for_season,
-    #     'max_cycles': 1
-    # }
 
 ]

@@ -14,18 +14,18 @@ api_cycles = {}
 app = Flask(__name__)
 
 def run_api_calls(load_date=None):
-    """
-    Run scheduled API calls with optional load_date.
-    """
+    stats_inserted = 0  # Track number of stats inserted
+
     for api_call in API_CALLS:
         api_name = api_call['name']
         log_event("info", "start_api_call", api_name=api_name, load_date=load_date)
 
         try:
-            if load_date:
-                api_call['function'](load_date=load_date)
-            else:
-                api_call['function']()
+            result = api_call['function'](load_date=load_date) if load_date else api_call['function']()
+
+            # ✅ If it's the stats function, store the inserted count
+            if api_name == "NFL Stats API Call":
+                stats_inserted = result or 0
 
             if api_name in api_cycles:
                 api_cycles[api_name] += 1
@@ -36,6 +36,14 @@ def run_api_calls(load_date=None):
 
         except Exception as e:
             log_event("error", "api_call_error", api_name=api_name, error=str(e))
+
+    # ✅ After all API calls — conditionally run aggregation
+    if stats_inserted > 0:
+        log_event("info", "running_aggregate_job", reason="stats_inserted", count=stats_inserted)
+        from agg.aggregate_nfl_metrics_2025 import run_aggregate_for_season
+        run_aggregate_for_season("2025")
+    else:
+        log_event("info", "aggregate_skipped", reason="no_stats_inserted")
 
 def setup_schedules(load_date=None):
     """

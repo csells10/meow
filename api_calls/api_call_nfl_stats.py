@@ -77,6 +77,8 @@ def fetch_nfl_stats():
     backlog = fetch_games_to_process(bq)
     print(f"🗂️  {len(backlog)} games to ingest")
 
+    success_count = 0  # 🔧 NEW: Track number of successful inserts
+
     for ix, g in enumerate(backlog, 1):
         game_id, game_date = g["gameID"], g["gameDate"]
         querystring = {**BASE_QUERYSTRING, "gameID": game_id}
@@ -89,6 +91,7 @@ def fetch_nfl_stats():
                 r["gameID"] = game_id
             insert_rows_bq(bq, flat_rows)
             mark_game_as_loaded(bq, game_id)
+            success_count += 1  # 🔧 NEW
 
             print(f"✅ {ix}/{len(backlog)}  {game_id} inserted and marked as loaded ({len(flat_rows)} rows)")
             log_event("info", "game_loaded", game_id=game_id, rows=len(flat_rows))
@@ -99,3 +102,4 @@ def fetch_nfl_stats():
         time.sleep(0.7 + random.uniform(0, 0.3))  # jitter to be safe
 
     log_event("info", "etl_job_complete", processed=len(backlog))
+    return success_count
