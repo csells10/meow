@@ -75,6 +75,11 @@ def fetch_nfl_games(load_date=None):
             game_ids = [game.get("gameID") for game in yesterday_data]
             existing_ids = check_existing_records(table_id, "gameID", game_ids)
             rows_to_insert = filter_new_records(existing_ids, yesterday_data, "gameID")
+            
+            # 👇 Add default flags before inserting
+            for row in rows_to_insert:
+                row["boxscore_loaded"] = False
+                row["score_loaded"] = False
 
             if rows_to_insert:
                 insert_into_bigquery(table_id, rows_to_insert)
@@ -124,6 +129,11 @@ def fetch_nfl_games(load_date=None):
             game_ids = [game.get("gameID") for game in game_body]
             existing_ids = check_existing_records(table_id, "gameID", game_ids)
             rows_to_insert = filter_new_records(existing_ids, game_body, "gameID")
+            
+            # 👇 Add default flags before inserting
+            for row in rows_to_insert:
+                row["boxscore_loaded"] = False
+                row["score_loaded"] = False
 
             if rows_to_insert:
                 insert_into_bigquery(table_id, rows_to_insert)
