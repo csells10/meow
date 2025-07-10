@@ -194,6 +194,10 @@ def fetch_nfl_games(load_date=None):
             print(f"🧮 [Debug] {game_date} – Found {len(existing_ids)} existing gameIDs")
             print(f"📤 [Debug] {game_date} – {len(rows_to_insert)} rows remaining after deduping")
             if rows_to_insert:
+                # Set flags BEFORE printing sample (optional but future-proof)
+                for row in rows_to_insert:
+                    row["boxscore_loaded"] = False
+                    row["score_loaded"] = False
                 print(f"📦 [Debug] Sample row:\n{rows_to_insert[0]}")
 
             if rows_to_insert:
