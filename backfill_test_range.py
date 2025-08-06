@@ -1,6 +1,6 @@
 import time
 from datetime import date, timedelta
-from api_calls.api_call_nfl_games import fetch_nfl_games
+from api_calls.api_call_nfl_games_old import fetch_nfl_games
 
 # ─────────────────────────────────────────────────────────────
 # CONFIGURATION

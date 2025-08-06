@@ -8,16 +8,16 @@ API_CALLS = [
         'name': 'NFL Game Schedule API Call',
         'function': fetch_nfl_games,
         'max_cycles': 1
-    },
-    {
-        'name': 'NFL Stats API Call',
-        'function': fetch_nfl_stats,
-        'max_cycles': 1
-    },
-    {
-        'name': 'NFL Scores API Call',
-        'function': fetch_nfl_scores,
-        'max_cycles': 1
     }
+    # {
+    #     'name': 'NFL Stats API Call',
+    #     'function': fetch_nfl_stats,
+    #     'max_cycles': 1
+    # },
+    # {
+    #     'name': 'NFL Scores API Call',
+    #     'function': fetch_nfl_scores,
+    #     'max_cycles': 1
+    # }
 
 ]
