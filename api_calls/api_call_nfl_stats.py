@@ -72,6 +72,7 @@ def mark_game_as_loaded(client: bigquery.Client, game_id: str):
 # MAIN LOOP
 # ─────────────────────────────────────────────
 def fetch_nfl_stats():
+    log_event("info", "nfl_stats_job_started")
     bq = bigquery.Client(project=PROJECT)
 
     backlog = fetch_games_to_process(bq)
