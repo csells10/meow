@@ -15,7 +15,7 @@ from utils.logging_setup import log_event
 from utils.response_helpers import save_raw_response
 
 PROJECT = "nfl-stream-406420"
-TABLE_SCHEDULE = f"{PROJECT}.League.schedule_dev"
+TABLE_SCHEDULE = f"{PROJECT}.League.schedule"
 bq = bigquery.Client(project=PROJECT)
 
 # ────────────────────────────────────────────────────────────────
