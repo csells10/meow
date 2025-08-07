@@ -18,7 +18,7 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'nfl-games-app-dev'         
+      - 'nfl-games-app-main'         
       - '--image'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/meow-main/main:${COMMIT_SHA}'
       - '--region'

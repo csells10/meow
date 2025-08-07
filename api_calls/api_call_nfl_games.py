@@ -1,4 +1,6 @@
 import pandas as pd
+from google.cloud import bigquery
+from typing import List
 from datetime import datetime, timedelta
 
 from utils.helper import (
@@ -12,11 +14,26 @@ from utils.helper import (
 from utils.logging_setup import log_event
 from utils.response_helpers import save_raw_response
 
+PROJECT = "nfl-stream-406420"
+TABLE_SCHEDULE = f"{PROJECT}.League.schedule_dev"
+bq = bigquery.Client(project=PROJECT)
+
+# ────────────────────────────────────────────────────────────────
+# Step 0.5 – Setup BigQuery client
+# ────────────────────────────────────────────────────────────────
+def insert_rows_nfl_games(client: bigquery.Client, rows: List[dict]):
+    errors = client.insert_rows_json(TABLE_SCHEDULE, rows)
+    if errors:
+        for err in errors:
+            log_event("error", "bq_insert_error_detail", details=err)
+        raise RuntimeError(f"BigQuery insert errors: {errors}")
+    log_event("info", "bq_insert_success", rows=len(rows))
+
 # ────────────────────────────────────────────────────────────────
 # Step 0 – Setup and mode detection
 # ────────────────────────────────────────────────────────────────
 def fetch_nfl_games(load_date=None):
-    table_id = "nfl-stream-406420.League.schedule_dev"
+    table_id = TABLE_SCHEDULE
     api_url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForDate"
     headers = {
         "x-rapidapi-key": get_secret("Tank_Rapidapi"),
@@ -31,25 +48,20 @@ def fetch_nfl_games(load_date=None):
 
     try:
         if not is_historical_run:
-            all_successful = False
+            any_inserted = False
 
-            # ────────────────────────────────────────────────────────────────
             # Step 1 – Loop: today + next 2 days
-            # ────────────────────────────────────────────────────────────────
             for offset in range(3):
                 game_date = (start_date + timedelta(days=offset)).strftime("%Y%m%d")
+                inserted = process_game_date(table_id, api_url, headers, game_date)
+                if inserted:
+                    any_inserted = True
 
-                # Step 1a – Process the game date (fetch, transform, insert)
-                successful = process_game_date(table_id, api_url, headers, game_date)
-                all_successful = all_successful or successful
-
-            # ────────────────────────────────────────────────────────────────
             # Step 2 – Summary log for success/failure
-            # ────────────────────────────────────────────────────────────────
-            if not all_successful:
-                log_event("warning", "no_valid_games_found")
-            else:
+            if any_inserted:
                 log_event("info", "games_data_inserted")
+            else:
+                log_event("info", "no_new_games_found")
 
     except Exception as e:
         log_event("error", "nfl_games_job_failed", error=str(e))
@@ -57,55 +69,40 @@ def fetch_nfl_games(load_date=None):
         log_event("info", "nfl_games_job_completed")
 
 
+
 def process_game_date(table_id, api_url, headers, game_date):
     try:
-        # ───────────────────────────────────────
         # Step 3a – Pull API data
-        # ───────────────────────────────────────
         raw_games = fetch_games_for_date(api_url, headers, game_date)
         log_event("info", "games_fetched", game_date=game_date, count=len(raw_games))
         save_raw_response({"body": raw_games}, game_date, prefix="nfl_games")
 
-        # ───────────────────────────────────────
-        # Step 3b – Transform records (pandas DataFrame)
-        # ───────────────────────────────────────
+        # Step 3b – Transform records (DataFrame)
         df = transform_game_records(raw_games)
-        print(f"🧪 Transformed {len(df)} rows for {game_date}")
-
         if df.empty:
             raise ValueError("No valid rows to process after transform.")
 
-        # ───────────────────────────────────────
         # Step 3c – Deduplicate
-        # ───────────────────────────────────────
         existing_ids = set(check_existing_records(table_id, "gameID", df["gameID"].tolist()))
-        print(f"🧪 Existing gameIDs in BQ: {existing_ids}")
-
         df_new = df[~df["gameID"].isin(existing_ids)]
-        print(f"🧪 New rows to insert for {game_date}: {len(df_new)}")
-        if not df_new.empty:
-            print("🧪 First row sample:", df_new.iloc[0].to_dict())
 
-        # ───────────────────────────────────────
         # Step 3d – Insert new records into BigQuery
-        # ───────────────────────────────────────
         if not df_new.empty:
             try:
                 insert_into_bigquery(table_id, df_new.to_dict(orient="records"))
                 log_event("info", "games_inserted", game_date=game_date, inserted=len(df_new))
-                print(f"✅ Inserted {len(df_new)} rows for {game_date}")
+                return True  # Inserted new rows
             except Exception as e:
                 log_event("error", "games_insert_error", game_date=game_date, error=str(e))
-                print("🛑 BQ insert failed:", str(e))
                 raise
         else:
             log_event("info", "no_new_games", game_date=game_date)
-
-        return True
+            return False  # No new rows to insert
 
     except Exception as e:
         log_event("error", "games_fetch_or_insert_failed", game_date=game_date, error=str(e))
         return False
+
 
 
 # ────────────────────────────────────────────────────────────────
@@ -120,43 +117,49 @@ def fetch_games_for_date(api_url, headers, game_date):
 
 
 # ────────────────────────────────────────────────────────────────
-# Step 5 – Transform API records into BigQuery rows
+# Step 5 – Transform API records into BigQuery-ready DataFrame
 # ────────────────────────────────────────────────────────────────
 def transform_game_records(game_body):
+    """
+    Transform raw API records (list of dicts) into a DataFrame ready for BigQuery insertion.
+    Handles types, serialization, missing columns, and BigQuery compatibility.
+    Returns a DataFrame.
+    """
     import pandas as pd
 
     if not game_body:
-        print("⚠️ No games to transform.")
-        return []
+        return pd.DataFrame()  # Return empty DataFrame
 
     df = pd.DataFrame(game_body)
-    print("Columns from API:", df.columns.tolist())  # ✅ Debug
 
-    # Transform columns
-    df["gameDate"] = pd.to_datetime(df["gameDate"], format="%Y%m%d").dt.date
-    df["gameTime_epoch"] = pd.to_datetime(df["gameTime_epoch"].astype(float), unit="s")
-    df["gameTime_epoch"] = df["gameTime_epoch"].apply(lambda x: x.to_pydatetime())
-    df["neutralSite"] = df["neutralSite"].astype(str).str.lower() == "true"
-    df["boxscore_loaded"] = False
-    df["score_loaded"] = False
-
+    # Ensure all required columns exist, fill missing if necessary
     required_cols = [
         "gameID", "seasonType", "away", "gameDate", "espnID", "teamIDHome",
         "gameStatus", "gameWeek", "teamIDAway", "home", "espnLink", "cbsLink",
         "gameTime", "gameTime_epoch", "season", "neutralSite", "gameStatusCode",
         "boxscore_loaded", "score_loaded"
     ]
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = None
 
-    df = df.reindex(columns=required_cols)
+    # Type handling and serialization
+    # 1. Date (gameDate)
+    df["gameDate"] = pd.to_datetime(df["gameDate"], format="%Y%m%d").dt.date
+    # 2. Timestamp (gameTime_epoch) as string for BigQuery
+    df["gameTime_epoch"] = pd.to_datetime(df["gameTime_epoch"].astype(float), unit="s")
+    df["gameTime_epoch"] = df["gameTime_epoch"].astype(str)  # BQ expects string for TIMESTAMP
+    # 3. Neutral site as boolean
+    df["neutralSite"] = df["neutralSite"].astype(str).str.lower() == "true"
+    # 4. Add loaded flags
+    df["boxscore_loaded"] = False
+    df["score_loaded"] = False
+    # 5. Ensure proper column order
+    df = df[required_cols]
+    # 6. BigQuery wants date as 'YYYY-MM-DD' string
+    df["gameDate"] = df["gameDate"].apply(lambda x: x.strftime("%Y-%m-%d") if not pd.isnull(x) else None)
 
-    print("✅ Final transformed columns:", df.columns.tolist())
-    print("✅ Sample row:", df.iloc[0].to_dict())
-    # Ensure datetime objects are strings for BQ compatibility
-    df["gameDate"] = df["gameDate"].apply(lambda x: x.strftime("%Y-%m-%d"))
-    df["gameTime_epoch"] = df["gameTime_epoch"].astype(str)
-
-    return df.to_dict(orient="records")
-
+    return df  # Return DataFrame, not dict
 
 
 # ────────────────────────────────────────────────────────────────
