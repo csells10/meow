@@ -3,7 +3,7 @@ from google.cloud import bigquery
 def create_team_metrics_season_table():
     project_id = 'nfl-stream-406420'
     dataset_id = 'Analytics'
-    table_id = 'team_metrics_season_2023'
+    table_id = 'team_metrics_season_2025'
 
     client = bigquery.Client(project=project_id)
 

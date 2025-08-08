@@ -72,37 +72,37 @@ def fetch_nfl_games(load_date=None):
 
 def process_game_date(table_id, api_url, headers, game_date):
     try:
-        # Step 3a – Pull API data
+        # Step 3a – Fetch games from API
         raw_games = fetch_games_for_date(api_url, headers, game_date)
         log_event("info", "games_fetched", game_date=game_date, count=len(raw_games))
         save_raw_response({"body": raw_games}, game_date, prefix="nfl_games")
 
-        # Step 3b – Transform records (DataFrame)
+        # Step 3b – Transform raw API records into DataFrame
         df = transform_game_records(raw_games)
         if df.empty:
-            raise ValueError("No valid rows to process after transform.")
+            log_event("warning", "no_games_after_transform", game_date=game_date)
+            return False
 
-        # Step 3c – Deduplicate
-        existing_ids = set(check_existing_records(table_id, "gameID", df["gameID"].tolist()))
-        df_new = df[~df["gameID"].isin(existing_ids)]
+        # Step 3c – Delete all current rows in BigQuery for these gameIDs (if any)
+        game_ids = df["gameID"].tolist()
+        if game_ids:
+            delete_query = f"""
+                DELETE FROM `{table_id}` WHERE gameID IN UNNEST(@game_ids)
+            """
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ArrayQueryParameter("game_ids", "STRING", game_ids)]
+            )
+            bq.query(delete_query, job_config=job_config).result()
+            log_event("info", "existing_games_deleted", count=len(game_ids))
 
-        # Step 3d – Insert new records into BigQuery
-        if not df_new.empty:
-            try:
-                insert_into_bigquery(table_id, df_new.to_dict(orient="records"))
-                log_event("info", "games_inserted", game_date=game_date, inserted=len(df_new))
-                return True  # Inserted new rows
-            except Exception as e:
-                log_event("error", "games_insert_error", game_date=game_date, error=str(e))
-                raise
-        else:
-            log_event("info", "no_new_games", game_date=game_date)
-            return False  # No new rows to insert
+        # Step 3d – Insert all fresh records into BigQuery
+        insert_into_bigquery(table_id, df.to_dict(orient="records"))
+        log_event("info", "games_inserted", game_date=game_date, inserted=len(df))
+        return True
 
     except Exception as e:
         log_event("error", "games_fetch_or_insert_failed", game_date=game_date, error=str(e))
         return False
-
 
 
 # ────────────────────────────────────────────────────────────────
@@ -161,11 +161,3 @@ def transform_game_records(game_body):
 
     return df  # Return DataFrame, not dict
 
-
-# ────────────────────────────────────────────────────────────────
-# Step 6 – Dedupe against existing BigQuery data
-# ────────────────────────────────────────────────────────────────
-def dedupe_new_games(table_id, game_rows):
-    game_ids = [row["gameID"] for row in game_rows]
-    existing_ids = check_existing_records(table_id, "gameID", game_ids)
-    return filter_new_records(existing_ids, game_rows, "gameID")
