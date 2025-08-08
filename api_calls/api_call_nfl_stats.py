@@ -4,6 +4,7 @@ from typing import List
 from api_calls.api_utils.parse_nfl_stats import parse_game_stats
 from google.cloud import bigquery
 from utils.helper import get_secret, fetch_and_validate_api_data
+from utils.response_helpers import save_raw_response
 from utils.logging_setup import log_event
 
 PROJECT   = "nfl-stream-406420"
@@ -62,18 +63,27 @@ def fetch_nfl_stats():
         querystring = {**BASE_QUERYSTRING, "gameID": game_id}
 
         try:
+            # 1. Fetch API data
             box = fetch_and_validate_api_data(API_URL, HEADERS, querystring, context=game_id)
+            
+            # 2. Save the raw API response to GCS (audit/backup)
+            save_raw_response({"body": box}, game_id, prefix="nfl_boxscore")
+
+            # 3. Parse and insert stats
             flat_rows = parse_game_stats(box)
             for r in flat_rows:
                 r["gameID"] = game_id
             insert_rows_bq(bq, flat_rows)
+
+            # 4. Insert flag into status table
             mark_game_as_loaded(bq, game_id)
             success_count += 1
 
             log_event("info", "game_loaded", game_id=game_id, rows=len(flat_rows), ix=ix, total=len(backlog))
         except Exception as e:
             log_event("error", "game_failed", game_id=game_id, error=str(e)[:300])
-        
+
+        # Jittered sleep between games
         time.sleep(0.7 + random.uniform(0, 0.3))
 
     log_event("info", "etl_job_complete", processed=len(backlog), successful=success_count)
