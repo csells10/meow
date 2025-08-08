@@ -1,3 +1,17 @@
+import pandas as pd
+import builtins
+
+_old_to_dict = pd.DataFrame.to_dict
+
+def patched_to_dict(self, *args, **kwargs):
+    if kwargs.get("orient") == "index":
+        print("DEBUG: to_dict(orient='index') called here!")
+        import traceback; traceback.print_stack()
+    return _old_to_dict(self, *args, **kwargs)
+
+pd.DataFrame.to_dict = patched_to_dict
+
+
 from google.cloud import bigquery
 import pandas as pd
 from utils.logging_setup import log_event, setup_logging
