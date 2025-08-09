@@ -4,13 +4,14 @@ from utils.logging_setup import log_event, setup_logging
 from datetime import datetime
 import json
 from pandas_gbq import to_gbq
+from typing import Union
 
 PROJECT = "nfl-stream-406420"
 SCHEDULE_TABLE = "League.schedule"
 METRICS_TABLE = "Analytics.game_metrics_flat"
 setup_logging()
 
-def log_to_file(filename: str, label: str, content: dict | list):
+def log_to_file(filename: str, label: str, content: Union[dict, list]) -> None:  # ✅ change here
     with open(filename, "a", encoding="utf-8") as f:
         f.write(f"\n--- {label} @ {datetime.now().isoformat()} ---\n")
         f.write(json.dumps(content, indent=2, default=str))
