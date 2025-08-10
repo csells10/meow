@@ -7,6 +7,6 @@ google-cloud-bigquery
 google-cloud-secret-manager
 google-cloud
 google-cloud-storage>=2.10.0
-pandas
+pandas==2.3.0
 pyarrow>=14.0.1
 pandas-gbq>=0.19.2
