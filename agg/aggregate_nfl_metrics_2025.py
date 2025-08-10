@@ -129,9 +129,25 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
     log_event("info", f"pivot_table_created | season={season} | shape={pivot.shape} | sample_columns={list(pivot.columns[:10])}")
 
     # Step 4C: Prepare lookup for category/core_area so we can match it later for raw metrics
-    flat_lookup = df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]].to_dict("index")
+    # ✅ Ensure uniqueness before setting the index
+    dupes_mask = df.duplicated(subset=["team_id", "data_date", "metric"], keep=False)
+    if dupes_mask.any():
+        log_event(
+            "warning",
+            "duplicate_metric_rows_seen",
+            count=int(dupes_mask.sum()),
+            sample=df.loc[dupes_mask, ["team_id","data_date","metric","category","core_area"]]
+                   .sort_values(["team_id","data_date","metric"])
+                   .head(20)
+                   .to_dict(orient="records")
+        )
+        # Drop duplicates, keeping last (or first) consistently
+        df = df.drop_duplicates(subset=["team_id", "data_date", "metric"], keep="last")
 
-    results = []
+    flat_lookup = (
+        df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]]
+        .to_dict(orient="index")
+    )
 
     # Step 4D: Group data by team and calculate cumulative sums for each metric over time
     for team_id, team_df in pivot.groupby("team_id"):
