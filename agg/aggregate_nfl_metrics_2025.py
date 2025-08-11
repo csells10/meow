@@ -148,6 +148,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
         df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]]
         .to_dict(orient="index")
     )
+    results = []
 
     # Step 4D: Group data by team and calculate cumulative sums for each metric over time
     for team_id, team_df in pivot.groupby("team_id"):
