@@ -1,16 +1,30 @@
+import pandas as pd
+import builtins
+
+_old_to_dict = pd.DataFrame.to_dict
+
+def patched_to_dict(self, *args, **kwargs):
+    if kwargs.get("orient") == "index":
+        print("DEBUG: to_dict(orient='index') called here!")
+        import traceback; traceback.print_stack()
+    return _old_to_dict(self, *args, **kwargs)
+
+pd.DataFrame.to_dict = patched_to_dict
+
+
 from google.cloud import bigquery
 import pandas as pd
 from utils.logging_setup import log_event, setup_logging
 from datetime import datetime
 import json
 from pandas_gbq import to_gbq
+from typing import Union
 
 PROJECT = "nfl-stream-406420"
 SCHEDULE_TABLE = "League.schedule"
 METRICS_TABLE = "Analytics.game_metrics_flat"
-setup_logging()
 
-def log_to_file(filename: str, label: str, content: dict | list):
+def log_to_file(filename: str, label: str, content: Union[dict, list]) -> None:  # ✅ change here
     with open(filename, "a", encoding="utf-8") as f:
         f.write(f"\n--- {label} @ {datetime.now().isoformat()} ---\n")
         f.write(json.dumps(content, indent=2, default=str))
@@ -91,9 +105,9 @@ RAW_METRICS = list(set([
     "sacks", "defensive_interceptions", "first_downs", "fumbles_recovered", "interceptions_thrown", "fumbles_lost",
     "time_of_possession", "third_down_conversions", "third_down_attempts", "fourth_down_conversions", "fourth_down_attempts",
     "total_plays", "total_drives", "red_zone_tds", "red_zone_attempts", "yards_allowed", "opponent_total_plays",
-    "rushing_attempts", "pass_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
+    "rushing_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
     "total_special_teams_snaps", "total_snaps", "turnover_margin", "sacks_taken", "sacks_plus_taken", "sack_yards_lost", "pass_attempts",
-    "sacks_plus_sacks_taken", "passing_completions", "passing_tds_rushing_tds_sum"
+    "sacks_plus_sacks_taken", "passing_tds_rushing_tds_sum"
 ]))
 
 # ---------------------------------------------
@@ -114,8 +128,25 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
     log_event("info", f"pivot_table_created | season={season} | shape={pivot.shape} | sample_columns={list(pivot.columns[:10])}")
 
     # Step 4C: Prepare lookup for category/core_area so we can match it later for raw metrics
-    flat_lookup = df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]].to_dict("index")
+    # ✅ Ensure uniqueness before setting the index
+    dupes_mask = df.duplicated(subset=["team_id", "data_date", "metric"], keep=False)
+    if dupes_mask.any():
+        log_event(
+            "warning",
+            "duplicate_metric_rows_seen",
+            count=int(dupes_mask.sum()),
+            sample=df.loc[dupes_mask, ["team_id","data_date","metric","category","core_area"]]
+                   .sort_values(["team_id","data_date","metric"])
+                   .head(20)
+                   .to_dict(orient="records")
+        )
+        # Drop duplicates, keeping last (or first) consistently
+        df = df.drop_duplicates(subset=["team_id", "data_date", "metric"], keep="last")
 
+    flat_lookup = (
+        df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]]
+        .to_dict(orient="index")
+    )
     results = []
 
     # Step 4D: Group data by team and calculate cumulative sums for each metric over time

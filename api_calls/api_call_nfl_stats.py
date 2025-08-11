@@ -1,36 +1,26 @@
-# api_call_nfl_box_score.py
 import os, time, json, requests, random
 from typing import List
 
 from api_calls.api_utils.parse_nfl_stats import parse_game_stats
 from google.cloud import bigquery
-from google.api_core.exceptions import NotFound
 from utils.helper import get_secret, fetch_and_validate_api_data
+from utils.response_helpers import save_raw_response
 from utils.logging_setup import log_event
 
 PROJECT   = "nfl-stream-406420"
 BQ_SOURCE = "League.games_to_process"
-BQ_TARGET = "League.schedule"                 
+BQ_TARGET = "nfl-stream-406420.League.boxscore_status"
 API_HOST  = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
 API_URL   = f"https://{API_HOST}/getNFLBoxScore"
 API_KEY   = get_secret("Tank_Rapidapi")
 
-
-# ─────────────────────────────────────────────
-# 1) Pull gameIDs still missing from BigQuery
-# ─────────────────────────────────────────────
 def fetch_games_to_process(client: bigquery.Client) -> List[dict]:
     sql = f"""
-        SELECT
-            *
+        SELECT *
         FROM `{PROJECT}.{BQ_SOURCE}`
         ORDER BY gameDate DESC
     """
     return [dict(r) for r in client.query(sql).result()]
-
-# ─────────────────────────────────────────────
-# 2) Call Tank01 API
-# ─────────────────────────────────────────────
 
 HEADERS = {
     "x-rapidapi-key": API_KEY,
@@ -41,66 +31,60 @@ BASE_QUERYSTRING = {
     "fantasyPoints": "false"
 }
 
-# ─────────────────────────────────────────────
-# 3) Load to BigQuery
-# ─────────────────────────────────────────────
 def insert_rows_bq(client: bigquery.Client, rows: List[dict]):
     log_event("debug", "bq_insert_start", rows=len(rows))
-    errors = client.insert_rows_json(f"nfl-stream-406420.Analytics.game_metrics_flat", rows)
-    if errors:                                   # non-empty list => errors
+    errors = client.insert_rows_json(f"{PROJECT}.Analytics.game_metrics_flat", rows)
+    if errors:
         log_event("error", "bq_insert_failed", details=str(errors)[:250])
         raise RuntimeError(f"BigQuery insert errors: {errors}")
     log_event("info", "bq_insert_success", rows=len(rows))
 
-# ─────────────────────────────────────────────
-# 4) Mark Game ID as loaded 
-# ─────────────────────────────────────────────
 def mark_game_as_loaded(client: bigquery.Client, game_id: str):
-    sql = f"""
-        UPDATE `{PROJECT}.League.schedule`
-        SET boxscore_loaded = TRUE
-        WHERE gameID = @game_id
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("game_id", "STRING", game_id)
-        ]
-    )
-    client.query(sql, job_config=job_config).result()
+    rows_to_insert = [{
+        "gameID": game_id,
+        "boxscore_loaded": True,
+    }]
+    errors = client.insert_rows_json(BQ_TARGET, rows_to_insert)
+    if errors:
+        log_event("error", "boxscore_status_insert_failed", game_id=game_id, details=str(errors)[:250])
+    else:
+        log_event("info", "boxscore_status_inserted", game_id=game_id)
 
-# ─────────────────────────────────────────────
-# MAIN LOOP
-# ─────────────────────────────────────────────
 def fetch_nfl_stats():
     log_event("info", "nfl_stats_job_started")
     bq = bigquery.Client(project=PROJECT)
 
     backlog = fetch_games_to_process(bq)
-    print(f"🗂️  {len(backlog)} games to ingest")
-
-    success_count = 0  # 🔧 NEW: Track number of successful inserts
+    log_event("info", "games_to_ingest", count=len(backlog))
+    success_count = 0
 
     for ix, g in enumerate(backlog, 1):
-        game_id, game_date = g["gameID"], g["gameDate"]
+        game_id = g["gameID"]
         querystring = {**BASE_QUERYSTRING, "gameID": game_id}
 
         try:
-            # Fetch and parse box score data
+            # 1. Fetch API data
             box = fetch_and_validate_api_data(API_URL, HEADERS, querystring, context=game_id)
+            
+            # 2. Save the raw API response to GCS (audit/backup)
+            save_raw_response({"body": box}, game_id, prefix="nfl_boxscore")
+
+            # 3. Parse and insert stats
             flat_rows = parse_game_stats(box)
             for r in flat_rows:
                 r["gameID"] = game_id
             insert_rows_bq(bq, flat_rows)
+
+            # 4. Insert flag into status table
             mark_game_as_loaded(bq, game_id)
-            success_count += 1  # 🔧 NEW
+            success_count += 1
 
-            print(f"✅ {ix}/{len(backlog)}  {game_id} inserted and marked as loaded ({len(flat_rows)} rows)")
-            log_event("info", "game_loaded", game_id=game_id, rows=len(flat_rows))
+            log_event("info", "game_loaded", game_id=game_id, rows=len(flat_rows), ix=ix, total=len(backlog))
         except Exception as e:
-            print(f"❌ {game_id} failed: {e}")
             log_event("error", "game_failed", game_id=game_id, error=str(e)[:300])
-        
-        time.sleep(0.7 + random.uniform(0, 0.3))  # jitter to be safe
 
-    log_event("info", "etl_job_complete", processed=len(backlog))
+        # Jittered sleep between games
+        time.sleep(0.7 + random.uniform(0, 0.3))
+
+    log_event("info", "etl_job_complete", processed=len(backlog), successful=success_count)
     return success_count

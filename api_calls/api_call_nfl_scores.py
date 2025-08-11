@@ -3,6 +3,7 @@ import json, pandas as pd
 from typing import List
 from google.cloud import bigquery
 from utils.helper import get_secret, fetch_and_validate_api_data
+from utils.response_helpers import save_raw_response
 from utils.logging_setup import log_event
 
 PROJECT = "nfl-stream-406420"
@@ -35,18 +36,16 @@ def insert_rows_bq(client: bigquery.Client, rows: List[dict]):
         raise RuntimeError(f"BigQuery insert errors: {errors}")
     log_event("info", "bq_insert_success", rows=len(rows))
 
-def mark_game_as_loaded(client: bigquery.Client, game_id: str):
-    sql = f"""
-        UPDATE `{PROJECT}.{BQ_TARGET}`
-        SET score_loaded = TRUE
-        WHERE gameID = @game_id
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("game_id", "STRING", game_id)
-        ]
-    )
-    client.query(sql, job_config=job_config).result()
+def mark_score_as_loaded(client: bigquery.Client, game_id: str):
+    rows_to_insert = [{
+        "game_id": game_id,
+        "score_loaded": True,
+    }]
+    errors = client.insert_rows_json(f"{PROJECT}.Scores.score_status", rows_to_insert)
+    if errors:
+        log_event("error", "score_status_insert_failed", game_id=game_id, details=str(errors)[:250])
+    else:
+        log_event("info", "score_status_inserted", game_id=game_id)
 
 def fetch_nfl_scores():
     log_event("info", "nfl_scores_job_started")
@@ -62,6 +61,10 @@ def fetch_nfl_scores():
         querystring = {**BASE_QUERYSTRING, "gameID": game_id}
         try:
             response = fetch_and_validate_api_data(API_URL, HEADERS, querystring, context=game_id)
+
+            # Save raw API response for auditing
+            save_raw_response({"body": response}, game_id, prefix="nfl_scores")
+
         except Exception as e:
             log_event("error", "api_call_failed", game_id=game_id, error=str(e))
             continue
@@ -111,7 +114,10 @@ def fetch_nfl_scores():
 
         try:
             insert_rows_bq(bq, rows)
-            mark_game_as_loaded(bq, game_id)
+
+            # Mark as loaded in Scores.score_status
+            mark_score_as_loaded(bq, game_id)
+
             log_event("info", "game_processed", game_id=game_id)
         except Exception as e:
             log_event("error", "bq_insert_or_mark_failed", game_id=game_id, error=str(e))
