@@ -3,7 +3,7 @@ import os
 import sys
 from config import API_CALLS
 from utils.gcs import upload_file_to_gcs
-from utils.logging_setup import setup_logging, log_event  # ✅ use new helper
+from utils.logging_setup import setup_logging, log_event
 
 # Setup structured logging
 setup_logging()

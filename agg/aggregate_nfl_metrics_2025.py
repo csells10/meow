@@ -23,7 +23,6 @@ from typing import Union
 PROJECT = "nfl-stream-406420"
 SCHEDULE_TABLE = "League.schedule"
 METRICS_TABLE = "Analytics.game_metrics_flat"
-setup_logging()
 
 def log_to_file(filename: str, label: str, content: Union[dict, list]) -> None:  # ✅ change here
     with open(filename, "a", encoding="utf-8") as f:
@@ -106,9 +105,9 @@ RAW_METRICS = list(set([
     "sacks", "defensive_interceptions", "first_downs", "fumbles_recovered", "interceptions_thrown", "fumbles_lost",
     "time_of_possession", "third_down_conversions", "third_down_attempts", "fourth_down_conversions", "fourth_down_attempts",
     "total_plays", "total_drives", "red_zone_tds", "red_zone_attempts", "yards_allowed", "opponent_total_plays",
-    "rushing_attempts", "pass_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
+    "rushing_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
     "total_special_teams_snaps", "total_snaps", "turnover_margin", "sacks_taken", "sacks_plus_taken", "sack_yards_lost", "pass_attempts",
-    "sacks_plus_sacks_taken", "passing_completions", "passing_tds_rushing_tds_sum"
+    "sacks_plus_sacks_taken", "passing_tds_rushing_tds_sum"
 ]))
 
 # ---------------------------------------------
