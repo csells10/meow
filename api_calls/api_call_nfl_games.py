@@ -156,9 +156,13 @@ def transform_game_records(game_body):
     # Type handling and serialization
     # 1. Date (gameDate)
     df["gameDate"] = pd.to_datetime(df["gameDate"], format="%Y%m%d").dt.date
-    # 2. Timestamp (gameTime_epoch) as string for BigQuery
-    df["gameTime_epoch"] = pd.to_datetime(df["gameTime_epoch"].astype(float), unit="s")
-    df["gameTime_epoch"] = df["gameTime_epoch"].astype(str)  # BQ expects string for TIMESTAMP
+
+    # 2. Timestamp (gameTime_epoch) as string for BigQuery (keep time even at midnight; coerce bad to NULL)
+    epoch_num = pd.to_numeric(df["gameTime_epoch"], errors="coerce")
+    dt_utc = pd.to_datetime(epoch_num, unit="s", utc=True)
+    df["gameTime_epoch"] = dt_utc.dt.strftime("%Y-%m-%d %H:%M:%S")
+    df.loc[dt_utc.isna(), "gameTime_epoch"] = None  # NaT -> NULL for BQ
+
     # 3. Neutral site as boolean
     df["neutralSite"] = df["neutralSite"].astype(str).str.lower() == "true"
     # 4. Add loaded flags
