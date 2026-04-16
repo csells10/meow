@@ -149,6 +149,9 @@ def test_api_calls():
     except Exception as e:
         log_event("error", "test_api_call_error", error=str(e))
         return f"Error: {e}", 500
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok"}, 200
 
 
 if __name__ == "__main__":
