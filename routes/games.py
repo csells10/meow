@@ -34,6 +34,9 @@ def get_games_by_date():
 
     try:
         games = fetch_games_by_date(parsed_date)
+        
+        # Log successful query and number of games returned
+        log_event("info", "games_query_success", date=date_str, count=len(games))
 
         return jsonify({
             "date": date_str,
