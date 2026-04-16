@@ -1,4 +1,5 @@
 from flask import Flask, request
+from flask_cors import CORS
 import os
 
 from config import API_CALLS
@@ -13,6 +14,9 @@ setup_logging()
 
 # Flask app instance
 app = Flask(__name__)
+
+# Enable CORS
+CORS(app)
 
 # Register route blueprints
 # This keeps app.py thin and allows routes to live in their own modules.
