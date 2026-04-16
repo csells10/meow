@@ -127,7 +127,7 @@ def run_scheduled_job():
     log_event("info", "load_date_extracted", load_date=load_date)
 
     setup_schedules(load_date=load_date)
-    return "API calls executed successfully", 200
+    return {"message": "API calls executed successfully"}, 200
 
 
 @app.route("/test", methods=["GET"])
@@ -149,10 +149,13 @@ def test_api_calls():
 
     try:
         setup_schedules(load_date=load_date)
-        return f"Test successful. API calls executed with load_date={load_date}", 200
+        return {"message": "Test successful. API calls executed", "load_date": load_date}, 200
+    
     except Exception as e:
         log_event("error", "test_api_call_error", error=str(e))
-        return f"Error: {e}", 500
+        return {"error": str(e)}, 500
+    
+    
 @app.route("/health", methods=["GET"])
 def health():
     return {"status": "ok"}, 200
