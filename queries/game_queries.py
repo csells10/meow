@@ -5,24 +5,31 @@ client = bigquery.Client()
 
 def get_game_header(game_id: str) -> dict:
     """
-    Fetch core game header data from the schedule table.
+    Fetch core game header data from the schedule table,
+    including away/home team logo URLs.
     """
     query = """
         SELECT
-            gameID,
-            gameDate,
-            gameTime,
-            gameStatus,
-            season,
-            gameWeek,
-            seasonType,
-            teamIDAway,
-            away,
-            teamIDHome,
-            home,
-            espnLink
-        FROM `nfl-stream-406420.League.schedule`
-        WHERE gameID = @game_id
+            s.gameID,
+            s.gameDate,
+            s.gameTime,
+            s.gameStatus,
+            s.season,
+            s.gameWeek,
+            s.seasonType,
+            s.teamIDAway,
+            s.away,
+            away_logo.logoURL AS away_logo,
+            s.teamIDHome,
+            s.home,
+            home_logo.logoURL AS home_logo,
+            s.espnLink
+        FROM `nfl-stream-406420.League.schedule` s
+        LEFT JOIN `nfl-stream-406420.Teams.team_logos` away_logo
+            ON s.teamIDAway = away_logo.teamID
+        LEFT JOIN `nfl-stream-406420.Teams.team_logos` home_logo
+            ON s.teamIDHome = home_logo.teamID
+        WHERE s.gameID = @game_id
         LIMIT 1
     """
 
@@ -51,13 +58,13 @@ def get_game_header(game_id: str) -> dict:
             "id": row.get("teamIDAway"),
             "name": row.get("away"),
             "abbreviation": row.get("away"),
-            "logo": ""
+            "logo": row.get("away_logo")
         },
         "home_team": {
             "id": row.get("teamIDHome"),
             "name": row.get("home"),
             "abbreviation": row.get("home"),
-            "logo": ""
+            "logo": row.get("home_logo")
         },
         "espn_link": row.get("espnLink")
     }
