@@ -4,6 +4,7 @@ import os
 
 from config import API_CALLS
 from routes.games import games_bp
+from routes.game_routes import game_routes
 from utils.logging_setup import setup_logging, log_event
 
 # ------------------------------------------------------------
@@ -21,6 +22,7 @@ CORS(app)
 # Register route blueprints
 # This keeps app.py thin and allows routes to live in their own modules.
 app.register_blueprint(games_bp)
+app.register_blueprint(game_routes)
 
 # Dictionary used to track how many times each API call has run
 # during a given scheduled execution cycle.
@@ -163,4 +165,4 @@ def health():
 
 if __name__ == "__main__":
     # Run locally or in environments that execute the file directly.
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)
