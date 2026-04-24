@@ -11,8 +11,9 @@ def build_game_details(game_id: str) -> dict:
     away_metrics, home_metrics = get_team_metrics(game_id)
 
     team_comparison = build_team_comparison(away_metrics, home_metrics)
-    game_profile = build_game_profile(away_metrics, home_metrics)
-    matchup_lean = build_matchup_lean(game_profile, away_metrics, home_metrics, header)
+    game_profile = build_game_profile(away_metrics, home_metrics, header)
+    matchup_lean = build_matchup_lean(game_profile, team_comparison, header)
+
 
     return {
         "header": header,

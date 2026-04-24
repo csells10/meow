@@ -42,6 +42,72 @@ def build_team_comparison(away_metrics: dict, home_metrics: dict):
 
 FINAL_STATUSES = {"Final", "Final/OT"}
 
+def build_matchup_lean(game_profile: list, team_comparison: list, header: dict):
+    away = header["away_team"]["abbreviation"]
+    home = header["home_team"]["abbreviation"]
+
+    score = {
+        away: 0,
+        home: 0
+    }
+
+    # Score direct metric advantages
+    for metric in team_comparison:
+        better = metric.get("better")
+
+        if better == "away":
+            score[away] += 1
+        elif better == "home":
+            score[home] += 1
+
+    # Score profile signals with weighting
+    for signal in game_profile:
+        tilt = signal.get("tilt", "")
+        level = signal.get("level", "Neutral")
+
+        if level == "Elevated":
+            weight = 2
+        elif level == "Moderate":
+            weight = 1
+        else:
+            weight = 0
+
+        if away in tilt:
+            score[away] += weight
+        elif home in tilt:
+            score[home] += weight
+
+    if score[away] > score[home]:
+        target = away
+    elif score[home] > score[away]:
+        target = home
+    else:
+        target = None
+
+    if target is None:
+        return {
+            "target_team": "None",
+            "lean_summary": "No strong directional edge",
+            "focus_summary": "Balanced matchup — no clear prop direction",
+            "confidence": "Low"
+        }
+
+    opponent = home if target == away else away
+    diff = abs(score[away] - score[home])
+
+    if diff >= 5:
+        confidence = "High"
+    elif diff >= 3:
+        confidence = "Medium"
+    else:
+        confidence = "Low"
+
+    return {
+        "target_team": f"{target} edge",
+        "lean_summary": f"{target} holds the overall matchup edge vs {opponent}",
+        "focus_summary": f"{target} advantage driven by efficiency, pressure, and turnover profile",
+        "confidence": confidence
+    }
 
 def get_game_details(game_id: str) -> dict:
     """
@@ -69,14 +135,16 @@ def get_game_details(game_id: str) -> dict:
 
     game_status = header.get("game_status")
     final_score = get_final_score(game_id) if game_status in FINAL_STATUSES else None
-    game_profile = build_game_profile(away_metrics, home_metrics, header)
+
     team_comparison = build_team_comparison(away_metrics, home_metrics)
+    game_profile = build_game_profile(away_metrics, home_metrics, header)
+    matchup_lean = build_matchup_lean(game_profile, team_comparison, header)
 
     return {
         "header": header,
         "final_score": final_score,
         "game_profile": game_profile,
-        "matchup_lean": {},
+        "matchup_lean": matchup_lean,
         "team_comparison": team_comparison
     }
 
