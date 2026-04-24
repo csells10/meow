@@ -72,26 +72,92 @@ def get_game_header(game_id: str) -> dict:
 
 def get_team_metrics(game_id: str):
     """
-    Fetch team aggregate metrics for the away/home teams from the
-    season-specific aggregate table.
+    Fetch latest available team aggregate metrics for the away/home teams
+    before the game date.
+
+    Also creates a normalized turnover_margin_per_game value from the
+    cumulative Defense::turnover_margin metric.
     """
     header = get_game_header(game_id)
+
     if not header:
         return {}, {}
 
     away_team_id = header["away_team"]["id"]
     home_team_id = header["home_team"]["id"]
+    game_date = header["game_date"]
     season = str(header["season"])[:4]
 
     table = f"nfl-stream-406420.Analytics.team_metrics_season_{season}"
 
     query = f"""
+        WITH base AS (
+            SELECT
+                team_id,
+                team_abv,
+                metric,
+                category,
+                core_area,
+                value,
+                data_date
+            FROM `{table}`
+            WHERE team_id IN UNNEST(@team_ids)
+              AND data_date < @game_date
+        ),
+
+        latest AS (
+            SELECT
+                team_id,
+                team_abv,
+                metric,
+                category,
+                core_area,
+                value,
+                data_date,
+                ROW_NUMBER() OVER (
+                    PARTITION BY team_id, category, metric
+                    ORDER BY data_date DESC
+                ) AS rn
+            FROM base
+        ),
+
+        turnover_pg AS (
+            SELECT
+                team_id,
+                ANY_VALUE(team_abv) AS team_abv,
+                'turnover_margin_per_game' AS metric,
+                'Defense' AS category,
+                'defensive_control' AS core_area,
+                SAFE_DIVIDE(MAX(value), COUNT(DISTINCT data_date)) AS value,
+                MAX(data_date) AS data_date
+            FROM base
+            WHERE metric = 'turnover_margin'
+              AND category = 'Defense'
+            GROUP BY team_id
+        )
+
         SELECT
             team_id,
+            team_abv,
             metric,
-            value
-        FROM `{table}`
-        WHERE team_id IN UNNEST(@team_ids)
+            category,
+            core_area,
+            value,
+            data_date
+        FROM latest
+        WHERE rn = 1
+
+        UNION ALL
+
+        SELECT
+            team_id,
+            team_abv,
+            metric,
+            category,
+            core_area,
+            value,
+            data_date
+        FROM turnover_pg
     """
 
     job_config = bigquery.QueryJobConfig(
@@ -100,27 +166,25 @@ def get_team_metrics(game_id: str):
                 "team_ids",
                 "STRING",
                 [away_team_id, home_team_id]
-            )
+            ),
+            bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
         ]
     )
 
     rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
 
-    if not rows:
-        return {}, {}
-
     away_metrics = {}
     home_metrics = {}
 
     for row in rows:
+        metric_key = f"{row.get('category')}::{row.get('metric')}"
         team_id = row.get("team_id")
-        metric = row.get("metric")
         value = row.get("value")
 
         if team_id == away_team_id:
-            away_metrics[metric] = value
+            away_metrics[metric_key] = value
         elif team_id == home_team_id:
-            home_metrics[metric] = value
+            home_metrics[metric_key] = value
 
     return away_metrics, home_metrics
 
