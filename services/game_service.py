@@ -69,13 +69,107 @@ def get_game_details(game_id: str) -> dict:
 
     game_status = header.get("game_status")
     final_score = get_final_score(game_id) if game_status in FINAL_STATUSES else None
-    
+    game_profile = build_game_profile(away_metrics, home_metrics, header)
     team_comparison = build_team_comparison(away_metrics, home_metrics)
 
     return {
         "header": header,
         "final_score": final_score,
-        "game_profile": [],
+        "game_profile": game_profile,
         "matchup_lean": {},
         "team_comparison": team_comparison
     }
+
+def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
+    profile = []
+
+    away = header["away_team"]["abbreviation"]
+    home = header["home_team"]["abbreviation"]
+
+    def compare(a, b):
+        if a is None or b is None:
+            return None
+        return a - b
+
+    # -------------------------
+    # Pressure (basic version)
+    # -------------------------
+    away_pressure = away_metrics.get("Pressure & Turnovers::pressure_rate")
+    home_pressure = home_metrics.get("Pressure & Turnovers::pressure_rate")
+
+    if away_pressure is not None and home_pressure is not None:
+        diff = compare(away_pressure, home_pressure)
+
+        if abs(diff) > 0.05:
+            level = "Elevated"
+        elif abs(diff) > 0.02:
+            level = "Moderate"
+        else:
+            level = "Neutral"
+
+        if diff > 0:
+            tilt = f"{away} generating more pressure"
+        else:
+            tilt = f"{home} generating more pressure"
+
+        profile.append({
+            "category": "Pressure",
+            "level": level,
+            "tilt": tilt
+        })
+
+    # -------------------------
+    # Turnover Environment
+    # -------------------------
+    away_to = away_metrics.get("Defense::turnover_margin_per_game")
+    home_to = home_metrics.get("Defense::turnover_margin_per_game")
+
+    if away_to is not None and home_to is not None:
+        diff = compare(away_to, home_to)
+
+        if abs(diff) > 0.5:
+            level = "Elevated"
+        elif abs(diff) > 0.2:
+            level = "Moderate"
+        else:
+            level = "Neutral"
+
+        if diff > 0:
+            tilt = f"{away} better turnover profile"
+        else:
+            tilt = f"{home} better turnover profile"
+
+        profile.append({
+            "category": "Turnover Environment",
+            "level": level,
+            "tilt": tilt
+        })
+
+    # -------------------------
+    # Scoring Efficiency
+    # -------------------------
+    away_ppp = away_metrics.get("Scoring & Efficiency::points_per_play")
+    home_ppp = home_metrics.get("Scoring & Efficiency::points_per_play")
+
+    if away_ppp is not None and home_ppp is not None:
+        diff = compare(away_ppp, home_ppp)
+
+        if abs(diff) > 0.07:
+            level = "Elevated"
+        elif abs(diff) > 0.03:
+            level = "Moderate"
+        else:
+            level = "Neutral"
+
+        if diff > 0:
+            tilt = f"{away} more efficient scoring"
+        else:
+            tilt = f"{home} more efficient scoring"
+
+        profile.append({
+            "category": "Scoring",
+            "level": level,
+            "tilt": tilt
+        })
+
+    return profile
