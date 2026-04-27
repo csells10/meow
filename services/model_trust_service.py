@@ -90,6 +90,11 @@ def build_edge(matchup_advantage: dict) -> dict:
 
 
 def build_learning_label(model_outcome: dict) -> str:
+    """
+    Returns a user-facing learning label based on model outcome.
+    Backend owns all messaging — frontend should display as-is.
+    """
+
     if not model_outcome:
         return "Outcome not available yet"
 
@@ -99,7 +104,7 @@ def build_learning_label(model_outcome: dict) -> str:
         return "Model aligned with outcome"
 
     if result == "incorrect":
-        return "Model miss — review signals"
+        return "Model miss — learning opportunity logged"
 
     if result == "no pick":
         return "Neutral — model avoided low-confidence scenario"
