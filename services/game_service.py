@@ -66,7 +66,17 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
             return None
         return a - b
 
+    def get_level_index(level: str):
+        return {
+            "Neutral": 0,
+            "Moderate": 1,
+            "Elevated": 2,
+            "High": 3
+        }.get(level, 0)
+
+    # --------------------
     # Pressure
+    # --------------------
     away_pressure = away_metrics.get("Pressure & Turnovers::pressure_rate")
     home_pressure = home_metrics.get("Pressure & Turnovers::pressure_rate")
 
@@ -80,13 +90,27 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
         else:
             level = "Neutral"
 
+        if abs(diff) < 0.01:
+            tilt_text = "Even matchup"
+            tilt_team = "neutral"
+        else:
+            tilt_text = f"{away} generating more pressure" if diff > 0 else f"{home} generating more pressure"
+            tilt_team = "away" if diff > 0 else "home"
+
         profile.append({
             "category": "Pressure",
             "level": level,
-            "tilt": f"{away} generating more pressure" if diff > 0 else f"{home} generating more pressure",
+            "tilt": tilt_text,
+
+            "level_index": get_level_index(level),
+            "icon": "alert-triangle",
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text,
         })
 
-    # Turnovers
+    # --------------------
+    # Turnover Environment
+    # --------------------
     away_to = away_metrics.get("Defense::turnover_margin_per_game")
     home_to = home_metrics.get("Defense::turnover_margin_per_game")
 
@@ -100,13 +124,27 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
         else:
             level = "Neutral"
 
+        if abs(diff) < 0.01:
+            tilt_text = "Even matchup"
+            tilt_team = "neutral"
+        else:
+            tilt_text = f"{away} better turnover profile" if diff > 0 else f"{home} better turnover profile"
+            tilt_team = "away" if diff > 0 else "home"
+
         profile.append({
-            "category": "Turnover Environment",
+            "category": "Turnover Risk",
             "level": level,
-            "tilt": f"{away} better turnover profile" if diff > 0 else f"{home} better turnover profile",
+            "tilt": tilt_text,
+
+            "level_index": get_level_index(level),
+            "icon": "target",
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text,
         })
 
+    # --------------------
     # Scoring
+    # --------------------
     away_ppp = away_metrics.get("Scoring & Efficiency::points_per_play")
     home_ppp = home_metrics.get("Scoring & Efficiency::points_per_play")
 
@@ -120,10 +158,22 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
         else:
             level = "Neutral"
 
+        if abs(diff) < 0.01:
+            tilt_text = "Even matchup"
+            tilt_team = "neutral"
+        else:
+            tilt_text = f"{away} more efficient scoring" if diff > 0 else f"{home} more efficient scoring"
+            tilt_team = "away" if diff > 0 else "home"
+
         profile.append({
-            "category": "Scoring",
+            "category": "Scoring Efficiency",
             "level": level,
-            "tilt": f"{away} more efficient scoring" if diff > 0 else f"{home} more efficient scoring",
+            "tilt": tilt_text,
+
+            "level_index": get_level_index(level),
+            "icon": "trending-up",
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text,
         })
 
     return profile
@@ -383,6 +433,19 @@ def save_model_results(header, matchup_lean, model_outcome, model_trust):
 # =========================
 
 def get_game_details(game_id: str) -> dict:
+    """
+    Build the full /game/<game_id> API response.
+
+    This function orchestrates the matchup page payload:
+    - header
+    - final score
+    - team comparison
+    - game profile
+    - matchup lean
+    - model outcome
+    - model trust
+    """
+
     header = get_game_header(game_id)
 
     if not header:
@@ -397,13 +460,30 @@ def get_game_details(game_id: str) -> dict:
         }
 
     away_metrics, home_metrics = get_team_metrics(game_id)
-
     final_score = get_final_score(game_id)
 
-    team_comparison = build_team_comparison(away_metrics, home_metrics)
-    game_profile = build_game_profile(away_metrics, home_metrics, header)
-    matchup_lean = build_matchup_lean(game_profile, team_comparison, header)
-    model_outcome = build_model_outcome(matchup_lean, final_score, header)
+    team_comparison = build_team_comparison(
+        away_metrics=away_metrics,
+        home_metrics=home_metrics,
+    )
+
+    game_profile = build_game_profile(
+        away_metrics=away_metrics,
+        home_metrics=home_metrics,
+        header=header,
+    )
+
+    matchup_lean = build_matchup_lean(
+        game_profile=game_profile,
+        team_comparison=team_comparison,
+        header=header,
+    )
+
+    model_outcome = build_model_outcome(
+        matchup_lean=matchup_lean,
+        final_score=final_score,
+        header=header,
+    )
 
     model_trust = build_model_trust(
         game_profile=game_profile,

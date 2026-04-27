@@ -188,6 +188,120 @@ def get_team_metrics(game_id: str):
 
     return away_metrics, home_metrics
 
+def get_game_profile(game_id: str):
+    """
+    Build game_profile using team metrics.
+    Returns list of structured matchup signals.
+    """
+    header = get_game_header(game_id)
+    away_metrics, home_metrics = get_team_metrics(game_id)
+
+    if not header or not away_metrics or not home_metrics:
+        return []
+
+    home_abbr = header["home_team"]["abbreviation"]
+    away_abbr = header["away_team"]["abbreviation"]
+
+    # --- Helper functions ---
+    def level_from_diff(diff: float):
+        abs_diff = abs(diff)
+
+        if abs_diff < 0.05:
+            return "Low", 0
+        elif abs_diff < 0.10:
+            return "Moderate", 1
+        elif abs_diff < 0.20:
+            return "Elevated", 2
+        else:
+            return "High", 3
+
+    def pick_tilt(home_val, away_val):
+        if home_val is None or away_val is None:
+            return "", None
+
+        diff = home_val - away_val
+
+        if abs(diff) < 0.01:
+            return "Even matchup", "neutral"
+
+        if diff > 0:
+            return f"{home_abbr} edge", "home"
+        else:
+            return f"{away_abbr} edge", "away"
+
+    def icon_for(category):
+        return {
+            "Pressure": "alert-triangle",
+            "Explosiveness": "zap",
+            "Turnover Risk": "target",
+            "Defensive Strength": "shield",
+        }.get(category, "activity")
+
+    # --- Build categories ---
+    profile = []
+
+    # PRESSURE (example: sacks)
+    home_val = home_metrics.get("Defense::sacks")
+    away_val = away_metrics.get("Defense::sacks")
+
+    if home_val is not None and away_val is not None:
+        diff = home_val - away_val
+        level, level_index = level_from_diff(diff)
+        tilt_text, tilt_team = pick_tilt(home_val, away_val)
+
+        profile.append({
+            "category": "Pressure",
+            "level": level,
+            "tilt": tilt_text,
+
+            "level_index": level_index,
+            "icon": icon_for("Pressure"),
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text
+        })
+
+    # EXPLOSIVENESS (example: yards per play)
+    home_val = home_metrics.get("Offense::yards_per_play")
+    away_val = away_metrics.get("Offense::yards_per_play")
+
+    if home_val is not None and away_val is not None:
+        diff = home_val - away_val
+        level, level_index = level_from_diff(diff)
+        tilt_text, tilt_team = pick_tilt(home_val, away_val)
+
+        profile.append({
+            "category": "Explosiveness",
+            "level": level,
+            "tilt": tilt_text,
+
+            "level_index": level_index,
+            "icon": icon_for("Explosiveness"),
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text
+        })
+
+    # TURNOVER RISK
+    home_val = home_metrics.get("Defense::turnover_margin_per_game")
+    away_val = away_metrics.get("Defense::turnover_margin_per_game")
+
+    if home_val is not None and away_val is not None:
+        diff = home_val - away_val
+        level, level_index = level_from_diff(diff)
+        tilt_text, tilt_team = pick_tilt(home_val, away_val)
+
+        profile.append({
+            "category": "Turnover Risk",
+            "level": level,
+            "tilt": tilt_text,
+
+            "level_index": level_index,
+            "icon": icon_for("Turnover Risk"),
+            "tilt_team": tilt_team,
+            "tilt_text": tilt_text
+        })
+
+    return profile
+
 
 def get_final_score(game_id: str):
     """
