@@ -436,14 +436,8 @@ def get_game_details(game_id: str) -> dict:
     """
     Build the full /game/<game_id> API response.
 
-    This function orchestrates the matchup page payload:
-    - header
-    - final score
-    - team comparison
-    - game profile
-    - matchup lean
-    - model outcome
-    - model trust
+    Backend owns all matchup/model logic.
+    Frontend should render the structured response directly.
     """
 
     header = get_game_header(game_id)
@@ -455,7 +449,18 @@ def get_game_details(game_id: str) -> dict:
             "game_profile": [],
             "matchup_lean": {},
             "model_outcome": None,
-            "model_trust": {},
+            "model_trust": {
+                "reasoning": {
+                    "headline": None,
+                    "summary": None,
+                    "has_content": False,
+                    "drivers": [],
+                },
+                "matchup_advantage": {},
+                "edge": {},
+                "signal_alignment": {},
+                "learning_label": "Outcome not available yet",
+            },
             "team_comparison": [],
         }
 
@@ -493,12 +498,15 @@ def get_game_details(game_id: str) -> dict:
         header=header,
     )
 
-    save_model_results(
-        header=header,
-        matchup_lean=matchup_lean,
-        model_outcome=model_outcome,
-        model_trust=model_trust,
-    )
+    game_status = str(header.get("game_status") or "").lower()
+
+    if game_status in {"final", "final/ot"}:
+        save_model_results(
+            header=header,
+            matchup_lean=matchup_lean,
+            model_outcome=model_outcome,
+            model_trust=model_trust,
+        )
 
     return {
         "header": header,
@@ -506,6 +514,12 @@ def get_game_details(game_id: str) -> dict:
         "game_profile": game_profile,
         "matchup_lean": matchup_lean,
         "model_outcome": model_outcome,
-        "model_trust": model_trust,
+        "model_trust": {
+            "reasoning": model_trust.get("reasoning", {}),
+            "matchup_advantage": model_trust.get("matchup_advantage", {}),
+            "edge": model_trust.get("edge", {}),
+            "signal_alignment": model_trust.get("signal_alignment", {}),
+            "learning_label": model_trust.get("learning_label"),
+        },
         "team_comparison": team_comparison,
     }
