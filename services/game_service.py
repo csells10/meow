@@ -2,8 +2,10 @@ from queries.game_queries import (
     get_game_header,
     get_team_metrics,
     get_final_score,
+    metric_value,
 )
 from services.model_trust_service import build_model_trust
+from services.core_area_analysis import build_core_area_comparison
 from google.cloud import bigquery
 from datetime import datetime, timezone
 
@@ -34,8 +36,8 @@ def build_team_comparison(away_metrics: dict, home_metrics: dict):
     comparison = []
 
     for key, label, direction in METRICS:
-        away_val = away_metrics.get(key)
-        home_val = home_metrics.get(key)
+        away_val = metric_value(away_metrics, key)
+        home_val = metric_value(home_metrics, key)
 
         if away_val is None or home_val is None:
             continue
@@ -77,8 +79,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Pressure
     # --------------------
-    away_pressure = away_metrics.get("Pressure & Turnovers::pressure_rate")
-    home_pressure = home_metrics.get("Pressure & Turnovers::pressure_rate")
+    away_pressure = metric_value(away_metrics, "Pressure & Turnovers::pressure_rate")
+    home_pressure = metric_value(home_metrics, "Pressure & Turnovers::pressure_rate")
 
     if away_pressure is not None and home_pressure is not None:
         diff = compare(away_pressure, home_pressure)
@@ -111,8 +113,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Turnover Environment
     # --------------------
-    away_to = away_metrics.get("Defense::turnover_margin_per_game")
-    home_to = home_metrics.get("Defense::turnover_margin_per_game")
+    away_to = metric_value(away_metrics, "Defense::turnover_margin_per_game")
+    home_to = metric_value(home_metrics, "Defense::turnover_margin_per_game")
 
     if away_to is not None and home_to is not None:
         diff = compare(away_to, home_to)
@@ -145,8 +147,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Scoring
     # --------------------
-    away_ppp = away_metrics.get("Scoring & Efficiency::points_per_play")
-    home_ppp = home_metrics.get("Scoring & Efficiency::points_per_play")
+    away_ppp = metric_value(away_metrics, "Scoring & Efficiency::points_per_play")
+    home_ppp = metric_value(home_metrics, "Scoring & Efficiency::points_per_play")
 
     if away_ppp is not None and home_ppp is not None:
         diff = compare(away_ppp, home_ppp)
@@ -462,6 +464,7 @@ def get_game_details(game_id: str) -> dict:
                 "learning_label": "Outcome not available yet",
             },
             "team_comparison": [],
+            "core_area_comparison": [],
         }
 
     away_metrics, home_metrics = get_team_metrics(game_id)
@@ -470,6 +473,12 @@ def get_game_details(game_id: str) -> dict:
     team_comparison = build_team_comparison(
         away_metrics=away_metrics,
         home_metrics=home_metrics,
+    )
+
+    core_area_comparison = build_core_area_comparison(
+        away_metrics=away_metrics,
+        home_metrics=home_metrics,
+        header=header,
     )
 
     game_profile = build_game_profile(
@@ -522,4 +531,5 @@ def get_game_details(game_id: str) -> dict:
             "learning_label": model_trust.get("learning_label"),
         },
         "team_comparison": team_comparison,
+        "core_area_comparison": core_area_comparison,
     }

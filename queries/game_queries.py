@@ -3,11 +3,29 @@ from google.cloud import bigquery
 client = bigquery.Client()
 
 
+def metric_value(metrics: dict, key: str):
+    """
+    Safely extract the numeric value from a metric payload.
+
+    Supports:
+    - new shape: {"value": 0.308, "metric": "...", "core_area": "..."}
+    - old shape: 0.308
+    """
+
+    payload = metrics.get(key)
+
+    if isinstance(payload, dict):
+        return payload.get("value")
+
+    return payload
+
+
 def get_game_header(game_id: str) -> dict:
     """
     Fetch core game header data from the schedule table,
     including away/home team logo URLs.
     """
+
     query = """
         SELECT
             s.gameID,
@@ -58,15 +76,15 @@ def get_game_header(game_id: str) -> dict:
             "id": row.get("teamIDAway"),
             "name": row.get("away"),
             "abbreviation": row.get("away"),
-            "logo": row.get("away_logo")
+            "logo": row.get("away_logo"),
         },
         "home_team": {
             "id": row.get("teamIDHome"),
             "name": row.get("home"),
             "abbreviation": row.get("home"),
-            "logo": row.get("home_logo")
+            "logo": row.get("home_logo"),
         },
-        "espn_link": row.get("espnLink")
+        "espn_link": row.get("espnLink"),
     }
 
 
@@ -75,9 +93,18 @@ def get_team_metrics(game_id: str):
     Fetch latest available team aggregate metrics for the away/home teams
     before the game date.
 
-    Also creates a normalized turnover_margin_per_game value from the
-    cumulative Defense::turnover_margin metric.
+    Returns dicts keyed by "category::metric", where each value includes:
+    - value
+    - metric
+    - category
+    - core_area
+    - data_date
+    - team_id
+    - team_abv
+
+    This preserves core_area metadata for Core Area scoring.
     """
+
     header = get_game_header(game_id)
 
     if not header:
@@ -127,7 +154,7 @@ def get_team_metrics(game_id: str):
                 ANY_VALUE(team_abv) AS team_abv,
                 'turnover_margin_per_game' AS metric,
                 'Defense' AS category,
-                'defensive_control' AS core_area,
+                'Defensive Control' AS core_area,
                 SAFE_DIVIDE(MAX(value), COUNT(DISTINCT data_date)) AS value,
                 MAX(data_date) AS data_date
             FROM base
@@ -165,7 +192,7 @@ def get_team_metrics(game_id: str):
             bigquery.ArrayQueryParameter(
                 "team_ids",
                 "STRING",
-                [away_team_id, home_team_id]
+                [away_team_id, home_team_id],
             ),
             bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
         ]
@@ -177,22 +204,43 @@ def get_team_metrics(game_id: str):
     home_metrics = {}
 
     for row in rows:
-        metric_key = f"{row.get('category')}::{row.get('metric')}"
+        category = row.get("category")
+        metric = row.get("metric")
         team_id = row.get("team_id")
-        value = row.get("value")
+
+        if not category or not metric or not team_id:
+            continue
+
+        metric_key = f"{category}::{metric}"
+
+        metric_payload = {
+            "value": row.get("value"),
+            "metric": metric,
+            "category": category,
+            "core_area": row.get("core_area"),
+            "data_date": str(row.get("data_date")) if row.get("data_date") else None,
+            "team_id": team_id,
+            "team_abv": row.get("team_abv"),
+        }
 
         if team_id == away_team_id:
-            away_metrics[metric_key] = value
+            away_metrics[metric_key] = metric_payload
         elif team_id == home_team_id:
-            home_metrics[metric_key] = value
+            home_metrics[metric_key] = metric_payload
 
     return away_metrics, home_metrics
+
 
 def get_game_profile(game_id: str):
     """
     Build game_profile using team metrics.
-    Returns list of structured matchup signals.
+
+    Note:
+    The main API currently builds game_profile inside services/game_service.py.
+    This function is kept query-side compatible but should not be the primary
+    product logic location.
     """
+
     header = get_game_header(game_id)
     away_metrics, home_metrics = get_team_metrics(game_id)
 
@@ -202,18 +250,17 @@ def get_game_profile(game_id: str):
     home_abbr = header["home_team"]["abbreviation"]
     away_abbr = header["away_team"]["abbreviation"]
 
-    # --- Helper functions ---
     def level_from_diff(diff: float):
         abs_diff = abs(diff)
 
         if abs_diff < 0.05:
             return "Low", 0
-        elif abs_diff < 0.10:
+        if abs_diff < 0.10:
             return "Moderate", 1
-        elif abs_diff < 0.20:
+        if abs_diff < 0.20:
             return "Elevated", 2
-        else:
-            return "High", 3
+
+        return "High", 3
 
     def pick_tilt(home_val, away_val):
         if home_val is None or away_val is None:
@@ -226,8 +273,8 @@ def get_game_profile(game_id: str):
 
         if diff > 0:
             return f"{home_abbr} edge", "home"
-        else:
-            return f"{away_abbr} edge", "away"
+
+        return f"{away_abbr} edge", "away"
 
     def icon_for(category):
         return {
@@ -237,12 +284,11 @@ def get_game_profile(game_id: str):
             "Defensive Strength": "shield",
         }.get(category, "activity")
 
-    # --- Build categories ---
     profile = []
 
-    # PRESSURE (example: sacks)
-    home_val = home_metrics.get("Defense::sacks")
-    away_val = away_metrics.get("Defense::sacks")
+    # Pressure
+    home_val = metric_value(home_metrics, "Defense::sacks")
+    away_val = metric_value(away_metrics, "Defense::sacks")
 
     if home_val is not None and away_val is not None:
         diff = home_val - away_val
@@ -253,16 +299,15 @@ def get_game_profile(game_id: str):
             "category": "Pressure",
             "level": level,
             "tilt": tilt_text,
-
             "level_index": level_index,
             "icon": icon_for("Pressure"),
             "tilt_team": tilt_team,
-            "tilt_text": tilt_text
+            "tilt_text": tilt_text,
         })
 
-    # EXPLOSIVENESS (example: yards per play)
-    home_val = home_metrics.get("Offense::yards_per_play")
-    away_val = away_metrics.get("Offense::yards_per_play")
+    # Explosiveness
+    home_val = metric_value(home_metrics, "Offense::yards_per_play")
+    away_val = metric_value(away_metrics, "Offense::yards_per_play")
 
     if home_val is not None and away_val is not None:
         diff = home_val - away_val
@@ -273,16 +318,15 @@ def get_game_profile(game_id: str):
             "category": "Explosiveness",
             "level": level,
             "tilt": tilt_text,
-
             "level_index": level_index,
             "icon": icon_for("Explosiveness"),
             "tilt_team": tilt_team,
-            "tilt_text": tilt_text
+            "tilt_text": tilt_text,
         })
 
-    # TURNOVER RISK
-    home_val = home_metrics.get("Defense::turnover_margin_per_game")
-    away_val = away_metrics.get("Defense::turnover_margin_per_game")
+    # Turnover Risk
+    home_val = metric_value(home_metrics, "Defense::turnover_margin_per_game")
+    away_val = metric_value(away_metrics, "Defense::turnover_margin_per_game")
 
     if home_val is not None and away_val is not None:
         diff = home_val - away_val
@@ -293,11 +337,10 @@ def get_game_profile(game_id: str):
             "category": "Turnover Risk",
             "level": level,
             "tilt": tilt_text,
-
             "level_index": level_index,
             "icon": icon_for("Turnover Risk"),
             "tilt_team": tilt_team,
-            "tilt_text": tilt_text
+            "tilt_text": tilt_text,
         })
 
     return profile
@@ -307,6 +350,7 @@ def get_final_score(game_id: str):
     """
     Fetch quarter-by-quarter score from Scores.scores.
     """
+
     query = """
         SELECT
             team_type,
@@ -345,7 +389,7 @@ def get_final_score(game_id: str):
             "q3": away_row.get("Q3", 0),
             "q4": away_row.get("Q4", 0),
             "ot": away_row.get("OT", 0),
-            "total": away_row.get("awayPts", 0)
+            "total": away_row.get("awayPts", 0),
         },
         "home": {
             "q1": home_row.get("Q1", 0),
@@ -353,6 +397,6 @@ def get_final_score(game_id: str):
             "q3": home_row.get("Q3", 0),
             "q4": home_row.get("Q4", 0),
             "ot": home_row.get("OT", 0),
-            "total": home_row.get("homePts", 0)
-        }
+            "total": home_row.get("homePts", 0),
+        },
     }
