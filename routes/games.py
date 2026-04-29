@@ -2,15 +2,23 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 from utils.logging_setup import log_event
 
+from auth.firebase_auth import require_firebase_auth
 from services.get_games_by_date import fetch_games_by_date
+
 
 games_bp = Blueprint("games", __name__)
 
+
 @games_bp.route("/games", methods=["GET"])
+@require_firebase_auth
 def get_games_by_date():
     """
     GET /games?date=YYYY-MM-DD
     Returns all games for a given date.
+
+    Protected:
+    Requires Firebase Authorization Bearer token.
+    User must exist in Firestore allowed_users collection with active=true.
     """
 
     date_str = request.args.get("date")
@@ -34,8 +42,7 @@ def get_games_by_date():
 
     try:
         games = fetch_games_by_date(parsed_date)
-        
-        # Log successful query and number of games returned
+
         log_event("info", "games_query_success", date=date_str, count=len(games))
 
         return jsonify({

@@ -1,5 +1,6 @@
 Flask==2.3.3
 flask-cors==4.0.0
+firebase-admin
 requests==2.31.0
 debugpy # Required for debugging.
 DeepDiff

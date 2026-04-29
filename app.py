@@ -17,7 +17,12 @@ setup_logging()
 app = Flask(__name__)
 
 # Enable CORS
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS"],
+)
 
 # Register route blueprints
 # This keeps app.py thin and allows routes to live in their own modules.
