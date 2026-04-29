@@ -106,6 +106,10 @@ def build_core_area_comparison(away_metrics: dict, home_metrics: dict, header: d
             "metric_count": 3
         }
     ]
+
+    Notes:
+    - Metrics where both teams have 0 are skipped.
+    - This prevents empty/unpopulated metrics from creating false 0.5 / 0.5 neutral scores.
     """
 
     core_scores = defaultdict(lambda: {"away": [], "home": []})
@@ -134,6 +138,11 @@ def build_core_area_comparison(away_metrics: dict, home_metrics: dict, header: d
             away_num = float(away_value)
             home_num = float(home_value)
         except (TypeError, ValueError):
+            continue
+
+        # Skip empty / non-informative paired zero metrics.
+        # Example: Special Teams fields currently returning 0 for both teams.
+        if away_num == 0 and home_num == 0:
             continue
 
         lower_is_better = metric in LOWER_IS_BETTER
