@@ -2,11 +2,11 @@ from collections import defaultdict
 
 
 ACTIVE_CORE_AREAS = {
-    "Scoring Efficiency",
-    "Red Zone & Conversion",
     "Defensive Control",
     "Disruption and Turnovers",
     "Offensive Output",
+    "Scoring Efficiency",
+    "Field Control (Special Teams)",
 }
 
 

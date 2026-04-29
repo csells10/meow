@@ -26,11 +26,11 @@ def fmt(val):
 
 def build_team_comparison(away_metrics: dict, home_metrics: dict):
     METRICS = [
-        ("Scoring & Efficiency::points_per_play", "Points per Play", "higher"),
-        ("Scoring & Efficiency::points_allowed_per_play", "Points Allowed per Play", "lower"),
-        ("Red Zone & Conversion::third_down_pct", "3rd Down %", "higher"),
-        ("Red Zone & Conversion::red_zone_efficiency", "Red Zone TD %", "higher"),
-        ("Defense::turnover_margin_per_game", "Turnover Margin / Game", "higher"),
+        ("Scoring Production::points_per_play", "Points per Play", "higher"),
+        ("Scoring Suppression::points_allowed_per_play", "Points Allowed per Play", "lower"),
+        ("Drive Conversion::third_down_pct", "3rd Down %", "higher"),
+        ("Red Zone Finish::red_zone_efficiency", "Red Zone TD %", "higher"),
+        ("Turnovers::turnover_margin", "Turnover Margin", "higher"),
     ]
 
     comparison = []
@@ -79,8 +79,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Pressure
     # --------------------
-    away_pressure = metric_value(away_metrics, "Pressure & Turnovers::pressure_rate")
-    home_pressure = metric_value(home_metrics, "Pressure & Turnovers::pressure_rate")
+    away_pressure = metric_value(away_metrics, "Pressure::pressure_rate")
+    home_pressure = metric_value(home_metrics, "Pressure::pressure_rate")
 
     if away_pressure is not None and home_pressure is not None:
         diff = compare(away_pressure, home_pressure)
@@ -113,8 +113,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Turnover Environment
     # --------------------
-    away_to = metric_value(away_metrics, "Defense::turnover_margin_per_game")
-    home_to = metric_value(home_metrics, "Defense::turnover_margin_per_game")
+    away_to = metric_value(away_metrics, "Turnovers::turnover_margin")
+    home_to = metric_value(home_metrics, "Turnovers::turnover_margin")
 
     if away_to is not None and home_to is not None:
         diff = compare(away_to, home_to)
@@ -147,8 +147,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Scoring
     # --------------------
-    away_ppp = metric_value(away_metrics, "Scoring & Efficiency::points_per_play")
-    home_ppp = metric_value(home_metrics, "Scoring & Efficiency::points_per_play")
+    away_ppp = metric_value(away_metrics, "Scoring Production::points_per_play")
+    home_ppp = metric_value(home_metrics, "Scoring Production::points_per_play")
 
     if away_ppp is not None and home_ppp is not None:
         diff = compare(away_ppp, home_ppp)
