@@ -193,42 +193,176 @@ def get_week_number(header: dict):
     return None
 
 
-def build_matchup_lean(game_profile: list, team_comparison: list, header: dict):
+def build_core_area_context(core_area_comparison: list, lean_side=None):
+    """
+    Summarize Core Area Advantage into a simple matchup context.
+
+    This is intentionally v1/simple:
+    - Counts Core Area wins
+    - Calculates average Core Area score
+    - Detects split, coin-flip, confirmed, or conflicting profiles
+    """
+
+    context = {
+        "available": False,
+        "away_core_wins": 0,
+        "home_core_wins": 0,
+        "neutral_core_areas": 0,
+        "total_core_areas": 0,
+        "away_core_avg": None,
+        "home_core_avg": None,
+        "core_gap": None,
+        "core_area_leader": "neutral",
+        "core_area_split": None,
+        "profile_type": "insufficient_core_area_context",
+    }
+
+    if not core_area_comparison:
+        return context
+
+    away_scores = []
+    home_scores = []
+
+    for area in core_area_comparison:
+        leader = area.get("leader")
+
+        if leader == "away":
+            context["away_core_wins"] += 1
+        elif leader == "home":
+            context["home_core_wins"] += 1
+        else:
+            context["neutral_core_areas"] += 1
+
+        away_score = area.get("away_score")
+        home_score = area.get("home_score")
+
+        if isinstance(away_score, (int, float)) and isinstance(home_score, (int, float)):
+            away_scores.append(away_score)
+            home_scores.append(home_score)
+
+    total_core_areas = (
+        context["away_core_wins"]
+        + context["home_core_wins"]
+        + context["neutral_core_areas"]
+    )
+
+    context["total_core_areas"] = total_core_areas
+
+    if not away_scores or not home_scores:
+        return context
+
+    away_avg = sum(away_scores) / len(away_scores)
+    home_avg = sum(home_scores) / len(home_scores)
+    core_gap = abs(away_avg - home_avg)
+
+    context["available"] = True
+    context["away_core_avg"] = round(away_avg, 3)
+    context["home_core_avg"] = round(home_avg, 3)
+    context["core_gap"] = round(core_gap, 3)
+    context["core_area_split"] = f"{context['away_core_wins']}-{context['home_core_wins']}"
+
+    # Treat very small average gap as neutral / coin-flip
+    if core_gap < 0.08:
+        core_area_leader = "neutral"
+    else:
+        core_area_leader = "away" if away_avg > home_avg else "home"
+
+    context["core_area_leader"] = core_area_leader
+
+    away_wins = context["away_core_wins"]
+    home_wins = context["home_core_wins"]
+
+    # Profile classification
+    if core_gap < 0.08:
+        profile_type = "coin_flip_profile"
+    elif away_wins >= 2 and home_wins >= 2:
+        profile_type = "split_profile"
+    elif lean_side in {"away", "home"} and core_area_leader == lean_side:
+        profile_type = "confirmed_edge"
+    elif lean_side in {"away", "home"} and core_area_leader not in {"neutral", lean_side}:
+        profile_type = "conflicting_profile"
+    else:
+        profile_type = "mixed_profile"
+
+    context["profile_type"] = profile_type
+
+    return context
+
+def build_matchup_lean(
+    game_profile: list,
+    team_comparison: list,
+    header: dict,
+    core_area_comparison: list = None,
+):
     away = header["away_team"]["abbreviation"]
     home = header["home_team"]["abbreviation"]
 
     score = {away: 0, home: 0}
 
+    # --------------------
+    # Team comparison scoring
+    # --------------------
     for metric in team_comparison:
         better = metric.get("better")
+
         if better == "away":
             score[away] += 1
         elif better == "home":
             score[home] += 1
 
+    # --------------------
+    # Game profile signal scoring
+    # --------------------
     for signal in game_profile:
-        tilt = signal.get("tilt", "")
         level = signal.get("level", "Neutral")
-
         weight = 2 if level == "Elevated" else 1 if level == "Moderate" else 0
 
-        if away in tilt:
+        # Prefer structured backend field.
+        # Keep tilt text fallback for backward compatibility.
+        tilt_team = signal.get("tilt_team")
+
+        if tilt_team == "away":
             score[away] += weight
-        elif home in tilt:
+        elif tilt_team == "home":
             score[home] += weight
+        else:
+            tilt = signal.get("tilt", "")
+            if away in tilt:
+                score[away] += weight
+            elif home in tilt:
+                score[home] += weight
 
     diff = abs(score[away] - score[home])
 
+    signal_score = {
+        "away": score[away],
+        "home": score[home],
+        "gap": diff,
+    }
+
+    # --------------------
+    # No lean scenario
+    # --------------------
     if diff < 3:
+        core_area_context = build_core_area_context(
+            core_area_comparison=core_area_comparison or [],
+            lean_side=None,
+        )
+
         return {
             "target_team": "None",
+            "target_side": None,
             "lean_summary": "No strong directional edge",
             "focus_summary": "Signal gap too small to justify a lean",
             "confidence": "Low",
-            "confidence_context": None,
+            "confidence_context": "Signals are not separated enough to support a clear lean",
+            "profile_type": "no_clear_edge",
+            "signal_score": signal_score,
+            "core_area_context": core_area_context,
         }
 
     target = away if score[away] > score[home] else home
+    target_side = "away" if target == away else "home"
 
     confidence = "High" if diff >= 5 else "Medium"
 
@@ -236,12 +370,64 @@ def build_matchup_lean(game_profile: list, team_comparison: list, header: dict):
     if week_num and week_num <= 2:
         confidence = "Low"
 
+    core_area_context = build_core_area_context(
+        core_area_comparison=core_area_comparison or [],
+        lean_side=target_side,
+    )
+
+    profile_type = core_area_context.get("profile_type")
+
+    # --------------------
+    # Core Area sanity check
+    # --------------------
+    if profile_type == "confirmed_edge":
+        lean_summary = f"{target} holds the broader matchup edge"
+        focus_summary = (
+            f"{target} is supported by both signal scoring and Core Area advantage"
+        )
+        confidence_context = "Core Areas support the same side as the signal lean"
+
+    elif profile_type == "coin_flip_profile":
+        lean_summary = f"This matchup is close overall, with a slight lean toward {target}"
+        focus_summary = (
+            f"{target} has the stronger signal score, but Core Areas are nearly even overall"
+        )
+        confidence = "Low"
+        confidence_context = "Core Areas are nearly even, limiting confidence"
+
+    elif profile_type == "split_profile":
+        lean_summary = f"{target} shows a slight signal lean, but the broader profile is mixed"
+        focus_summary = (
+            f"{target} has signal support, but Core Area wins are split across the matchup"
+        )
+        confidence = "Low" if confidence != "Low" else confidence
+        confidence_context = "Core Areas are split, limiting confidence"
+
+    elif profile_type == "conflicting_profile":
+        lean_summary = f"{target} has signal support, but Core Areas do not fully confirm the edge"
+        focus_summary = (
+            f"{target} leads the signal score, but the broader Core Area profile points elsewhere"
+        )
+        confidence = "Low"
+        confidence_context = "Core Area context conflicts with the signal lean"
+
+    else:
+        lean_summary = f"{target} shows a directional signal lean"
+        focus_summary = (
+            f"{target} advantage is driven by efficiency, pressure, and turnover signals"
+        )
+        confidence_context = "Core Area context is mixed or limited"
+
     return {
         "target_team": f"{target} edge",
-        "lean_summary": f"{target} holds the overall matchup edge",
-        "focus_summary": f"{target} advantage driven by efficiency, pressure, and turnover profile",
+        "target_side": target_side,
+        "lean_summary": lean_summary,
+        "focus_summary": focus_summary,
         "confidence": confidence,
-        "confidence_context": None,
+        "confidence_context": confidence_context,
+        "profile_type": profile_type,
+        "signal_score": signal_score,
+        "core_area_context": core_area_context,
     }
 
 
@@ -491,6 +677,7 @@ def get_game_details(game_id: str) -> dict:
         game_profile=game_profile,
         team_comparison=team_comparison,
         header=header,
+        core_area_comparison=core_area_comparison,
     )
 
     model_outcome = build_model_outcome(

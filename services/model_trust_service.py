@@ -68,7 +68,10 @@ def build_matchup_advantage(team_comparison: list) -> dict:
         "away": away_count,
         "home": home_count,
         "leader": leader,
-        "tooltip": "Shows how many matchup comparison factors favored each team.",
+        "tooltip": (
+            "Counts how many visible Team Comparison metrics favored each team. "
+            "This is a directional count, not the full model score."
+        ),
     }
 
 
@@ -83,17 +86,31 @@ def build_edge(matchup_advantage: dict) -> dict:
 
     if diff >= 3:
         strength = "strong"
+        tooltip = (
+            "The visible Team Comparison metrics show clear separation. "
+            "Core Area context and Game Profile signals are evaluated separately."
+        )
     elif diff >= 2:
         strength = "moderate"
+        tooltip = (
+            "The visible Team Comparison metrics lean one way, but this is not the full matchup model by itself."
+        )
     elif diff >= 1:
         strength = "low"
+        tooltip = (
+            "The visible Team Comparison metrics show only a small edge. "
+            "Use this as supporting context, not a standalone conclusion."
+        )
     else:
         strength = "none"
+        tooltip = (
+            "The visible Team Comparison metrics are evenly split or unavailable."
+        )
 
     return {
         "strength": strength,
         "score": edge_score,
-        "tooltip": "Overall strength of the matchup advantage.",
+        "tooltip": tooltip,
         "has_content": total > 0,
     }
 
@@ -228,10 +245,42 @@ def build_signal_alignment(
         "summary_label": summary_label,
         "aligned_count": aligned_count,
         "total_count": total_count,
-        "tooltip": "Whether each key signal favored the predicted team or opponent.",
+        "tooltip": (
+            "Shows whether each Game Profile signal agreed with the model's predicted or leaned team."
+        ),
         "signals": signals,
     }
 
+
+def resolve_reasoning_team(matchup_lean: dict, model_outcome: dict, leader_team=None):
+    """
+    Resolve the team that the reasoning text should discuss.
+
+    Preference order:
+    1. model_outcome.predicted_team
+    2. matchup_lean.target_team
+    3. matchup_advantage leader_team fallback
+    """
+
+    predicted_team = None
+
+    if model_outcome:
+        raw_team = model_outcome.get("predicted_team")
+
+        if raw_team and raw_team not in {"None", "No Pick"}:
+            predicted_team = raw_team
+
+    if not predicted_team and matchup_lean:
+        raw_target = str(matchup_lean.get("target_team", "")).replace(" edge", "").strip()
+
+        if raw_target and raw_target not in {
+            "None",
+            "No strong directional edge",
+            "No Pick",
+        }:
+            predicted_team = raw_target
+
+    return predicted_team or leader_team
 
 def build_reasoning(
     team_comparison: list,
@@ -276,10 +325,42 @@ def build_reasoning(
 
     result = str((model_outcome or {}).get("result") or "").lower()
 
-    if result == "no pick":
+    reasoning_team = resolve_reasoning_team(
+        matchup_lean=matchup_lean,
+        model_outcome=model_outcome,
+        leader_team=leader_team,
+    )
+
+    profile_type = (matchup_lean or {}).get("profile_type")
+    core_area_context = (matchup_lean or {}).get("core_area_context") or {}
+
+    if not profile_type:
+        profile_type = core_area_context.get("profile_type")
+
+    # ---------------------------------
+    # Headline aligned to matchup_lean
+    # ---------------------------------
+    if result == "no pick" or not reasoning_team:
         headline = "No clear matchup profile edge"
-    elif leader_team:
-        headline = f"{leader_team} holds the cleaner matchup profile"
+
+    elif profile_type == "coin_flip_profile":
+        headline = f"{reasoning_team} had a slight signal lean in a balanced matchup"
+
+    elif profile_type == "split_profile":
+        headline = f"{reasoning_team} had a slight signal lean in a mixed matchup profile"
+
+    elif profile_type == "conflicting_profile":
+        headline = f"{reasoning_team} had signal support, but the broader profile was conflicted"
+
+    elif profile_type == "confirmed_edge":
+        headline = f"{reasoning_team} held the broader matchup edge"
+
+    elif profile_type == "no_clear_edge":
+        headline = "No clear matchup profile edge"
+
+    elif reasoning_team:
+        headline = f"{reasoning_team} showed a directional signal lean"
+
     else:
         headline = "No clear matchup profile edge"
 
@@ -310,75 +391,182 @@ def build_reasoning_summary(
 ):
     """
     Builds a short human-readable reasoning summary.
+
+    This is now aligned with matchup_lean.profile_type so Model Trust
+    does not overstate the edge when Core Areas are mixed or coin-flippy.
     """
 
     edge_strength = (edge or {}).get("strength") or "unclear"
     alignment_code = (signal_alignment or {}).get("summary_code") or "unknown"
 
-    predicted_team = None
     result = None
 
     if model_outcome:
-        raw_team = model_outcome.get("predicted_team")
         result = str(model_outcome.get("result") or "").lower()
 
-        if raw_team and raw_team not in {"None", "No Pick"}:
-            predicted_team = raw_team
+    team = resolve_reasoning_team(
+        matchup_lean=matchup_lean,
+        model_outcome=model_outcome,
+        leader_team=leader_team,
+    )
 
-    if not predicted_team and matchup_lean:
-        raw_target = str(matchup_lean.get("target_team", "")).replace(" edge", "").strip()
+    profile_type = (matchup_lean or {}).get("profile_type")
+    lean_summary = (matchup_lean or {}).get("lean_summary")
+    focus_summary = (matchup_lean or {}).get("focus_summary")
+    confidence_context = (matchup_lean or {}).get("confidence_context")
+    core_area_context = (matchup_lean or {}).get("core_area_context") or {}
 
-        if raw_target and raw_target not in {"None", "No strong directional edge"}:
-            predicted_team = raw_target
+    if not profile_type:
+        profile_type = core_area_context.get("profile_type")
 
-    team = predicted_team or leader_team
+    core_split = core_area_context.get("core_area_split")
+    core_gap = core_area_context.get("core_gap")
 
-    # Determine summary type
-    if result == "correct":
-        summary_type = "correct"
-    elif result == "incorrect":
-        summary_type = "incorrect"
-    elif result == "no pick":
-        summary_type = "no_pick"
-    elif team:
-        summary_type = "pregame_edge"
-    else:
-        summary_type = "neutral"
-
-    templates = {
-        "correct": [
-            "{team} had the cleaner pregame profile, and the final result backed that up.",
-            "The model leaned toward {team}, and that matchup edge held through the outcome.",
-            "{team}'s advantage showed up clearly enough for the model to align with the result.",
-        ],
-        "incorrect": [
-            "{team} showed the better pregame profile, but the final result went the other way.",
-            "The model saw an edge for {team}, though the outcome exposed a useful calibration miss.",
-            "{team} had the cleaner matchup signals, but this game became a learning spot for the model.",
-        ],
-        "no_pick": [
-            "The matchup profile did not create a clean enough edge to force a lean.",
+    # ---------------------------------
+    # No pick / no edge
+    # ---------------------------------
+    if result == "no pick" or profile_type == "no_clear_edge":
+        templates = [
             "The model avoided a strong call because the signals were too balanced.",
-            "This game stayed too mixed pregame for a confident directional edge.",
-        ],
-        "pregame_edge": [
-            "{team} carries a {edge_strength} matchup edge based on the current profile.",
-            "The matchup profile leans toward {team}, with a {edge_strength} overall edge.",
-            "{team} owns the cleaner pregame setup, though the edge grades as {edge_strength}.",
-        ],
-        "neutral": [
-            "The matchup profile does not show a clear enough edge yet.",
-            "The available signals are too balanced to create a strong matchup story.",
-            "No clean matchup advantage stands out from the current profile.",
-        ],
-    }
+            "This game did not create enough separation for a confident directional edge.",
+            "The matchup profile stayed mixed enough that the model did not force a lean.",
+        ]
 
-    # Stable randomness (same game = same wording)
-    seed = str(game_id or f"{summary_type}-{team}-{edge_strength}-{alignment_code}")
+    # ---------------------------------
+    # Coin flip profile
+    # ---------------------------------
+    elif profile_type == "coin_flip_profile":
+        if result == "incorrect":
+            templates = [
+                "{team} had the stronger signal score, but Core Areas were nearly even. The miss is a calibration note, not a broken read.",
+                "The model leaned {team}, but the broader profile was close enough that the final result exposed a useful calibration miss.",
+                "{team} showed a slight signal lean, but the Core Area gap was tiny, so this result should be treated as a balanced-profile miss.",
+            ]
+        elif result == "correct":
+            templates = [
+                "{team} had only a slight signal lean in a balanced matchup, and the final result still backed it up.",
+                "The model leaned {team} despite a near-even Core Area profile, and that small edge held through the outcome.",
+                "{team}'s signal lean was modest, but it was enough to align with the final result.",
+            ]
+        else:
+            templates = [
+                "{team} has a slight signal lean, but Core Areas are nearly even overall.",
+                "The matchup is close overall, with only a slight lean toward {team}.",
+                "{team} leads the signal read, but the broader Core Area profile is nearly balanced.",
+            ]
+
+    # ---------------------------------
+    # Split profile
+    # ---------------------------------
+    elif profile_type == "split_profile":
+        if result == "incorrect":
+            templates = [
+                "{team} had signal support, but Core Areas were split. The miss points to a mixed-profile calibration issue.",
+                "The model leaned {team}, but the broader matchup was divided across Core Areas, making this a useful learning spot.",
+                "{team}'s signals were stronger, but the split Core Area profile limited confidence and the result went the other way.",
+            ]
+        elif result == "correct":
+            templates = [
+                "{team} had signal support in a split Core Area profile, and the final result backed the lean.",
+                "The matchup was mixed overall, but {team}'s signal edge still aligned with the outcome.",
+                "{team}'s lean came from stronger signals, even though Core Areas were split.",
+            ]
+        else:
+            templates = [
+                "{team} has signal support, but the broader Core Area profile is split.",
+                "The matchup profile is mixed, with a slight signal lean toward {team}.",
+                "{team} leads the signal read, but Core Areas are divided enough to limit confidence.",
+            ]
+
+    # ---------------------------------
+    # Conflicting profile
+    # ---------------------------------
+    elif profile_type == "conflicting_profile":
+        if result == "incorrect":
+            templates = [
+                "{team} had signal support, but Core Areas did not confirm the edge. The miss reinforces that conflict warning.",
+                "The model leaned {team}, but broader Core Area context pointed against a clean edge.",
+                "{team}'s signal edge was not fully supported by the wider profile, and the final result exposed that risk.",
+            ]
+        elif result == "correct":
+            templates = [
+                "{team}'s signal support overcame a conflicting Core Area profile, but this still deserves cautious grading.",
+                "The model leaned {team} despite broader profile conflict, and the result backed the signal read.",
+                "{team}'s signals proved more useful than the broader Core Area warning in this game.",
+            ]
+        else:
+            templates = [
+                "{team} has signal support, but Core Areas do not fully confirm the edge.",
+                "The model leans {team}, though the broader profile is conflicting.",
+                "{team} leads the signal read, but Core Area context argues for caution.",
+            ]
+
+    # ---------------------------------
+    # Confirmed edge
+    # ---------------------------------
+    elif profile_type == "confirmed_edge":
+        if result == "correct":
+            templates = [
+                "{team} had support from both signal scoring and Core Area context, and the final result backed that up.",
+                "The model leaned {team}, and the broader matchup profile confirmed the edge.",
+                "{team}'s advantage was supported across the profile and aligned with the outcome.",
+            ]
+        elif result == "incorrect":
+            templates = [
+                "{team} had support from the broader matchup profile, but the final result went the other way.",
+                "The model saw a confirmed edge for {team}, making this a stronger calibration miss.",
+                "{team}'s profile looked cleaner pregame, but the outcome exposed a miss worth reviewing.",
+            ]
+        else:
+            templates = [
+                "{team} is supported by both signal scoring and Core Area context.",
+                "{team} holds the broader matchup edge based on the current profile.",
+                "The matchup profile gives {team} a {edge_strength} edge with Core Area support.",
+            ]
+
+    # ---------------------------------
+    # Fallback
+    # ---------------------------------
+    else:
+        if result == "incorrect":
+            templates = [
+                "The model saw an edge for {team}, though the outcome exposed a useful calibration miss.",
+                "{team} showed some matchup support, but the final result went the other way.",
+                "The model leaned {team}, but this game became a learning spot for calibration.",
+            ]
+        elif result == "correct":
+            templates = [
+                "The model leaned toward {team}, and the final result backed that up.",
+                "{team}'s matchup support aligned with the outcome.",
+                "The model's lean toward {team} held through the final result.",
+            ]
+        elif team:
+            templates = [
+                "{team} carries a {edge_strength} matchup lean based on the current profile.",
+                "The matchup profile leans toward {team}, though confidence depends on signal agreement.",
+                "{team} shows the cleaner setup, though the edge grades as {edge_strength}.",
+            ]
+        else:
+            templates = [
+                "The matchup profile does not show a clear enough edge yet.",
+                "The available signals are too balanced to create a strong matchup story.",
+                "No clean matchup advantage stands out from the current profile.",
+            ]
+
+    # Stable randomness: same game/profile/result = same wording
+    seed = str(
+        game_id
+        or f"{profile_type}-{result}-{team}-{edge_strength}-{alignment_code}-{core_split}-{core_gap}"
+    )
     rng = random.Random(seed)
-    template = rng.choice(templates[summary_type])
+    template = rng.choice(templates)
 
     return template.format(
         team=team or "the selected team",
         edge_strength=edge_strength,
+        core_split=core_split or "unknown",
+        core_gap=core_gap if core_gap is not None else "unknown",
+        lean_summary=lean_summary or "",
+        focus_summary=focus_summary or "",
+        confidence_context=confidence_context or "",
     )
