@@ -1,5 +1,6 @@
 import os
 from functools import wraps
+from typing import Optional, Tuple
 
 import firebase_admin
 from firebase_admin import auth as firebase_admin_auth
@@ -116,7 +117,7 @@ def get_allowed_user_record(email: str):
     return doc.to_dict() or {}
 
 
-def is_user_allowed(email: str) -> tuple[bool, dict | None]:
+def is_user_allowed(email: str) -> Tuple[bool, Optional[dict]]:
     """
     Returns whether the user is allowed to access GameLens.
 
