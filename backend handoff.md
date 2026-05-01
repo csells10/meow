@@ -474,9 +474,7 @@ Good:
 
 ```text
 points_per_play = sum(actual_points) / sum(total_plays)
-
 red_zone_efficiency = sum(red_zone_tds) / sum(red_zone_attempts)
-
 yards_per_play = sum(total_yards) / sum(total_plays)
 ```
 
@@ -670,7 +668,73 @@ but the SQL check is still useful as an external BigQuery confirmation.
 
 ---
 
-## 11. Known Data Quality Note — Snap Load Metrics
+## 11. Old vs New Comparison Finding
+
+A comparison for:
+
+```text
+20250914_SF@NO
+```
+
+showed that the old source table:
+
+```text
+Analytics.team_metrics_season_2025
+```
+
+included preseason + Week 1 values in the pregame snapshot dated:
+
+```text
+2025-09-07
+```
+
+Example old values:
+
+```text
+NO actual_points old = 62
+SF actual_points old = 78
+NO total_plays old = 252
+SF total_plays old = 253
+```
+
+Those values exactly matched all cleaned fact rows through `2025-09-07`, including preseason.
+
+The new source table:
+
+```text
+Analytics.team_metrics_windowed_2025
+```
+
+using:
+
+```text
+regular_season_to_date
+```
+
+correctly matched only regular-season facts through `2025-09-07`.
+
+Example new values:
+
+```text
+NO actual_points new = 13
+SF actual_points new = 17
+NO total_plays new = 69
+SF total_plays new = 72
+games_in_window = 1
+value_difference = 0
+```
+
+Conclusion:
+
+```text
+The windowed table fixes a real early-season data-lineage issue where preseason data leaked into the old season-to-date source.
+```
+
+This is a strong reason to continue toward the `/game` migration carefully.
+
+---
+
+## 12. Known Data Quality Note — Snap Load Metrics
 
 These percentage/load metrics have low source coverage in 2025:
 
@@ -712,7 +776,7 @@ They are useful concepts, but the current source coverage is weak.
 
 ---
 
-## 12. Current Checked-Off Phases
+## 13. Current Checked-Off Phases
 
 ```text
 ✅ Phase 1 — Metric registry created
@@ -724,13 +788,14 @@ They are useful concepts, but the current source coverage is weak.
 ✅ Phase 6 — Windowed tables written for 2023, 2024, and 2025
 ✅ Legacy parser metadata decision finalized
 ✅ Historical migration performed without external API re-fetch
+✅ Old source preseason leakage identified and explained
 ```
 
 ---
 
 # Crossover Plan — Safely Triggering New Builders Inside the App Framework
 
-## 13. Crossover Purpose
+## 14. Crossover Purpose
 
 The new builders exist, but they should not be wired into the live app immediately.
 
@@ -765,7 +830,7 @@ python -m agg.build_windowed_metrics --season 2025
 
 ---
 
-## 14. Phase C1 — Manual-Only Mode
+## 15. Phase C1 — Manual-Only Mode
 
 This is the current recommended commit state.
 
@@ -794,7 +859,7 @@ Status:
 
 ---
 
-## 15. Phase C2 — Environment-Gated Framework Trigger
+## 16. Phase C2 — Environment-Gated Framework Trigger
 
 Only after manual validation feels reliable, add optional post-stats jobs inside `app.py`.
 
@@ -833,7 +898,7 @@ ENABLE_WINDOWED_METRICS_BUILD=false
 
 ---
 
-## 16. Phase C2 Implementation Code
+## 17. Phase C2 Implementation Code
 
 Add these constants near the top of `app.py`, after imports:
 
@@ -1028,7 +1093,7 @@ else:
 
 ---
 
-## 17. Phase C2 Environment Settings
+## 18. Phase C2 Environment Settings
 
 Default production-safe values:
 
@@ -1060,7 +1125,7 @@ This prevents hardcoding the year in `app.py`.
 
 ---
 
-## 18. Why the New Builders Should Be Non-Fatal at First
+## 19. Why the New Builders Should Be Non-Fatal at First
 
 During crossover, the cleaned fact and windowed tables are not yet powering `/game`.
 
@@ -1077,7 +1142,7 @@ For now, the new builders should be treated as shadow/foundation jobs.
 
 ---
 
-## 19. Phase C3 — API Switch Later
+## 20. Phase C3 — API Switch Later
 
 Do not update `/game/<game_id>` yet.
 
@@ -1130,7 +1195,7 @@ Do not make `last_3_games` or `last_7_games` the primary Matchup Lean input yet.
 
 ---
 
-## 20. Phase C4 — Remove Old Path Only After Confidence
+## 21. Phase C4 — Remove Old Path Only After Confidence
 
 Do not remove the old aggregate path immediately after the first API switch.
 
@@ -1158,7 +1223,7 @@ USE_WINDOWED_METRICS_FOR_GAME=true
 
 ---
 
-## 21. Commit Guidance
+## 22. Commit Guidance
 
 For the current commit, include:
 
@@ -1183,7 +1248,7 @@ git commit -m "Add phase-aware windowed metrics builder"
 
 ---
 
-## 22. Crossover Summary
+## 23. Crossover Summary
 
 Safe migration path:
 
