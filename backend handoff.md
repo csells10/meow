@@ -1,21 +1,22 @@
 ---
 
-# Backend Status Addendum — Metric Registry, Cleaned Fact Tables, and Crossover Plan
+# Backend Status Addendum — Metric Registry, Cleaned Fact Tables, Windowed Metrics, and Crossover Plan
 
 _Last updated: May 1, 2026_
 
 ## 1. Current Status
 
-The first backend foundation step is complete:
+The backend foundation now has three completed additive layers:
 
 ```text
 Analytics.game_metrics_flat
 + League.schedule
 + analytics/metric_registry.py
 → Analytics.game_team_metric_facts_{season}
+→ Analytics.team_metrics_windowed_{season}
 ```
 
-Built and validated tables:
+Built cleaned fact tables:
 
 ```text
 Analytics.game_team_metric_facts_2023
@@ -23,16 +24,25 @@ Analytics.game_team_metric_facts_2024
 Analytics.game_team_metric_facts_2025
 ```
 
-Current commit should remain **foundation-only**:
+Built windowed metric tables:
 
 ```text
-✅ analytics/metric_registry.py
-✅ agg/build_metric_facts.py
-✅ backend handoff documentation updates
-❌ no app.py change yet
-❌ no config.py change yet
-❌ no /game query change yet
+Analytics.team_metrics_windowed_2023
+Analytics.team_metrics_windowed_2024
+Analytics.team_metrics_windowed_2025
 ```
+
+Current live app behavior remains unchanged:
+
+```text
+✅ no app.py change yet
+✅ no config.py change yet
+✅ no /game query change yet
+✅ no external NFL API re-fetch
+✅ existing /game path still uses the old current source
+```
+
+This work is still foundation-only and additive.
 
 ---
 
@@ -139,7 +149,7 @@ Instead, the cleaned fact builder attaches metadata from:
 analytics/metric_registry.py
 ```
 
-The cleaned fact table should always use registry-provided:
+The cleaned fact table always uses registry-provided:
 
 ```text
 label
@@ -156,13 +166,14 @@ Plain English rule:
 ```text
 game_metrics_flat = legacy/raw-ish source table
 game_team_metric_facts_{season} = cleaned canonical fact table
+team_metrics_windowed_{season} = model-ready aggregate table
 ```
 
 ---
 
-## 4. New Script Added
+## 4. Cleaned Fact Builder
 
-New script:
+Script:
 
 ```text
 agg/build_metric_facts.py
@@ -240,13 +251,13 @@ These metrics may still exist in `game_metrics_flat`, but they are not part of t
 
 ---
 
-## 6. Built Table Results
+## 6. Cleaned Fact Table Results
 
 | Season | Table | Rows | Metrics | Games | Teams | Status |
 |---|---|---:|---:|---:|---:|---|
 | 2023 | `Analytics.game_team_metric_facts_2023` | 33,060 | 58 | 285 | 32 | ✅ validated |
 | 2024 | `Analytics.game_team_metric_facts_2024` | 33,060 | 58 | 285 | 32 | ✅ validated |
-| 2025 | `Analytics.game_team_metric_facts_2025` | 36,532 | 58 | 332 | 32 | ✅ built / first-pass validated |
+| 2025 | `Analytics.game_team_metric_facts_2025` | 36,532 | 58 | 332 | 32 | ✅ validated |
 
 ### 2023 validation
 
@@ -308,105 +319,119 @@ Current status:
 ✅ script-level validation passed
 ```
 
-Recommended remaining 2025 spot-checks before windowed aggregation:
-
-```text
-phase split
-duplicate fact grain SQL
-metadata completeness SQL
-snap-load coverage note preserved
-```
-
 ---
 
-## 7. Known Data Quality Note — Snap Load Metrics
+## 7. Windowed Metrics Builder
 
-These percentage/load metrics have low source coverage in 2025:
-
-```text
-offensive_snap_load
-defensive_snap_load
-special_teams_snap_pct
-```
-
-Observed 2025 coverage:
-
-```text
-offensive_snap_load: 4 rows
-defensive_snap_load: 4 rows
-special_teams_snap_pct: 4 rows
-```
-
-Raw snap-count fields are present more broadly:
-
-```text
-total_offensive_snaps
-total_defensive_snaps
-total_special_teams_snaps
-total_snaps
-```
-
-Interpretation:
-
-```text
-Snap-load percentage metrics are retained in the registry,
-but should be treated as low-coverage / not trusted for 2025 analysis
-unless source coverage improves.
-```
-
-Do not remove them yet.
-
-They are useful concepts, but the current source coverage is weak.
-
----
-
-## 8. Current Checked-Off Phases
-
-```text
-✅ Phase 1 — Metric registry created
-✅ Phase 2 — Cleaned fact table builder created
-✅ Phase 2 — Cleaned fact tables built for 2023, 2024, and 2025
-✅ Legacy parser metadata decision finalized
-✅ Historical migration performed without external API re-fetch
-```
-
----
-
-## 9. Next Backend Phase
-
-Next task:
-
-```text
-Build windowed aggregate tables from cleaned fact tables
-```
-
-Target script:
+Script:
 
 ```text
 agg/build_windowed_metrics.py
 ```
 
-Target outputs:
+Purpose:
 
 ```text
-Analytics.team_metrics_windowed_2023
-Analytics.team_metrics_windowed_2024
-Analytics.team_metrics_windowed_2025
+Read Analytics.game_team_metric_facts_{season}
+Build phase-aware and rolling aggregate windows
+Recalculate derived rates from summed ingredients
+Write Analytics.team_metrics_windowed_{season}
 ```
 
-These should be built from:
+Run command:
+
+```bash
+python -m agg.build_windowed_metrics --season 2025
+```
+
+Historical seasons:
+
+```bash
+python -m agg.build_windowed_metrics --season 2024
+python -m agg.build_windowed_metrics --season 2023
+```
+
+Dry run:
+
+```bash
+python -m agg.build_windowed_metrics --season 2025 --dry-run
+```
+
+This script is additive only.
+
+It does **not**:
+
+```text
+change /game
+change app.py
+change config.py
+change api_call_nfl_stats.py
+change queries/game_queries.py
+re-call the external NFL API
+drop or replace Analytics.team_metrics_season_2025
+```
+
+---
+
+## 8. How `build_windowed_metrics.py` Is Implemented
+
+`build_windowed_metrics.py` builds model-ready team aggregates from the cleaned fact table.
+
+High-level flow:
+
+```text
+1. Load Analytics.game_team_metric_facts_{season}
+2. Deduplicate source fact rows if needed
+3. Pivot facts wide to one row per team/game
+4. Sort each team’s games by global_week_order, game_date, and game_id
+5. Build snapshots for each window_type
+6. Recalculate derived metrics from summed raw ingredients
+7. Attach metadata from metric_registry.py
+8. Validate row grain, metadata, and rolling-window caps
+9. Write Analytics.team_metrics_windowed_{season}
+```
+
+### Source table
+
+Input:
 
 ```text
 Analytics.game_team_metric_facts_{season}
 ```
 
-not directly from:
+The script intentionally builds from the cleaned fact table, not directly from:
 
 ```text
 Analytics.game_metrics_flat
 ```
 
-Initial `window_type` values:
+Reason:
+
+```text
+game_team_metric_facts_{season} already has cleaned schedule context,
+normalized phase fields, and authoritative registry metadata.
+```
+
+### Pivot step
+
+The script pivots from long format:
+
+```text
+season / game_id / team_id / metric / value
+```
+
+to wide format:
+
+```text
+one row per season / team_id / game_id
+one column per metric
+```
+
+This makes it easier to sum ingredients and recalculate derived metrics.
+
+### Window generation
+
+The script currently builds these windows:
 
 ```text
 regular_season_to_date
@@ -416,6 +441,16 @@ last_7_games
 preseason_to_date
 ```
 
+Window definitions:
+
+| Window | Includes | Main use |
+|---|---|---|
+| `regular_season_to_date` | Completed regular-season games only | Main regular-season matchup logic |
+| `regular_plus_postseason_to_date` | Completed regular-season + postseason games | Later playoff matchup logic |
+| `last_3_games` | Last 3 completed meaningful games | Recent form support |
+| `last_7_games` | Last 7 completed meaningful games | Medium recent form support |
+| `preseason_to_date` | Completed preseason games only | Context/debug only |
+
 Important rule:
 
 ```text
@@ -423,13 +458,281 @@ Preseason can exist for context/debugging,
 but should not feed default Matchup Lean logic.
 ```
 
+### Rate recalculation rule
+
+The script does **not** average already-derived game-level percentages/rates.
+
+Bad:
+
+```text
+average(points_per_play)
+average(red_zone_efficiency)
+average(yards_per_play)
+```
+
+Good:
+
+```text
+points_per_play = sum(actual_points) / sum(total_plays)
+
+red_zone_efficiency = sum(red_zone_tds) / sum(red_zone_attempts)
+
+yards_per_play = sum(total_yards) / sum(total_plays)
+```
+
+This was validated for `points_per_play` using Buffalo’s 2025 regular-season rows.
+
+The windowed result matched the manual cumulative calculation with only tiny rounding differences.
+
+### Denominator-zero rule
+
+For `ratio_from_sums` metrics:
+
+```text
+if denominator is NULL or denominator = 0:
+    value = NULL
+else:
+    value = numerator / denominator
+```
+
+The script does **not** replace zero denominators with `1`.
+
+Reason:
+
+```text
+A fake fallback denominator creates misleading rates,
+especially in early-season or tiny-sample windows.
+```
+
+### Output grain
+
+Expected output grain:
+
+```text
+one row per season / team_id / data_date / window_type / metric
+```
+
+Where:
+
+```text
+data_date = date of the latest completed game included in that aggregate snapshot
+```
+
+This preserves the existing pregame-safety pattern:
+
+```sql
+data_date < @game_date
+```
+
+### Output table
+
+Output:
+
+```text
+Analytics.team_metrics_windowed_{season}
+```
+
+Recommended current API migration target later:
+
+```text
+Analytics.team_metrics_windowed_2025
+```
+
+but `/game` should not switch yet.
+
 ---
 
-# Crossover Plan — Safely Triggering `build_metric_facts.py` Inside the App Framework
+## 9. Windowed Metrics Results
 
-## 10. Crossover Purpose
+| Season | Table | Rows | Windows | Status |
+|---|---|---:|---:|---|
+| 2023 | `Analytics.team_metrics_windowed_2023` | 130,732 | 4 | ✅ built / validated |
+| 2024 | `Analytics.team_metrics_windowed_2024` | 130,732 | 4 | ✅ built / validated |
+| 2025 | `Analytics.team_metrics_windowed_2025` | 136,184 | 5 | ✅ built / validated |
 
-The new fact table builder exists, but it should not be wired into the live app immediately.
+### 2023 window summary
+
+```text
+last_3_games: 33,060 rows
+last_7_games: 33,060 rows
+regular_plus_postseason_to_date: 33,060 rows
+regular_season_to_date: 31,552 rows
+```
+
+Date range:
+
+```text
+2023-09-07 through 2024-02-11
+```
+
+### 2024 window summary
+
+```text
+last_3_games: 33,060 rows
+last_7_games: 33,060 rows
+regular_plus_postseason_to_date: 33,060 rows
+regular_season_to_date: 31,552 rows
+```
+
+Date range:
+
+```text
+2024-09-05 through 2025-02-09
+```
+
+### 2025 window summary
+
+```text
+last_3_games: 33,060 rows
+last_7_games: 33,060 rows
+preseason_to_date: 5,452 rows
+regular_plus_postseason_to_date: 33,060 rows
+regular_season_to_date: 31,552 rows
+```
+
+Date range:
+
+```text
+2025-08-07 through 2026-02-08
+```
+
+2025 has a `preseason_to_date` window because preseason rows exist in the 2025 cleaned fact table.
+
+2023 and 2024 do not have preseason windows because their cleaned fact tables only contain regular season + postseason.
+
+---
+
+## 10. Windowed Metrics Validation Completed
+
+### 2025 deep validation
+
+Completed:
+
+```text
+✅ window summary / row shape passed
+✅ duplicate grain check passed
+✅ metadata completeness passed
+✅ rolling-window caps passed
+✅ phase isolation passed
+✅ target-game exclusion passed
+✅ derived-rate recalculation passed
+✅ early-season sample-size behavior passed
+✅ null value scan reviewed
+✅ snap-load coverage reviewed
+✅ metadata direction sanity passed
+✅ playoff accumulation behavior passed
+```
+
+### Cross-season validation
+
+Completed across 2023, 2024, and 2025:
+
+```text
+✅ combined duplicate grain check passed
+✅ combined metadata completeness check passed
+```
+
+### 2024 validation
+
+Completed:
+
+```text
+✅ window summary / row shape passed
+✅ duplicate grain check passed
+✅ metadata completeness passed
+```
+
+### 2023 validation
+
+Completed from build validation and combined checks:
+
+```text
+✅ table built
+✅ script validation passed
+✅ duplicate grain check passed through combined validation
+✅ metadata completeness passed through combined validation
+```
+
+Recommended optional remaining check:
+
+```text
+Run combined rolling-window cap SQL across 2023, 2024, and 2025.
+```
+
+The script-level validation already checks that:
+
+```text
+last_3_games <= 3
+last_7_games <= 7
+```
+
+but the SQL check is still useful as an external BigQuery confirmation.
+
+---
+
+## 11. Known Data Quality Note — Snap Load Metrics
+
+These percentage/load metrics have low source coverage in 2025:
+
+```text
+offensive_snap_load
+defensive_snap_load
+special_teams_snap_pct
+```
+
+Game-level observed 2025 fact coverage:
+
+```text
+offensive_snap_load: 4 rows
+defensive_snap_load: 4 rows
+special_teams_snap_pct: 4 rows
+```
+
+Windowed 2025 non-null coverage remains low:
+
+```text
+regular_season_to_date: ~9.74% non-null
+regular_plus_postseason_to_date: ~9.47% non-null
+last_3_games: ~2.11% non-null
+last_7_games: ~4.91% non-null
+preseason_to_date: 0% non-null
+```
+
+Interpretation:
+
+```text
+Snap-load percentage metrics are retained in the registry,
+but should be treated as low-coverage / not trusted for matchup logic
+unless source coverage improves.
+```
+
+Do not remove them yet.
+
+They are useful concepts, but the current source coverage is weak.
+
+---
+
+## 12. Current Checked-Off Phases
+
+```text
+✅ Phase 1 — Metric registry created
+✅ Phase 2 — Cleaned fact table builder created
+✅ Phase 2 — Cleaned fact tables built for 2023, 2024, and 2025
+✅ Phase 3 — Schedule/game phase normalization added to cleaned fact table
+✅ Phase 4 — Windowed metrics builder created
+✅ Phase 5 — Windowed snapshots generated
+✅ Phase 6 — Windowed tables written for 2023, 2024, and 2025
+✅ Legacy parser metadata decision finalized
+✅ Historical migration performed without external API re-fetch
+```
+
+---
+
+# Crossover Plan — Safely Triggering New Builders Inside the App Framework
+
+## 13. Crossover Purpose
+
+The new builders exist, but they should not be wired into the live app immediately.
 
 Correct migration posture:
 
@@ -437,8 +740,8 @@ Correct migration posture:
 Foundation first.
 Manual confidence second.
 Environment-gated framework trigger third.
-Windowed tables fourth.
-API switch later.
+Feature-flagged API switch later.
+Old path removal last.
 ```
 
 Current safe flow remains:
@@ -453,15 +756,16 @@ Cloud Scheduler / test route
 → existing /game behavior
 ```
 
-The new fact table builder remains manual for now:
+Manual builders currently available:
 
 ```bash
 python -m agg.build_metric_facts --season 2025
+python -m agg.build_windowed_metrics --season 2025
 ```
 
 ---
 
-## 11. Phase C1 — Manual-Only Mode
+## 14. Phase C1 — Manual-Only Mode
 
 This is the current recommended commit state.
 
@@ -469,19 +773,17 @@ Run manually after stats ingestion or historical backfills:
 
 ```bash
 python -m agg.build_metric_facts --season 2025
-python -m agg.build_metric_facts --season 2024
-python -m agg.build_metric_facts --season 2023
+python -m agg.build_windowed_metrics --season 2025
 ```
 
-Use this while validating:
+Historical seasons:
 
-```text
-fact table grain
-metadata completeness
-phase split
-row counts
-snap-load coverage
-old vs new consistency later
+```bash
+python -m agg.build_metric_facts --season 2024
+python -m agg.build_windowed_metrics --season 2024
+
+python -m agg.build_metric_facts --season 2023
+python -m agg.build_windowed_metrics --season 2023
 ```
 
 Status:
@@ -492,11 +794,11 @@ Status:
 
 ---
 
-## 12. Phase C2 — Environment-Gated Framework Trigger
+## 15. Phase C2 — Environment-Gated Framework Trigger
 
-Only after manual validation feels reliable, add an optional post-stats job inside `app.py`.
+Only after manual validation feels reliable, add optional post-stats jobs inside `app.py`.
 
-This should run after the current old aggregate job.
+These should run after the current old aggregate job.
 
 Important:
 
@@ -510,6 +812,7 @@ When enabled:
 stats inserted
 → run old aggregate job
 → optionally run cleaned fact builder
+→ optionally run windowed metrics builder
 → do not change /game yet
 ```
 
@@ -518,18 +821,19 @@ When disabled:
 ```text
 stats inserted
 → run old aggregate job
-→ skip cleaned fact builder
+→ skip new builders
 ```
 
-The gating flag should default to off:
+Recommended gating flags:
 
 ```text
 ENABLE_METRIC_FACTS_BUILD=false
+ENABLE_WINDOWED_METRICS_BUILD=false
 ```
 
 ---
 
-## 13. Phase C2 Implementation Code
+## 16. Phase C2 Implementation Code
 
 Add these constants near the top of `app.py`, after imports:
 
@@ -538,6 +842,10 @@ NFL_SEASON = os.getenv("NFL_SEASON", "2025")
 
 ENABLE_METRIC_FACTS_BUILD = (
     os.getenv("ENABLE_METRIC_FACTS_BUILD", "false").lower() == "true"
+)
+
+ENABLE_WINDOWED_METRICS_BUILD = (
+    os.getenv("ENABLE_WINDOWED_METRICS_BUILD", "false").lower() == "true"
 )
 ```
 
@@ -548,13 +856,14 @@ def run_post_stats_jobs(stats_inserted: int):
     """
     Run downstream jobs after NFL stats are inserted.
 
-    Current safety design:
+    Safety design:
     1. Run the existing aggregate job first because it supports the current live API.
-    2. Optionally run the new cleaned metric fact builder only when enabled.
-    3. Do not switch /game to the new table here.
+    2. Optionally run the cleaned metric fact builder only when enabled.
+    3. Optionally run the windowed metrics builder only when enabled.
+    4. Do not switch /game to the new tables here.
 
-    This function is intentionally environment-gated so the new fact builder can
-    be tested in the real framework without affecting production behavior by default.
+    The new builders are environment-gated so they can be tested inside the
+    real framework without affecting production behavior by default.
     """
     season = NFL_SEASON
 
@@ -595,51 +904,98 @@ def run_post_stats_jobs(stats_inserted: int):
     # ------------------------------------------------------------
     # 2. Optional cleaned metric fact builder
     # ------------------------------------------------------------
-    if not ENABLE_METRIC_FACTS_BUILD:
+    if ENABLE_METRIC_FACTS_BUILD:
+        try:
+            log_event(
+                "info",
+                "running_metric_facts_job",
+                reason="stats_inserted",
+                count=stats_inserted,
+                season=season,
+            )
+
+            from agg.build_metric_facts import run_build_game_team_metric_facts
+
+            fact_df = run_build_game_team_metric_facts(
+                season=season,
+                if_exists="replace",
+                write=True,
+            )
+
+            log_event(
+                "info",
+                "metric_facts_job_complete",
+                season=season,
+                rows=len(fact_df),
+            )
+
+        except Exception as e:
+            log_event(
+                "error",
+                "metric_facts_job_failed",
+                season=season,
+                error=str(e)[:500],
+            )
+
+            # During crossover, this should not break the live API path.
+            # The old aggregate has already succeeded.
+            # Keep this non-fatal until /game depends on the new tables.
+            return
+
+    else:
         log_event(
             "info",
             "metric_facts_job_skipped",
             reason="disabled_by_env",
             season=season,
         )
-        return
 
-    try:
+    # ------------------------------------------------------------
+    # 3. Optional windowed metrics builder
+    # ------------------------------------------------------------
+    if ENABLE_WINDOWED_METRICS_BUILD:
+        try:
+            log_event(
+                "info",
+                "running_windowed_metrics_job",
+                reason="stats_inserted",
+                count=stats_inserted,
+                season=season,
+            )
+
+            from agg.build_windowed_metrics import run_build_windowed_metrics
+
+            windowed_df = run_build_windowed_metrics(
+                season=season,
+                if_exists="replace",
+                write=True,
+            )
+
+            log_event(
+                "info",
+                "windowed_metrics_job_complete",
+                season=season,
+                rows=len(windowed_df),
+            )
+
+        except Exception as e:
+            log_event(
+                "error",
+                "windowed_metrics_job_failed",
+                season=season,
+                error=str(e)[:500],
+            )
+
+            # During crossover, this should not break the live API path.
+            return
+
+    else:
         log_event(
             "info",
-            "running_metric_facts_job",
-            reason="stats_inserted",
-            count=stats_inserted,
+            "windowed_metrics_job_skipped",
+            reason="disabled_by_env",
             season=season,
         )
-
-        from agg.build_metric_facts import run_build_game_team_metric_facts
-
-        fact_df = run_build_game_team_metric_facts(
-            season=season,
-            if_exists="replace",
-            write=True,
-        )
-
-        log_event(
-            "info",
-            "metric_facts_job_complete",
-            season=season,
-            rows=len(fact_df),
-        )
-
-    except Exception as e:
-        log_event(
-            "error",
-            "metric_facts_job_failed",
-            season=season,
-            error=str(e)[:500],
-        )
-
-        # During crossover, this should not break the live API path.
-        # The old aggregate has already succeeded.
-        # Keep this non-fatal until /game depends on the new table.
-        return
 ```
 
 Then replace the current conditional aggregation block inside `run_api_calls()`:
@@ -672,18 +1028,20 @@ else:
 
 ---
 
-## 14. Phase C2 Environment Settings
+## 17. Phase C2 Environment Settings
 
-Default production-safe value:
+Default production-safe values:
 
 ```text
 ENABLE_METRIC_FACTS_BUILD=false
+ENABLE_WINDOWED_METRICS_BUILD=false
 ```
 
-Enable only when ready to test framework-triggered fact builds:
+Enable only when ready to test framework-triggered builds:
 
 ```text
 ENABLE_METRIC_FACTS_BUILD=true
+ENABLE_WINDOWED_METRICS_BUILD=true
 ```
 
 Current season setting:
@@ -702,58 +1060,24 @@ This prevents hardcoding the year in `app.py`.
 
 ---
 
-## 15. Why the Fact Builder Should Be Non-Fatal at First
+## 18. Why the New Builders Should Be Non-Fatal at First
 
-During crossover, the cleaned fact table is not yet powering `/game`.
+During crossover, the cleaned fact and windowed tables are not yet powering `/game`.
 
 Therefore:
 
 ```text
 old aggregate failure = serious live-path issue
-metric facts failure = log error, but do not break current live app
+new builder failure = log error, but do not break current live app
 ```
 
 Once `/game` depends on the new windowed tables, this policy can change.
 
-For now, the fact builder should be treated as a shadow/foundation job.
+For now, the new builders should be treated as shadow/foundation jobs.
 
 ---
 
-## 16. Phase C3 — Add Windowed Metrics Builder Later
-
-After the fact builder is stable in manual or gated mode, add the future windowed builder:
-
-```text
-agg/build_windowed_metrics.py
-```
-
-Target outputs:
-
-```text
-Analytics.team_metrics_windowed_2023
-Analytics.team_metrics_windowed_2024
-Analytics.team_metrics_windowed_2025
-```
-
-Future post-stats flow:
-
-```text
-stats inserted
-→ old aggregate job
-→ cleaned fact builder
-→ windowed metrics builder
-→ /game still unchanged until validation passes
-```
-
-The windowed builder should also be environment-gated at first:
-
-```text
-ENABLE_WINDOWED_METRICS_BUILD=false
-```
-
----
-
-## 17. Phase C4 — API Switch Later
+## 19. Phase C3 — API Switch Later
 
 Do not update `/game/<game_id>` yet.
 
@@ -806,7 +1130,7 @@ Do not make `last_3_games` or `last_7_games` the primary Matchup Lean input yet.
 
 ---
 
-## 18. Phase C5 — Remove Old Path Only After Confidence
+## 20. Phase C4 — Remove Old Path Only After Confidence
 
 Do not remove the old aggregate path immediately after the first API switch.
 
@@ -834,16 +1158,18 @@ USE_WINDOWED_METRICS_FOR_GAME=true
 
 ---
 
-## 19. Commit Guidance
+## 21. Commit Guidance
 
-For the current commit, do **not** include Phase C2 `app.py` changes unless intentionally testing the gated framework trigger.
-
-Recommended current commit contents:
+For the current commit, include:
 
 ```text
-✅ analytics/metric_registry.py
-✅ agg/build_metric_facts.py
+✅ agg/build_windowed_metrics.py
 ✅ backend handoff updates
+```
+
+Do not include:
+
+```text
 ❌ app.py changes
 ❌ config.py changes
 ❌ /game query changes
@@ -852,64 +1178,22 @@ Recommended current commit contents:
 Recommended commit message:
 
 ```bash
-git commit -m "Add metric registry and cleaned fact table builder"
-```
-
-Later crossover commit message:
-
-```bash
-git commit -m "Add gated metric facts refresh after stats ingestion"
+git commit -m "Add phase-aware windowed metrics builder"
 ```
 
 ---
 
-## 20. Crossover Summary
+## 22. Crossover Summary
 
 Safe migration path:
 
 ```text
 Manual build first.
 Gated app trigger second.
-Windowed tables third.
-Feature-flagged /game switch fourth.
+Feature-flagged /game switch third.
 Old path removal last.
 ```
 
 This avoids a cliff jump and keeps the current API protected while the new backend foundation earns trust.
 
 ---
-
-## Windowed Metrics Status
-
-`agg/build_windowed_metrics.py` has been added and successfully built windowed metric tables for:
-
-- `Analytics.team_metrics_windowed_2023`
-- `Analytics.team_metrics_windowed_2024`
-- `Analytics.team_metrics_windowed_2025`
-
-The script builds from:
-
-```text
-Analytics.game_team_metric_facts_{season}
-
-and writes:
-
-Analytics.team_metrics_windowed_{season}
-
-Validated so far:
-
-2025 window summary passed
-2025 duplicate grain check passed
-2025 metadata completeness passed
-2025 rolling-window caps passed
-2025 phase isolation passed
-2025 target-game exclusion passed
-2025 derived-rate recalculation passed
-2025 early-season sample-size behavior passed
-2025 playoff accumulation behavior passed
-Combined 2023/2024/2025 duplicate grain check passed
-Combined 2023/2024/2025 metadata completeness check passed
-
-Known caution:
-
-Snap-load percentage metrics remain low coverage and should not be trusted for matchup logic yet.
