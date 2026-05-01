@@ -878,3 +878,38 @@ Old path removal last.
 This avoids a cliff jump and keeps the current API protected while the new backend foundation earns trust.
 
 ---
+
+## Windowed Metrics Status
+
+`agg/build_windowed_metrics.py` has been added and successfully built windowed metric tables for:
+
+- `Analytics.team_metrics_windowed_2023`
+- `Analytics.team_metrics_windowed_2024`
+- `Analytics.team_metrics_windowed_2025`
+
+The script builds from:
+
+```text
+Analytics.game_team_metric_facts_{season}
+
+and writes:
+
+Analytics.team_metrics_windowed_{season}
+
+Validated so far:
+
+2025 window summary passed
+2025 duplicate grain check passed
+2025 metadata completeness passed
+2025 rolling-window caps passed
+2025 phase isolation passed
+2025 target-game exclusion passed
+2025 derived-rate recalculation passed
+2025 early-season sample-size behavior passed
+2025 playoff accumulation behavior passed
+Combined 2023/2024/2025 duplicate grain check passed
+Combined 2023/2024/2025 metadata completeness check passed
+
+Known caution:
+
+Snap-load percentage metrics remain low coverage and should not be trusted for matchup logic yet.
