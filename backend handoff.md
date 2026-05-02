@@ -1262,3 +1262,330 @@ Old path removal last.
 This avoids a cliff jump and keeps the current API protected while the new backend foundation earns trust.
 
 ---
+---
+
+# May 2026 Update — Feature-Flagged `/game` Windowed Metrics Source
+
+## What Was Accomplished
+
+A small, safe `/game` crossover step was completed in:
+
+```text
+queries/game_queries.py
+
+The API now supports a feature-flagged metric source switch:
+
+USE_WINDOWED_METRICS_FOR_GAME=false
+
+Default behavior remains unchanged.
+
+When the flag is false:
+
+/game uses Analytics.team_metrics_season_{season}
+
+When the flag is true:
+
+/game uses Analytics.team_metrics_windowed_{season}
+
+The new windowed path uses the required pregame-safe filters:
+
+WHERE CAST(season AS STRING) = @season
+  AND window_type = @window_type
+  AND data_date < @game_date
+
+When `USE_WINDOWED_METRICS_FOR_GAME=true`, `/game` selects one `window_type`
+from `Analytics.team_metrics_windowed_{season}` based on the target game’s phase.
+
+Current default mapping:
+
+- Preseason → `preseason_to_date`
+- Regular season → `regular_season_to_date`
+- Wild Card → `regular_season_to_date`
+- Divisional Round → `regular_plus_postseason_to_date`
+- Conference Championship → `regular_plus_postseason_to_date`
+- Super Bowl → `regular_plus_postseason_to_date`
+
+The selected window is then filtered with:
+
+```sql
+data_date < @game_date
+
+Local Validation Completed
+
+Test game:
+
+20250914_SF@NO
+
+Old path test:
+
+USE_WINDOWED_METRICS_FOR_GAME=false
+away metrics = 58
+home metrics = 58
+
+New windowed path test:
+
+USE_WINDOWED_METRICS_FOR_GAME=true
+window_type = regular_season_to_date
+away metrics = 58
+home metrics = 58
+
+Important metric comparison:
+
+OLD SF points_per_play = 0.308
+OLD NO points_per_play = 0.246
+
+NEW SF points_per_play = 0.236111
+NEW NO points_per_play = 0.188406
+
+Interpretation:
+
+The API response shape stayed stable, but the new path returned cleaner regular-season-to-date values.
+
+Manual sanity math:
+
+SF: 17 points / 72 plays = 0.236111
+NO: 13 points / 69 plays = 0.188406
+
+This confirms the new /game source path is correctly using the phase-aware windowed table and avoiding the old preseason leakage issue for this test case.
+
+Current Safety Status
+
+Current state:
+
+✅ queries/game_queries.py now supports a feature-flagged windowed source
+✅ old source remains the default
+✅ new source is available only when USE_WINDOWED_METRICS_FOR_GAME=true
+✅ API metric payload shape remains compatible
+✅ no app.py changes
+✅ no config.py changes
+✅ no ingestion changes
+✅ no external NFL API re-fetch
+✅ no source-table rebuild triggered by this change
+
+Important:
+
+The old aggregate path remains available as fallback.
+
+This is not a full cutover yet.
+
+It is a safe source-selection bridge.
+
+Decision — Hold Off On app.py Plumbing For Now
+
+The previous crossover plan proposed adding environment-gated post-stats builder orchestration inside app.py.
+
+That work is now intentionally deferred.
+
+Reason:
+
+We do not want weekend/local testing of app.py orchestration to accidentally interact with ingestion routes,
+API_CALLS, or raw source-table inserts before the idempotency behavior is fully reviewed.
+
+Specific concern:
+
+Analytics.game_metrics_flat is the raw-ish source table.
+The stats ingestion process inserts parsed game rows and depends on games_to_process / boxscore status logic to avoid duplicate source data.
+
+Current decision:
+
+Do not touch app.py yet.
+Do not touch config.py yet.
+Do not add builders to API_CALLS.
+Do not locally test via /test or scheduler routes for this crossover work.
+
+The new cleaned/windowed builders remain manual for now.
+
+Future app.py plumbing can still be added later, likely before or during preseason, but only after the ingestion/idempotency path is reviewed.
+
+Updated PM Recommended Work Order
+1. Feature-Flagged /game Windowed Source ✅ Completed
+
+Status:
+
+✅ Done
+
+Completed work:
+
+queries/game_queries.py now supports USE_WINDOWED_METRICS_FOR_GAME.
+Old source remains default.
+New windowed source can be enabled safely.
+Local old/new path tests passed for 20250914_SF@NO.
+2. Commit Current Feature-Flagged Source Switch
+
+Status:
+
+Next immediate step
+
+Recommended commit:
+
+git add queries/game_queries.py
+git commit -m "Add feature-flagged windowed metrics source for game API"
+3. Historical /game QA With Flag On
+
+Status:
+
+Next practical validation step
+
+Test known games with:
+
+USE_WINDOWED_METRICS_FOR_GAME=true
+
+Validate:
+
+/game returns expected response shape
+team_comparison populates
+core_area_comparison populates
+game_profile populates
+matchup_lean still reads correctly
+model_trust still builds
+frontend does not break
+
+Recommended first regression game:
+
+20250914_SF@NO
+
+Then test a small batch across:
+
+early season
+midseason
+late season
+postseason
+known low-confidence games
+known high-confidence games
+known misses
+4. Pregame / Postgame Data Separation Audit
+
+Status:
+
+High priority
+
+Confirm the new windowed source preserves the rule:
+
+Pregame matchup logic must use only data available before the target game.
+
+Required cutoff:
+
+data_date < @game_date
+
+Future improvement:
+
+Consider moving from date-only cutoff to game_datetime cutoff if same-day ordering ever becomes important.
+5. Metric Taxonomy / Category Consistency Audit
+
+Status:
+
+High priority foundation item
+
+Confirm that metric names, categories, core areas, and higher/lower/context direction stay consistent across:
+
+analytics/metric_registry.py
+Analytics.game_team_metric_facts_{season}
+Analytics.team_metrics_windowed_{season}
+queries/game_queries.py
+services/core_area_analysis.py
+services/game_service.py
+frontend labels
+
+Goal:
+
+Metric categories should be defined once and reused everywhere.
+6. ETL Observability / app.py Post-Stats Plumbing
+
+Status:
+
+Deferred intentionally
+
+This remains valuable, but should wait until after raw ingestion/idempotency behavior is reviewed.
+
+Future desired work:
+
+Add post-stats decision logging.
+Add ENABLE_METRIC_FACTS_BUILD.
+Add ENABLE_WINDOWED_METRICS_BUILD.
+Keep builders disabled by default.
+Run old aggregate first.
+Run new builders only when explicitly enabled.
+
+Reason for deferral:
+
+Avoid accidental duplicate source-data concerns during local/weekend testing.
+7. August / Preseason Builder Plumbing Test
+
+Status:
+
+Future
+
+When real preseason data starts flowing, use preseason as a plumbing test.
+
+Goal:
+
+Validate builder orchestration, logging, and table writes.
+
+Important:
+
+Preseason can test the pipeline,
+but preseason_to_date should not power default regular-season Matchup Lean logic.
+8. Outcome Quality Labels
+
+Status:
+
+Future high-value model trust work
+
+Do after the data source crossover is stable.
+
+9. Postgame Swing Factors
+
+Status:
+
+Future high-value postgame explanation work
+
+Do after outcome quality labels or alongside them.
+
+10. Pregame Profile Weights
+
+Status:
+
+Future model-depth work
+
+Should wait until the new source path and taxonomy audit are stable.
+
+11. Recent Form / Rolling Window Sanity Check
+
+Status:
+
+Future
+
+Use last_3_games and last_7_games as supporting checks later.
+
+Do not make them the primary Matchup Lean input yet.
+
+12. Game Context Flags + Early-Season Confidence Cap
+
+Status:
+
+Future
+
+Important, especially for Weeks 1–4, but best handled after the new source path is stable.
+
+Updated Crossover Summary
+
+Current safe migration path is now:
+
+1. Build cleaned/windowed tables manually. ✅
+2. Add feature-flagged /game source switch. ✅
+3. Keep old source as default. ✅
+4. QA historical games with windowed source enabled.
+5. Audit pregame/postgame cutoff behavior.
+6. Audit metric taxonomy consistency.
+7. Defer app.py builder automation until ingestion/idempotency concerns are reviewed.
+8. Later add app.py post-stats plumbing with robust logging.
+9. Enable builder plumbing during preseason testing.
+10. Remove old path only after the new path is boring and stable.
+
+Current posture:
+
+Safe bridge built.
+Valves closed by default.
+Old path protected.
+New path locally validated.
+No ingestion risk introduced.

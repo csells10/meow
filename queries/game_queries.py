@@ -1,6 +1,28 @@
+import os
 from google.cloud import bigquery
 
 client = bigquery.Client()
+
+
+def use_windowed_metrics_for_game() -> bool:
+    return os.getenv("USE_WINDOWED_METRICS_FOR_GAME", "false").strip().lower() == "true"
+
+
+def select_window_type(header: dict) -> str:
+    game_week = str(header.get("game_week") or "").strip().lower()
+
+    if game_week.startswith("preseason"):
+        return "preseason_to_date"
+
+    if game_week in {
+        "divisional round",
+        "conference championship",
+        "super bowl",
+    }:
+        return "regular_plus_postseason_to_date"
+
+    # Regular season and Wild Card should default here.
+    return "regular_season_to_date"
 
 
 def metric_value(metrics: dict, key: str):
@@ -93,16 +115,10 @@ def get_team_metrics(game_id: str):
     Fetch latest available team aggregate metrics for the away/home teams
     before the game date.
 
-    Returns dicts keyed by "category::metric", where each value includes:
-    - value
-    - metric
-    - category
-    - core_area
-    - data_date
-    - team_id
-    - team_abv
+    Default behavior uses the old season aggregate table.
 
-    This preserves core_area metadata for Core Area scoring.
+    If USE_WINDOWED_METRICS_FOR_GAME=true, this uses the new phase-aware
+    windowed metrics table with an explicit window_type and pregame-safe cutoff.
     """
 
     header = get_game_header(game_id)
@@ -115,10 +131,45 @@ def get_team_metrics(game_id: str):
     game_date = header["game_date"]
     season = str(header["season"])[:4]
 
-    table = f"nfl-stream-406420.Analytics.team_metrics_season_{season}"
+    use_windowed = use_windowed_metrics_for_game()
+    window_type = select_window_type(header) if use_windowed else None
 
-    query = f"""
-        WITH base AS (
+    if use_windowed:
+        table = f"nfl-stream-406420.Analytics.team_metrics_windowed_{season}"
+
+        query = f"""
+            WITH base AS (
+                SELECT
+                    team_id,
+                    team_abv,
+                    metric,
+                    category,
+                    core_area,
+                    value,
+                    data_date
+                FROM `{table}`
+                WHERE team_id IN UNNEST(@team_ids)
+                  AND CAST(season AS STRING) = @season
+                  AND window_type = @window_type
+                  AND data_date < @game_date
+            ),
+
+            latest AS (
+                SELECT
+                    team_id,
+                    team_abv,
+                    metric,
+                    category,
+                    core_area,
+                    value,
+                    data_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY team_id, category, metric
+                        ORDER BY data_date DESC
+                    ) AS rn
+                FROM base
+            )
+
             SELECT
                 team_id,
                 team_abv,
@@ -127,12 +178,70 @@ def get_team_metrics(game_id: str):
                 core_area,
                 value,
                 data_date
-            FROM `{table}`
-            WHERE team_id IN UNNEST(@team_ids)
-              AND data_date < @game_date
-        ),
+            FROM latest
+            WHERE rn = 1
+        """
 
-        latest AS (
+        query_parameters = [
+            bigquery.ArrayQueryParameter(
+                "team_ids",
+                "STRING",
+                [away_team_id, home_team_id],
+            ),
+            bigquery.ScalarQueryParameter("season", "STRING", season),
+            bigquery.ScalarQueryParameter("window_type", "STRING", window_type),
+            bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
+        ]
+
+    else:
+        table = f"nfl-stream-406420.Analytics.team_metrics_season_{season}"
+
+        query = f"""
+            WITH base AS (
+                SELECT
+                    team_id,
+                    team_abv,
+                    metric,
+                    category,
+                    core_area,
+                    value,
+                    data_date
+                FROM `{table}`
+                WHERE team_id IN UNNEST(@team_ids)
+                  AND data_date < @game_date
+            ),
+
+            latest AS (
+                SELECT
+                    team_id,
+                    team_abv,
+                    metric,
+                    category,
+                    core_area,
+                    value,
+                    data_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY team_id, category, metric
+                        ORDER BY data_date DESC
+                    ) AS rn
+                FROM base
+            ),
+
+            turnover_pg AS (
+                SELECT
+                    team_id,
+                    ANY_VALUE(team_abv) AS team_abv,
+                    'turnover_margin_per_game' AS metric,
+                    'Defense' AS category,
+                    'Defensive Control' AS core_area,
+                    SAFE_DIVIDE(MAX(value), COUNT(DISTINCT data_date)) AS value,
+                    MAX(data_date) AS data_date
+                FROM base
+                WHERE metric = 'turnover_margin'
+                  AND category = 'Defense'
+                GROUP BY team_id
+            )
+
             SELECT
                 team_id,
                 team_abv,
@@ -140,55 +249,24 @@ def get_team_metrics(game_id: str):
                 category,
                 core_area,
                 value,
-                data_date,
-                ROW_NUMBER() OVER (
-                    PARTITION BY team_id, category, metric
-                    ORDER BY data_date DESC
-                ) AS rn
-            FROM base
-        ),
+                data_date
+            FROM latest
+            WHERE rn = 1
 
-        turnover_pg AS (
+            UNION ALL
+
             SELECT
                 team_id,
-                ANY_VALUE(team_abv) AS team_abv,
-                'turnover_margin_per_game' AS metric,
-                'Defense' AS category,
-                'Defensive Control' AS core_area,
-                SAFE_DIVIDE(MAX(value), COUNT(DISTINCT data_date)) AS value,
-                MAX(data_date) AS data_date
-            FROM base
-            WHERE metric = 'turnover_margin'
-              AND category = 'Defense'
-            GROUP BY team_id
-        )
+                team_abv,
+                metric,
+                category,
+                core_area,
+                value,
+                data_date
+            FROM turnover_pg
+        """
 
-        SELECT
-            team_id,
-            team_abv,
-            metric,
-            category,
-            core_area,
-            value,
-            data_date
-        FROM latest
-        WHERE rn = 1
-
-        UNION ALL
-
-        SELECT
-            team_id,
-            team_abv,
-            metric,
-            category,
-            core_area,
-            value,
-            data_date
-        FROM turnover_pg
-    """
-
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
+        query_parameters = [
             bigquery.ArrayQueryParameter(
                 "team_ids",
                 "STRING",
@@ -196,6 +274,9 @@ def get_team_metrics(game_id: str):
             ),
             bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
         ]
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=query_parameters
     )
 
     rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
