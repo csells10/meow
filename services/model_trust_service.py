@@ -45,8 +45,18 @@ def build_model_trust(
 
 
 def build_matchup_advantage(team_comparison: list) -> dict:
+    """
+    Count visible Team Comparison advantages.
+
+    Important:
+    - away/home rows count as directional advantages.
+    - neutral rows are preserved as useful matchup context.
+    - neutral rows should not create fake team advantage.
+    """
+
     away_count = 0
     home_count = 0
+    neutral_count = 0
 
     for row in team_comparison or []:
         better = row.get("better")
@@ -55,6 +65,11 @@ def build_matchup_advantage(team_comparison: list) -> dict:
             away_count += 1
         elif better == "home":
             home_count += 1
+        elif better == "neutral":
+            neutral_count += 1
+
+    decisive_count = away_count + home_count
+    total_visible = decisive_count + neutral_count
 
     if away_count > home_count:
         leader = "away"
@@ -67,9 +82,13 @@ def build_matchup_advantage(team_comparison: list) -> dict:
         "visible": bool(team_comparison),
         "away": away_count,
         "home": home_count,
+        "neutral": neutral_count,
+        "decisive": decisive_count,
+        "total_visible": total_visible,
         "leader": leader,
         "tooltip": (
             "Counts how many visible Team Comparison metrics favored each team. "
+            "Neutral rows mean the metric was even and did not create separation. "
             "This is a directional count, not the full model score."
         ),
     }
@@ -78,40 +97,46 @@ def build_matchup_advantage(team_comparison: list) -> dict:
 def build_edge(matchup_advantage: dict) -> dict:
     away = matchup_advantage.get("away", 0)
     home = matchup_advantage.get("home", 0)
+    neutral = matchup_advantage.get("neutral", 0)
 
     diff = abs(away - home)
-    total = away + home
+    decisive_total = away + home
+    total_visible = matchup_advantage.get("total_visible", decisive_total + neutral)
 
-    edge_score = round(diff / total, 2) if total else 0
+    # Use total_visible so neutral rows soften the displayed edge score.
+    # Example: 1 away edge, 0 home edges, 4 neutral rows = 0.20, not 1.00.
+    edge_score = round(diff / total_visible, 2) if total_visible else 0
 
-    if diff >= 3:
+    if diff >= 3 and neutral == 0:
         strength = "strong"
         tooltip = (
-            "The visible Team Comparison metrics show clear separation. "
-            "Core Area context and Game Profile signals are evaluated separately."
+            "The visible Team Comparison metrics show clear separation. Core Area context and Game Profile signals may still add nuance."
         )
+    elif diff >= 3:
+        strength = "moderate"
+        tooltip = ("Some Team Comparison metrics lean one way, but several even areas keep the edge from looking clean."
+)
     elif diff >= 2:
         strength = "moderate"
         tooltip = (
-            "The visible Team Comparison metrics lean one way, but this is not the full matchup model by itself."
+            "The visible Team Comparison metrics show a noticeable lean, but other matchup signals still matter."
         )
     elif diff >= 1:
         strength = "low"
         tooltip = (
-            "The visible Team Comparison metrics show only a small edge. "
-            "Use this as supporting context, not a standalone conclusion."
+            "The visible Team Comparison metrics show only a small edge. Use this as supporting context, not a standalone conclusion."
         )
     else:
         strength = "none"
         tooltip = (
-            "The visible Team Comparison metrics are evenly split or unavailable."
+            "The visible Team Comparison metrics are evenly split, neutral, or unavailable."
         )
 
     return {
         "strength": strength,
         "score": edge_score,
         "tooltip": tooltip,
-        "has_content": total > 0,
+        "has_content": total_visible > 0,
     }
 
 

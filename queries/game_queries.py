@@ -1,11 +1,18 @@
-import os
 from google.cloud import bigquery
 
 client = bigquery.Client()
 
 
 def use_windowed_metrics_for_game() -> bool:
-    return os.getenv("USE_WINDOWED_METRICS_FOR_GAME", "false").strip().lower() == "true"
+    """
+    GameLens 1.5 source decision.
+
+    Windowed metrics are now the default /game source.
+    This helper remains for compatibility with any old checks, but it no longer
+    reads USE_WINDOWED_METRICS_FOR_GAME from the environment.
+    """
+
+    return True
 
 
 def select_window_type(header: dict) -> str:
@@ -112,13 +119,15 @@ def get_game_header(game_id: str) -> dict:
 
 def get_team_metrics(game_id: str):
     """
-    Fetch latest available team aggregate metrics for the away/home teams
-    before the game date.
+    Fetch pregame-safe windowed team metrics for the away/home teams.
 
-    Default behavior uses the old season aggregate table.
+    GameLens 1.5 source decision:
+    - Always use Analytics.team_metrics_windowed_{season}
+    - Always apply the phase-aware window_type from select_window_type(header)
+    - Always use data_date < game_date for pregame safety
 
-    If USE_WINDOWED_METRICS_FOR_GAME=true, this uses the new phase-aware
-    windowed metrics table with an explicit window_type and pregame-safe cutoff.
+    The legacy Analytics.team_metrics_season_{season} path is no longer used
+    by /game.
     """
 
     header = get_game_header(game_id)
@@ -130,46 +139,12 @@ def get_team_metrics(game_id: str):
     home_team_id = header["home_team"]["id"]
     game_date = header["game_date"]
     season = str(header["season"])[:4]
+    window_type = select_window_type(header)
 
-    use_windowed = use_windowed_metrics_for_game()
-    window_type = select_window_type(header) if use_windowed else None
+    table = f"nfl-stream-406420.Analytics.team_metrics_windowed_{season}"
 
-    if use_windowed:
-        table = f"nfl-stream-406420.Analytics.team_metrics_windowed_{season}"
-
-        query = f"""
-            WITH base AS (
-                SELECT
-                    team_id,
-                    team_abv,
-                    metric,
-                    category,
-                    core_area,
-                    value,
-                    data_date
-                FROM `{table}`
-                WHERE team_id IN UNNEST(@team_ids)
-                  AND CAST(season AS STRING) = @season
-                  AND window_type = @window_type
-                  AND data_date < @game_date
-            ),
-
-            latest AS (
-                SELECT
-                    team_id,
-                    team_abv,
-                    metric,
-                    category,
-                    core_area,
-                    value,
-                    data_date,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY team_id, category, metric
-                        ORDER BY data_date DESC
-                    ) AS rn
-                FROM base
-            )
-
+    query = f"""
+        WITH base AS (
             SELECT
                 team_id,
                 team_abv,
@@ -178,11 +153,43 @@ def get_team_metrics(game_id: str):
                 core_area,
                 value,
                 data_date
-            FROM latest
-            WHERE rn = 1
-        """
+            FROM `{table}`
+            WHERE team_id IN UNNEST(@team_ids)
+              AND CAST(season AS STRING) = @season
+              AND window_type = @window_type
+              AND data_date < @game_date
+        ),
 
-        query_parameters = [
+        latest AS (
+            SELECT
+                team_id,
+                team_abv,
+                metric,
+                category,
+                core_area,
+                value,
+                data_date,
+                ROW_NUMBER() OVER (
+                    PARTITION BY team_id, category, metric
+                    ORDER BY data_date DESC
+                ) AS rn
+            FROM base
+        )
+
+        SELECT
+            team_id,
+            team_abv,
+            metric,
+            category,
+            core_area,
+            value,
+            data_date
+        FROM latest
+        WHERE rn = 1
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
             bigquery.ArrayQueryParameter(
                 "team_ids",
                 "STRING",
@@ -192,91 +199,6 @@ def get_team_metrics(game_id: str):
             bigquery.ScalarQueryParameter("window_type", "STRING", window_type),
             bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
         ]
-
-    else:
-        table = f"nfl-stream-406420.Analytics.team_metrics_season_{season}"
-
-        query = f"""
-            WITH base AS (
-                SELECT
-                    team_id,
-                    team_abv,
-                    metric,
-                    category,
-                    core_area,
-                    value,
-                    data_date
-                FROM `{table}`
-                WHERE team_id IN UNNEST(@team_ids)
-                  AND data_date < @game_date
-            ),
-
-            latest AS (
-                SELECT
-                    team_id,
-                    team_abv,
-                    metric,
-                    category,
-                    core_area,
-                    value,
-                    data_date,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY team_id, category, metric
-                        ORDER BY data_date DESC
-                    ) AS rn
-                FROM base
-            ),
-
-            turnover_pg AS (
-                SELECT
-                    team_id,
-                    ANY_VALUE(team_abv) AS team_abv,
-                    'turnover_margin_per_game' AS metric,
-                    'Defense' AS category,
-                    'Defensive Control' AS core_area,
-                    SAFE_DIVIDE(MAX(value), COUNT(DISTINCT data_date)) AS value,
-                    MAX(data_date) AS data_date
-                FROM base
-                WHERE metric = 'turnover_margin'
-                  AND category = 'Defense'
-                GROUP BY team_id
-            )
-
-            SELECT
-                team_id,
-                team_abv,
-                metric,
-                category,
-                core_area,
-                value,
-                data_date
-            FROM latest
-            WHERE rn = 1
-
-            UNION ALL
-
-            SELECT
-                team_id,
-                team_abv,
-                metric,
-                category,
-                core_area,
-                value,
-                data_date
-            FROM turnover_pg
-        """
-
-        query_parameters = [
-            bigquery.ArrayQueryParameter(
-                "team_ids",
-                "STRING",
-                [away_team_id, home_team_id],
-            ),
-            bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
-        ]
-
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=query_parameters
     )
 
     rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
@@ -302,11 +224,13 @@ def get_team_metrics(game_id: str):
             "data_date": str(row.get("data_date")) if row.get("data_date") else None,
             "team_id": team_id,
             "team_abv": row.get("team_abv"),
+            "window_type": window_type,
+            "source_table": f"Analytics.team_metrics_windowed_{season}",
         }
 
-        if team_id == away_team_id:
+        if str(team_id) == str(away_team_id):
             away_metrics[metric_key] = metric_payload
-        elif team_id == home_team_id:
+        elif str(team_id) == str(home_team_id):
             home_metrics[metric_key] = metric_payload
 
     return away_metrics, home_metrics
@@ -481,3 +405,232 @@ def get_final_score(game_id: str):
             "total": home_row.get("homePts", 0),
         },
     }
+def get_team_rankings_for_game(
+    game_id: str,
+    window_type=None,
+    metrics=None,
+):
+    """
+    Fetch pregame-safe as-of ranking rows for the away/home teams in a game.
+
+    Ranking source:
+        Analytics.team_metric_rankings_{season}
+
+    Pregame safety:
+        Uses the latest ranking as_of_date strictly before the target game_date.
+
+    Window behavior:
+        If window_type is not provided, select_window_type(header) is used so
+        rankings follow the same phase-aware logic as windowed metrics.
+
+    Returns:
+        away_rankings, home_rankings, ranking_meta
+    """
+
+    header = get_game_header(game_id)
+
+    if not header:
+        return {}, {}, {
+            "available": False,
+            "reason": "missing_game_header",
+            "game_id": game_id,
+        }
+
+    if window_type is None:
+        window_type = select_window_type(header)
+
+    away_team_id = str(header["away_team"]["id"])
+    home_team_id = str(header["home_team"]["id"])
+    game_date = header["game_date"]
+    season = str(header["season"])[:4]
+
+    table = f"nfl-stream-406420.Analytics.team_metric_rankings_{season}"
+
+    metric_filter_sql = ""
+    query_params = [
+        bigquery.ArrayQueryParameter(
+            "team_ids",
+            "STRING",
+            [away_team_id, home_team_id],
+        ),
+        bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
+        bigquery.ScalarQueryParameter("window_type", "STRING", window_type),
+    ]
+
+    if metrics:
+        metric_filter_sql = "AND r.metric IN UNNEST(@metrics)"
+        query_params.append(
+            bigquery.ArrayQueryParameter("metrics", "STRING", metrics)
+        )
+
+    query = f"""
+        SELECT
+            r.season,
+            r.as_of_date,
+            r.source_data_date,
+            r.data_lag_days,
+            r.window_type,
+
+            r.team_id,
+            r.team_abv,
+
+            r.metric,
+            r.value,
+            r.label,
+            r.definition,
+            r.category,
+            r.core_area,
+            r.comparison_direction,
+            r.higher_is_better,
+            r.raw_or_derived,
+            r.aggregation_method,
+            r.numerator,
+            r.denominator,
+            r.format,
+            r.decimals,
+            r.notes,
+
+            r.ranking_usage,
+            r.signal_strength,
+            r.edge_language_allowed,
+            r.include_in_core_area_advantage,
+            r.confidence_eligible,
+            r.data_quality_status,
+            r.lens_tags,
+
+            r.league_rank,
+            r.league_percentile,
+            r.tier,
+            r.tier_label,
+            r.teams_ranked,
+            r.ranking_kind,
+            r.rank_direction,
+            r.rank_interpretation,
+            r.rank_tie_method
+        FROM `{table}` r
+        WHERE r.as_of_date = (
+            SELECT MAX(as_of_date)
+            FROM `{table}`
+            WHERE as_of_date < @game_date
+              AND window_type = @window_type
+        )
+          AND r.window_type = @window_type
+          AND r.team_id IN UNNEST(@team_ids)
+          {metric_filter_sql}
+        ORDER BY
+            r.core_area,
+            r.category,
+            r.metric,
+            r.team_id
+    """
+
+    job_config = bigquery.QueryJobConfig(query_parameters=query_params)
+
+    rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
+
+    if not rows:
+        return {}, {}, {
+            "available": False,
+            "reason": "no_ranking_rows_found",
+            "game_id": game_id,
+            "game_date": game_date,
+            "season": season,
+            "window_type": window_type,
+        }
+
+    away_rankings = {}
+    home_rankings = {}
+
+    as_of_dates = set()
+    source_data_dates = set()
+    data_lag_days = []
+
+    for row in rows:
+        metric = row.get("metric")
+        team_id = str(row.get("team_id"))
+
+        if not metric or not team_id:
+            continue
+
+        if row.get("as_of_date"):
+            as_of_dates.add(str(row.get("as_of_date")))
+
+        if row.get("source_data_date"):
+            source_data_dates.add(str(row.get("source_data_date")))
+
+        if row.get("data_lag_days") is not None:
+            try:
+                data_lag_days.append(int(row.get("data_lag_days")))
+            except (TypeError, ValueError):
+                pass
+
+        payload = {
+            "season": row.get("season"),
+            "as_of_date": str(row.get("as_of_date")) if row.get("as_of_date") else None,
+            "source_data_date": (
+                str(row.get("source_data_date"))
+                if row.get("source_data_date")
+                else None
+            ),
+            "data_lag_days": row.get("data_lag_days"),
+            "window_type": row.get("window_type"),
+
+            "team_id": row.get("team_id"),
+            "team_abv": row.get("team_abv"),
+
+            "metric": metric,
+            "value": row.get("value"),
+            "label": row.get("label"),
+            "definition": row.get("definition"),
+            "category": row.get("category"),
+            "core_area": row.get("core_area"),
+            "comparison_direction": row.get("comparison_direction"),
+            "higher_is_better": row.get("higher_is_better"),
+            "raw_or_derived": row.get("raw_or_derived"),
+            "aggregation_method": row.get("aggregation_method"),
+            "numerator": row.get("numerator"),
+            "denominator": row.get("denominator"),
+            "format": row.get("format"),
+            "decimals": row.get("decimals"),
+            "notes": row.get("notes"),
+
+            "ranking_usage": row.get("ranking_usage"),
+            "signal_strength": row.get("signal_strength"),
+            "edge_language_allowed": row.get("edge_language_allowed"),
+            "include_in_core_area_advantage": row.get("include_in_core_area_advantage"),
+            "confidence_eligible": row.get("confidence_eligible"),
+            "data_quality_status": row.get("data_quality_status"),
+            "lens_tags": row.get("lens_tags") or [],
+
+            "league_rank": row.get("league_rank"),
+            "league_percentile": row.get("league_percentile"),
+            "tier": row.get("tier"),
+            "tier_label": row.get("tier_label"),
+            "teams_ranked": row.get("teams_ranked"),
+            "ranking_kind": row.get("ranking_kind"),
+            "rank_direction": row.get("rank_direction"),
+            "rank_interpretation": row.get("rank_interpretation"),
+            "rank_tie_method": row.get("rank_tie_method"),
+        }
+
+        if team_id == away_team_id:
+            away_rankings[metric] = payload
+        elif team_id == home_team_id:
+            home_rankings[metric] = payload
+
+    ranking_meta = {
+        "available": bool(away_rankings or home_rankings),
+        "game_id": game_id,
+        "game_date": game_date,
+        "season": season,
+        "window_type": window_type,
+        "as_of_date": sorted(as_of_dates)[-1] if as_of_dates else None,
+        "source_data_dates": sorted(source_data_dates),
+        "max_data_lag_days": max(data_lag_days) if data_lag_days else None,
+        "away_team_id": away_team_id,
+        "home_team_id": home_team_id,
+        "away_metric_count": len(away_rankings),
+        "home_metric_count": len(home_rankings),
+    }
+
+    return away_rankings, home_rankings, ranking_meta

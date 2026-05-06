@@ -6,7 +6,6 @@ ACTIVE_CORE_AREAS = {
     "Disruption and Turnovers",
     "Offensive Output",
     "Scoring Efficiency",
-    "Field Control (Special Teams)",
 }
 
 

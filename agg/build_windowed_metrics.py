@@ -1,13 +1,22 @@
 """
 Build GameLens windowed team metrics.
 
-Purpose:
+Purpose
+-------
 Read Analytics.game_team_metric_facts_{season}, build phase-aware and rolling
 team metric windows, recalculate derived rates from summed ingredients, and
 write Analytics.team_metrics_windowed_{season}.
 
-This script is additive. It does not change /game and does not re-call the
-external NFL API.
+This script does not change /game and does not re-call the external NFL API.
+
+Important schema note
+---------------------
+The destination table should already exist with the explicit schema created by:
+
+    recreate_gamelens_metric_tables.py
+
+That schema includes lens_tags as REPEATED STRING. This builder uses the
+existing BigQuery table schema during load so repeated fields are preserved.
 """
 
 from __future__ import annotations
@@ -18,7 +27,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from google.cloud import bigquery
-from pandas_gbq import to_gbq
+from google.api_core.exceptions import NotFound
 
 from analytics.metric_registry import (  # type: ignore
     METRIC_REGISTRY,
@@ -55,14 +64,30 @@ OUTPUT_COLUMNS = [
     "latest_included_game_id",
     "latest_included_global_week_order",
     "metric",
-    "label",
     "value",
+
+    # Registry metadata
+    "label",
+    "definition",
     "category",
     "core_area",
     "comparison_direction",
     "higher_is_better",
     "raw_or_derived",
     "aggregation_method",
+    "numerator",
+    "denominator",
+    "format",
+    "decimals",
+    "notes",
+    "ranking_usage",
+    "signal_strength",
+    "edge_language_allowed",
+    "include_in_core_area_advantage",
+    "confidence_eligible",
+    "data_quality_status",
+    "lens_tags",
+
     "created_at",
 ]
 
@@ -72,7 +97,13 @@ OUTPUT_COLUMNS = [
 # -----------------------------------------------------------------------------
 
 def load_fact_rows(client: bigquery.Client, season: str) -> pd.DataFrame:
-    """Load cleaned game/team/metric facts for one season."""
+    """Load cleaned game/team/metric facts for one season.
+
+    The source fact table may contain rich metadata, but this builder only needs
+    the game/team/window fields and metric values. Metadata is reattached from
+    the current metric_registry.py so the windowed table always reflects the
+    authoritative registry.
+    """
     source_table = SOURCE_TABLE_TEMPLATE.format(season=season)
 
     query = f"""
@@ -118,7 +149,7 @@ def load_fact_rows(client: bigquery.Client, season: str) -> pd.DataFrame:
 # -----------------------------------------------------------------------------
 
 def _to_python_date(value: Any) -> Any:
-    """Return a date-like value that pandas_gbq can serialize cleanly."""
+    """Return a date-like value that BigQuery can serialize cleanly."""
     if pd.isna(value):
         return None
     if hasattr(value, "date"):
@@ -306,6 +337,16 @@ def calculate_metric_value(
     raise ValueError(f"Unsupported aggregation_method for {metric}: {aggregation_method}")
 
 
+def _metadata_payload(metric: str) -> Dict[str, Any]:
+    """Return full registry metadata for one metric, with basic lens_tags guard."""
+    meta = get_metric_meta(metric)
+
+    if not isinstance(meta.get("lens_tags"), list):
+        raise ValueError(f"{metric} lens_tags must be a list from metric_registry.py")
+
+    return meta
+
+
 def build_snapshot_rows(
     team_id: str,
     team_abv: str,
@@ -332,7 +373,7 @@ def build_snapshot_rows(
 
     for metric, cfg in METRIC_REGISTRY.items():
         value = calculate_metric_value(metric, cfg, subset, metric_sums)
-        meta = get_metric_meta(metric)
+        meta = _metadata_payload(metric)
 
         rows.append(
             {
@@ -351,14 +392,30 @@ def build_snapshot_rows(
                     else int(latest_row["global_week_order"])
                 ),
                 "metric": metric,
-                "label": meta["label"],
                 "value": _round_value(value),
+
+                # Registry metadata
+                "label": meta["label"],
+                "definition": meta["definition"],
                 "category": meta["category"],
                 "core_area": meta["core_area"],
                 "comparison_direction": meta["comparison_direction"],
                 "higher_is_better": meta["higher_is_better"],
                 "raw_or_derived": meta["raw_or_derived"],
                 "aggregation_method": meta["aggregation_method"],
+                "numerator": meta["numerator"],
+                "denominator": meta["denominator"],
+                "format": meta["format"],
+                "decimals": meta["decimals"],
+                "notes": meta["notes"],
+                "ranking_usage": meta["ranking_usage"],
+                "signal_strength": meta["signal_strength"],
+                "edge_language_allowed": meta["edge_language_allowed"],
+                "include_in_core_area_advantage": meta["include_in_core_area_advantage"],
+                "confidence_eligible": meta["confidence_eligible"],
+                "data_quality_status": meta["data_quality_status"],
+                "lens_tags": meta["lens_tags"],
+
                 "created_at": created_at,
             }
         )
@@ -414,6 +471,12 @@ def build_windowed_dataframe(client: bigquery.Client, season: str) -> pd.DataFra
     if result_df.empty:
         raise ValueError(f"No windowed rows produced for season={season}")
 
+    missing_output_columns = [col for col in OUTPUT_COLUMNS if col not in result_df.columns]
+    if missing_output_columns:
+        raise ValueError(
+            f"Missing output columns before final ordering: {missing_output_columns}"
+        )
+
     result_df = result_df[OUTPUT_COLUMNS]
     validate_windowed_df(result_df, season)
 
@@ -446,11 +509,21 @@ def validate_windowed_df(df: pd.DataFrame, season: str) -> None:
         "latest_included_game_id",
         "metric",
         "label",
+        "definition",
         "category",
         "core_area",
         "comparison_direction",
         "raw_or_derived",
         "aggregation_method",
+        "format",
+        "decimals",
+        "notes",
+        "ranking_usage",
+        "signal_strength",
+        "edge_language_allowed",
+        "include_in_core_area_advantage",
+        "confidence_eligible",
+        "data_quality_status",
     ]
 
     null_counts = df[required_not_null].isna().sum()
@@ -466,6 +539,20 @@ def validate_windowed_df(df: pd.DataFrame, season: str) -> None:
         raise ValueError(
             f"Windowed rows have nulls in required fields: {bad_nulls.to_dict()}"
         )
+
+    bad_lens_tags = df[
+        ~df["lens_tags"].apply(lambda value: isinstance(value, list))
+    ]
+    if not bad_lens_tags.empty:
+        log_event(
+            "error",
+            "windowed_rows_invalid_lens_tags",
+            rows=len(bad_lens_tags),
+            sample=bad_lens_tags[["metric", "lens_tags"]]
+            .head(20)
+            .to_dict(orient="records"),
+        )
+        raise ValueError("Windowed rows have invalid lens_tags values; expected list.")
 
     grain = ["season", "team_id", "data_date", "window_type", "metric"]
     dupes = df.duplicated(subset=grain, keep=False)
@@ -521,9 +608,26 @@ def validate_windowed_df(df: pd.DataFrame, season: str) -> None:
 # Write
 # -----------------------------------------------------------------------------
 
+def _resolve_write_disposition(if_exists: str) -> str:
+    """Map user-facing if_exists values to BigQuery write dispositions."""
+    if if_exists == "replace":
+        return bigquery.WriteDisposition.WRITE_TRUNCATE
+    if if_exists == "append":
+        return bigquery.WriteDisposition.WRITE_APPEND
+    if if_exists == "fail":
+        return bigquery.WriteDisposition.WRITE_EMPTY
+    raise ValueError(f"Unsupported if_exists value: {if_exists}")
+
+
 def write_windowed_table(df: pd.DataFrame, season: str, if_exists: str = "replace") -> str:
-    """Write the windowed metric DataFrame to BigQuery."""
+    """Write the windowed metric DataFrame to BigQuery.
+
+    The destination table should already exist with the explicit schema created by
+    recreate_gamelens_metric_tables.py, including lens_tags as REPEATED STRING.
+    """
     destination_table = OUTPUT_TABLE_TEMPLATE.format(season=season)
+    table_id = f"{PROJECT}.{destination_table}"
+    write_disposition = _resolve_write_disposition(if_exists)
 
     log_event(
         "info",
@@ -531,14 +635,31 @@ def write_windowed_table(df: pd.DataFrame, season: str, if_exists: str = "replac
         table=destination_table,
         rows=len(df),
         if_exists=if_exists,
+        write_disposition=str(write_disposition),
     )
 
-    to_gbq(
-        df,
-        destination_table=destination_table,
-        project_id=PROJECT,
-        if_exists=if_exists,
+    client = bigquery.Client(project=PROJECT)
+
+    try:
+        table = client.get_table(table_id)
+    except NotFound as exc:
+        raise RuntimeError(
+            f"Destination table does not exist: {table_id}. "
+            "Run recreate_gamelens_metric_tables.py first so lens_tags is created "
+            "as REPEATED STRING."
+        ) from exc
+
+    job_config = bigquery.LoadJobConfig(
+        schema=table.schema,
+        write_disposition=write_disposition,
     )
+
+    load_job = client.load_table_from_dataframe(
+        df,
+        table_id,
+        job_config=job_config,
+    )
+    load_job.result()
 
     log_event(
         "info",
@@ -547,7 +668,7 @@ def write_windowed_table(df: pd.DataFrame, season: str, if_exists: str = "replac
         rows=len(df),
     )
 
-    return f"{PROJECT}.{destination_table}"
+    return table_id
 
 
 # -----------------------------------------------------------------------------
@@ -599,7 +720,10 @@ def parse_args() -> argparse.Namespace:
         "--if-exists",
         default="replace",
         choices=["fail", "replace", "append"],
-        help="Write behavior for pandas_gbq.to_gbq.",
+        help=(
+            "Write behavior for BigQuery load job. "
+            "replace=WRITE_TRUNCATE, append=WRITE_APPEND, fail=WRITE_EMPTY."
+        ),
     )
     parser.add_argument(
         "--dry-run",

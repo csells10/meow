@@ -1,25 +1,35 @@
 """
 Build cleaned GameLens game/team/metric fact table.
 
-Purpose:
+Purpose
+-------
 Read Analytics.game_metrics_flat, ignore legacy parser category/core_area,
-attach authoritative metadata from metric_registry.py, join League.schedule,
+attach authoritative metadata from analytics.metric_registry.py, join League.schedule,
 and write Analytics.game_team_metric_facts_{season}.
 
-This script is additive. It does not change the live /game API path and does not
-re-call the external NFL API.
+This script does not change the live /game API path and does not re-call the
+external NFL API.
+
+Important schema note
+---------------------
+The destination table should already exist with the explicit schema created by:
+
+    recreate_gamelens_metric_tables.py
+
+That schema includes lens_tags as REPEATED STRING. This builder uses the
+existing BigQuery table schema during load so repeated fields are preserved.
 """
 
 from __future__ import annotations
 
-import re
 import argparse
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from google.cloud import bigquery
-from pandas_gbq import to_gbq
+from google.api_core.exceptions import NotFound
 
 from utils.logging_setup import log_event, setup_logging
 
@@ -60,13 +70,29 @@ OUTPUT_COLUMNS = [
     "team_type",
     "metric",
     "value",
+
+    # Registry metadata
     "label",
+    "definition",
     "category",
     "core_area",
     "comparison_direction",
     "higher_is_better",
     "raw_or_derived",
     "aggregation_method",
+    "numerator",
+    "denominator",
+    "format",
+    "decimals",
+    "notes",
+    "ranking_usage",
+    "signal_strength",
+    "edge_language_allowed",
+    "include_in_core_area_advantage",
+    "confidence_eligible",
+    "data_quality_status",
+    "lens_tags",
+
     "created_at",
 ]
 
@@ -154,7 +180,8 @@ def normalize_game_week(game_week: Optional[str]) -> Dict[str, Any]:
 def load_game_metric_rows(client: bigquery.Client, season: str) -> pd.DataFrame:
     """Load source rows and schedule context.
 
-    Important: this query intentionally does NOT select m.category or m.core_area.
+    Important:
+    This query intentionally does NOT select m.category or m.core_area.
     Those are legacy parser fields and are not authoritative.
     """
     query = f"""
@@ -266,7 +293,14 @@ def attach_registry_metadata(df: pd.DataFrame) -> pd.DataFrame:
 
     meta_rows: List[Dict[str, Any]] = []
     for metric in sorted(remaining_source_metrics):
-        meta_rows.append({"metric": metric, **get_metric_meta(metric)})
+        meta = get_metric_meta(metric)
+
+        # Keep lens_tags as an actual Python list so BigQuery can load it into
+        # REPEATED STRING when using the existing table schema.
+        if not isinstance(meta.get("lens_tags"), list):
+            raise ValueError(f"{metric} lens_tags must be a list from metric_registry.py")
+
+        meta_rows.append({"metric": metric, **meta})
 
     meta_df = pd.DataFrame(meta_rows)
     df = df.merge(meta_df, on="metric", how="left", validate="many_to_one")
@@ -315,11 +349,21 @@ def validate_fact_df(df: pd.DataFrame, season: str) -> None:
         "metric",
         "value",
         "label",
+        "definition",
         "category",
         "core_area",
         "comparison_direction",
         "raw_or_derived",
         "aggregation_method",
+        "format",
+        "decimals",
+        "notes",
+        "ranking_usage",
+        "signal_strength",
+        "edge_language_allowed",
+        "include_in_core_area_advantage",
+        "confidence_eligible",
+        "data_quality_status",
     ]
 
     null_counts = df[required_not_null].isna().sum()
@@ -333,6 +377,20 @@ def validate_fact_df(df: pd.DataFrame, season: str) -> None:
             sample=sample.to_dict(orient="records"),
         )
         raise ValueError(f"Fact rows have nulls in required fields: {bad_nulls.to_dict()}")
+
+    bad_lens_tags = df[
+        ~df["lens_tags"].apply(lambda value: isinstance(value, list))
+    ]
+    if not bad_lens_tags.empty:
+        log_event(
+            "error",
+            "fact_rows_invalid_lens_tags",
+            rows=len(bad_lens_tags),
+            sample=bad_lens_tags[["metric", "lens_tags"]]
+            .head(20)
+            .to_dict(orient="records"),
+        )
+        raise ValueError("Fact rows have invalid lens_tags values; expected list.")
 
     grain = ["season", "game_id", "team_id", "metric"]
     dupes = df.duplicated(subset=grain, keep=False)
@@ -352,7 +410,12 @@ def validate_fact_df(df: pd.DataFrame, season: str) -> None:
             "warning",
             "unknown_game_week_phase_seen",
             rows=unknown_phase_count,
-            game_weeks=sorted(df.loc[df["season_phase"] == "unknown", "game_week"].dropna().unique().tolist()),
+            game_weeks=sorted(
+                df.loc[df["season_phase"] == "unknown", "game_week"]
+                .dropna()
+                .unique()
+                .tolist()
+            ),
         )
 
     log_event("info", "fact_df_validation_passed", season=season, rows=len(df))
@@ -386,6 +449,10 @@ def build_fact_dataframe(client: bigquery.Client, season: str) -> pd.DataFrame:
             df = df.drop(columns=[helper_col])
 
     # Enforce stable output ordering.
+    missing_output_columns = [col for col in OUTPUT_COLUMNS if col not in df.columns]
+    if missing_output_columns:
+        raise ValueError(f"Missing output columns before final ordering: {missing_output_columns}")
+
     df = df[OUTPUT_COLUMNS]
 
     validate_fact_df(df, season)
@@ -396,9 +463,26 @@ def build_fact_dataframe(client: bigquery.Client, season: str) -> pd.DataFrame:
 # Write
 # -----------------------------------------------------------------------------
 
+def _resolve_write_disposition(if_exists: str) -> str:
+    """Map user-facing if_exists values to BigQuery write dispositions."""
+    if if_exists == "replace":
+        return bigquery.WriteDisposition.WRITE_TRUNCATE
+    if if_exists == "append":
+        return bigquery.WriteDisposition.WRITE_APPEND
+    if if_exists == "fail":
+        return bigquery.WriteDisposition.WRITE_EMPTY
+    raise ValueError(f"Unsupported if_exists value: {if_exists}")
+
+
 def write_fact_table(df: pd.DataFrame, season: str, if_exists: str = "replace") -> str:
-    """Write the cleaned fact DataFrame to BigQuery."""
+    """Write the cleaned fact DataFrame to BigQuery.
+
+    The destination table should already exist with the explicit schema created by
+    recreate_gamelens_metric_tables.py, including lens_tags as REPEATED STRING.
+    """
     destination_table = OUTPUT_TABLE_TEMPLATE.format(season=season)
+    table_id = f"{PROJECT}.{destination_table}"
+    write_disposition = _resolve_write_disposition(if_exists)
 
     log_event(
         "info",
@@ -406,14 +490,31 @@ def write_fact_table(df: pd.DataFrame, season: str, if_exists: str = "replace") 
         table=destination_table,
         rows=len(df),
         if_exists=if_exists,
+        write_disposition=str(write_disposition),
     )
 
-    to_gbq(
-        df,
-        destination_table=destination_table,
-        project_id=PROJECT,
-        if_exists=if_exists,
+    client = bigquery.Client(project=PROJECT)
+
+    try:
+        table = client.get_table(table_id)
+    except NotFound as exc:
+        raise RuntimeError(
+            f"Destination table does not exist: {table_id}. "
+            "Run recreate_gamelens_metric_tables.py first so lens_tags is created "
+            "as REPEATED STRING."
+        ) from exc
+
+    job_config = bigquery.LoadJobConfig(
+        schema=table.schema,
+        write_disposition=write_disposition,
     )
+
+    load_job = client.load_table_from_dataframe(
+        df,
+        table_id,
+        job_config=job_config,
+    )
+    load_job.result()
 
     log_event(
         "info",
@@ -422,7 +523,7 @@ def write_fact_table(df: pd.DataFrame, season: str, if_exists: str = "replace") 
         rows=len(df),
     )
 
-    return f"{PROJECT}.{destination_table}"
+    return table_id
 
 
 # -----------------------------------------------------------------------------
@@ -474,7 +575,10 @@ def parse_args() -> argparse.Namespace:
         "--if-exists",
         default="replace",
         choices=["fail", "replace", "append"],
-        help="Write behavior for pandas_gbq.to_gbq.",
+        help=(
+            "Write behavior for BigQuery load job. "
+            "replace=WRITE_TRUNCATE, append=WRITE_APPEND, fail=WRITE_EMPTY."
+        ),
     )
     parser.add_argument(
         "--dry-run",

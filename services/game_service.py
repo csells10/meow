@@ -2,10 +2,12 @@ from queries.game_queries import (
     get_game_header,
     get_team_metrics,
     get_final_score,
+    get_team_rankings_for_game,
     metric_value,
 )
 from services.model_trust_service import build_model_trust
 from services.core_area_analysis import build_core_area_comparison
+from utils.logging_setup import log_event
 from google.cloud import bigquery
 from datetime import datetime, timezone
 
@@ -16,46 +18,335 @@ MODEL_OUTCOMES_TABLE = "nfl-stream-406420.Analytics.game_model_outcomes"
 MODEL_TRUST_DETAILS_TABLE = "nfl-stream-406420.Analytics.game_model_trust_details"
 
 
+# Featured ranking metrics are only for lightweight QA/API visibility.
+# This avoids dumping every ranking row into /game while still proving the
+# ranking layer is connected and useful.
+RANKING_FEATURED_METRICS = [
+    "points_per_play",
+    "points_allowed_per_play",
+    "yards_per_play",
+    "red_zone_efficiency",
+    "third_down_pct",
+    "turnover_margin",
+    "pass_attempts",
+]
+
+
 def fmt(val):
     return round(val, 3) if isinstance(val, float) else val
+
+
+def build_unavailable_ranking_context(reason: str, game_id: str = None) -> dict:
+    return {
+        "available": False,
+        "reason": reason,
+        "game_id": game_id,
+        "meta": {},
+        "featured_metrics": [],
+    }
+
+
+def _ranking_side_payload(row: dict) -> dict:
+    """
+    Keep ranking response lightweight.
+
+    Full ranking rows stay query-side for now. The API exposes enough for QA
+    and future product summaries without overwhelming the frontend.
+    """
+
+    if not row:
+        return None
+
+    return {
+        "team_id": row.get("team_id"),
+        "team_abv": row.get("team_abv"),
+        "value": row.get("value"),
+        "league_rank": row.get("league_rank"),
+        "league_percentile": row.get("league_percentile"),
+        "tier": row.get("tier"),
+        "tier_label": row.get("tier_label"),
+        "teams_ranked": row.get("teams_ranked"),
+        "source_data_date": row.get("source_data_date"),
+        "data_lag_days": row.get("data_lag_days"),
+    }
+
+
+def build_ranking_context(
+    away_rankings: dict,
+    home_rankings: dict,
+    ranking_meta: dict,
+) -> dict:
+    """
+    Build a small ranking_context payload for /game.
+
+    Purpose:
+    - Confirm rankings are available for the requested game.
+    - Show a few useful metric examples.
+    - Preserve freshness metadata.
+    - Do not change model/pick/confidence behavior yet.
+    """
+
+    if not ranking_meta or not ranking_meta.get("available"):
+        return {
+            "available": False,
+            "reason": (ranking_meta or {}).get("reason", "ranking_context_unavailable"),
+            "meta": ranking_meta or {},
+            "featured_metrics": [],
+        }
+
+    featured_metrics = []
+
+    for metric in RANKING_FEATURED_METRICS:
+        away_row = away_rankings.get(metric)
+        home_row = home_rankings.get(metric)
+
+        if not away_row and not home_row:
+            continue
+
+        source_row = away_row or home_row
+
+        featured_metrics.append({
+            "metric": metric,
+            "label": source_row.get("label"),
+            "definition": source_row.get("definition"),
+            "category": source_row.get("category"),
+            "core_area": source_row.get("core_area"),
+
+            "comparison_direction": source_row.get("comparison_direction"),
+            "ranking_usage": source_row.get("ranking_usage"),
+            "ranking_kind": source_row.get("ranking_kind"),
+            "rank_direction": source_row.get("rank_direction"),
+            "rank_interpretation": source_row.get("rank_interpretation"),
+
+            "signal_strength": source_row.get("signal_strength"),
+            "edge_language_allowed": source_row.get("edge_language_allowed"),
+            "include_in_core_area_advantage": source_row.get("include_in_core_area_advantage"),
+            "confidence_eligible": source_row.get("confidence_eligible"),
+            "data_quality_status": source_row.get("data_quality_status"),
+            "lens_tags": source_row.get("lens_tags") or [],
+
+            "away": _ranking_side_payload(away_row),
+            "home": _ranking_side_payload(home_row),
+        })
+
+    return {
+        "available": True,
+        "meta": ranking_meta,
+        "featured_metrics": featured_metrics,
+    }
 
 
 # =========================
 # EXISTING BUILD FUNCTIONS
 # =========================
 
-def build_team_comparison(away_metrics: dict, home_metrics: dict):
+def build_team_comparison(
+    away_metrics: dict,
+    home_metrics: dict,
+    away_rankings: dict = None,
+    home_rankings: dict = None,
+):
+    """
+    Build the visible Team Comparison rows.
+
+    Notes:
+    - This is currently a curated V1 comparison set.
+    - Exact equal values return neutral instead of defaulting to home/away.
+    - Near-even percentile gaps also return neutral for scoring/model purposes.
+    - technical_better preserves which side was numerically better for display/debug.
+    - Dynamic metric selection should be handled later through rankings,
+      category summaries, or Core Area summaries.
+    """
+
+    NEAR_EVEN_PERCENTILE_GAP = 3.5
+
     METRICS = [
-        ("Scoring Production::points_per_play", "Points per Play", "higher"),
-        ("Scoring Suppression::points_allowed_per_play", "Points Allowed per Play", "lower"),
-        ("Drive Conversion::third_down_pct", "3rd Down %", "higher"),
-        ("Red Zone Finish::red_zone_efficiency", "Red Zone TD %", "higher"),
-        ("Turnovers::turnover_margin", "Turnover Margin", "higher"),
+        (
+            "Scoring Production::points_per_play",
+            "points_per_play",
+            "Points per Play",
+            "higher",
+        ),
+        (
+            "Scoring Suppression::points_allowed_per_play",
+            "points_allowed_per_play",
+            "Points Allowed per Play",
+            "lower",
+        ),
+        (
+            "Drive Conversion::third_down_pct",
+            "third_down_pct",
+            "3rd Down %",
+            "higher",
+        ),
+        (
+            "Red Zone Finish::red_zone_efficiency",
+            "red_zone_efficiency",
+            "Red Zone TD %",
+            "higher",
+        ),
+        (
+            "Turnovers::turnover_margin",
+            "turnover_margin",
+            "Turnover Margin",
+            "higher",
+        ),
     ]
+
+    away_rankings = away_rankings or {}
+    home_rankings = home_rankings or {}
+
+    def _safe_float(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _safe_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _ranking_gap(away_ranking: dict = None, home_ranking: dict = None):
+        percentile_gap = None
+        rank_gap = None
+
+        if away_ranking and home_ranking:
+            away_percentile = _safe_float(away_ranking.get("league_percentile"))
+            home_percentile = _safe_float(home_ranking.get("league_percentile"))
+
+            if away_percentile is not None and home_percentile is not None:
+                percentile_gap = abs(away_percentile - home_percentile)
+
+            away_rank = _safe_int(away_ranking.get("league_rank"))
+            home_rank = _safe_int(home_ranking.get("league_rank"))
+
+            if away_rank is not None and home_rank is not None:
+                rank_gap = abs(away_rank - home_rank)
+
+        return percentile_gap, rank_gap
+
+    def resolve_comparison(
+        away_val,
+        home_val,
+        direction: str,
+        away_ranking: dict = None,
+        home_ranking: dict = None,
+    ):
+        """
+        Return comparison details for a visible Team Comparison metric.
+
+        better:
+            The side that should count for model scoring.
+            Near-even rows are intentionally scored as neutral.
+
+        technical_better:
+            The side that was numerically better before guardrails.
+            This is useful for UI/debug language.
+        """
+
+        away_num = _safe_float(away_val)
+        home_num = _safe_float(home_val)
+        percentile_gap, rank_gap = _ranking_gap(away_ranking, home_ranking)
+
+        if away_num is None or home_num is None:
+            return {
+                "better": "neutral",
+                "comparison_strength": "neutral",
+                "technical_better": "neutral",
+                "raw_gap": None,
+                "percentile_gap": None,
+                "rank_gap": None,
+                "near_even_reason": None,
+            }
+
+        raw_gap = abs(away_num - home_num)
+
+        # Tiny tolerance only protects against floating point weirdness.
+        # This is not a football threshold.
+        if raw_gap < 1e-9:
+            return {
+                "better": "neutral",
+                "comparison_strength": "neutral",
+                "technical_better": "neutral",
+                "raw_gap": 0,
+                "percentile_gap": (
+                    round(percentile_gap, 3)
+                    if percentile_gap is not None
+                    else None
+                ),
+                "rank_gap": rank_gap,
+                "near_even_reason": "exact_tie",
+            }
+
+        if direction == "higher":
+            technical_better = "away" if away_num > home_num else "home"
+        elif direction == "lower":
+            technical_better = "away" if away_num < home_num else "home"
+        else:
+            technical_better = "neutral"
+
+        # Ranking-aware near-even guardrail:
+        # if two teams are basically adjacent in league percentile, do not
+        # count the row as a full model edge even if one raw value is better.
+        if percentile_gap is not None and percentile_gap <= NEAR_EVEN_PERCENTILE_GAP:
+            return {
+                "better": "neutral",
+                "comparison_strength": "near_even",
+                "technical_better": technical_better,
+                "raw_gap": round(raw_gap, 6),
+                "percentile_gap": round(percentile_gap, 3),
+                "rank_gap": rank_gap,
+                "near_even_reason": "small_percentile_gap",
+            }
+
+        return {
+            "better": technical_better,
+            "comparison_strength": "edge",
+            "technical_better": technical_better,
+            "raw_gap": round(raw_gap, 6),
+            "percentile_gap": (
+                round(percentile_gap, 3)
+                if percentile_gap is not None
+                else None
+            ),
+            "rank_gap": rank_gap,
+            "near_even_reason": None,
+        }
 
     comparison = []
 
-    for key, label, direction in METRICS:
+    for key, metric_name, label, direction in METRICS:
         away_val = metric_value(away_metrics, key)
         home_val = metric_value(home_metrics, key)
 
         if away_val is None or home_val is None:
             continue
 
-        if direction == "higher":
-            better = "away" if away_val > home_val else "home"
-        else:
-            better = "away" if away_val < home_val else "home"
+        comparison_result = resolve_comparison(
+            away_val=away_val,
+            home_val=home_val,
+            direction=direction,
+            away_ranking=away_rankings.get(metric_name),
+            home_ranking=home_rankings.get(metric_name),
+        )
 
         comparison.append({
             "label": label,
+            "metric": metric_name,
             "away": fmt(away_val),
             "home": fmt(home_val),
-            "better": better,
+            "better": comparison_result["better"],
+            "comparison_strength": comparison_result["comparison_strength"],
+            "technical_better": comparison_result["technical_better"],
+            "raw_gap": comparison_result["raw_gap"],
+            "percentile_gap": comparison_result["percentile_gap"],
+            "rank_gap": comparison_result["rank_gap"],
+            "near_even_reason": comparison_result["near_even_reason"],
         })
 
     return comparison
-
 
 def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     profile = []
@@ -187,7 +478,7 @@ def get_week_number(header: dict):
     if isinstance(game_week, str) and game_week.startswith("Week "):
         try:
             return int(game_week.replace("Week ", ""))
-        except:
+        except Exception:
             return None
 
     return None
@@ -287,6 +578,847 @@ def build_core_area_context(core_area_comparison: list, lean_side=None):
     context["profile_type"] = profile_type
 
     return context
+def build_team_comparison_edge_context(team_comparison: list) -> dict:
+    """
+    Summarize visible Team Comparison strength for confidence guardrails.
+
+    This intentionally mirrors the idea behind model_trust.edge, but it runs
+    before model_trust is built so matchup_lean can avoid overconfident labels.
+
+    Notes:
+    - near_even rows should already have better="neutral"
+    - neutral and near_even rows do not count as away/home edges
+    - this is a guardrail, not a replacement for Core Area or Game Profile logic
+    """
+
+    context = {
+        "available": bool(team_comparison),
+        "away": 0,
+        "home": 0,
+        "neutral": 0,
+        "near_even": 0,
+        "decisive": 0,
+        "total_visible": len(team_comparison or []),
+        "leader": "tie",
+        "gap": 0,
+        "edge_score": 0,
+        "edge_strength": "none",
+    }
+
+    for row in team_comparison or []:
+        better = row.get("better")
+        comparison_strength = row.get("comparison_strength")
+
+        if comparison_strength == "near_even":
+            context["near_even"] += 1
+
+        if better == "away":
+            context["away"] += 1
+        elif better == "home":
+            context["home"] += 1
+        else:
+            context["neutral"] += 1
+
+    away_count = context["away"]
+    home_count = context["home"]
+
+    decisive = away_count + home_count
+    gap = abs(away_count - home_count)
+
+    context["decisive"] = decisive
+    context["gap"] = gap
+
+    if away_count > home_count:
+        context["leader"] = "away"
+    elif home_count > away_count:
+        context["leader"] = "home"
+    else:
+        context["leader"] = "tie"
+
+    context["edge_score"] = round(gap / decisive, 2) if decisive else 0
+
+    if gap >= 3:
+        edge_strength = "strong"
+    elif gap >= 2:
+        edge_strength = "moderate"
+    elif gap >= 1:
+        edge_strength = "low"
+    else:
+        edge_strength = "none"
+
+    context["edge_strength"] = edge_strength
+
+    return context
+
+
+def build_profile_strength_labels(
+    target: str = None,
+    confidence: str = "Low",
+    profile_type: str = None,
+    core_area_context: dict = None,
+    team_edge_context: dict = None,
+    signal_score: dict = None,
+) -> dict:
+    """
+    Separate matchup profile strength from outcome confidence.
+
+    profile_strength answers:
+    - How clean/strong does the matchup shape look?
+
+    outcome_confidence answers:
+    - How much should we trust the lean as a winner/outcome read?
+
+    This is additive only. It does not change picks, confidence, target_team,
+    profile_type, or model_outcome.
+    """
+
+    core_area_context = core_area_context or {}
+    team_edge_context = team_edge_context or {}
+    signal_score = signal_score or {}
+
+    signal_gap = signal_score.get("gap") or 0
+    edge_strength = team_edge_context.get("edge_strength", "none")
+    core_gap = core_area_context.get("core_gap")
+    total_core_areas = core_area_context.get("total_core_areas") or 0
+
+    cautions = []
+
+    if not target or profile_type == "no_clear_edge":
+        profile_strength = {
+            "code": "no_clear_edge",
+            "label": "No Clear Edge",
+            "summary": "The available signals do not create a clean matchup lean.",
+        }
+
+    elif profile_type == "confirmed_edge":
+        if (
+            signal_gap >= 7
+            and edge_strength in {"strong", "moderate"}
+            and total_core_areas >= 4
+            and core_gap is not None
+            and core_gap >= 0.15
+        ):
+            profile_strength = {
+                "code": "strong_profile",
+                "label": "Strong Profile",
+                "summary": f"{target} has a clean pregame profile across multiple matchup layers.",
+            }
+        else:
+            profile_strength = {
+                "code": "clear_lean",
+                "label": "Clear Lean",
+                "summary": f"{target} has the matchup lean, but the profile is not overwhelming.",
+            }
+
+    elif profile_type == "coin_flip_profile":
+        profile_strength = {
+            "code": "thin_edge",
+            "label": "Thin Edge",
+            "summary": f"{target} has a lean, but the matchup is close overall.",
+        }
+        cautions.append("core_area_gap_is_small")
+
+    elif profile_type == "split_profile":
+        profile_strength = {
+            "code": "mixed_profile",
+            "label": "Mixed Profile",
+            "summary": f"{target} has signal support, but the matchup is split across key areas.",
+        }
+        cautions.append("core_areas_are_split")
+
+    elif profile_type == "conflicting_profile":
+        profile_strength = {
+            "code": "mixed_profile",
+            "label": "Mixed Profile",
+            "summary": f"{target} has signal support, but the broader matchup pushes back.",
+        }
+        cautions.append("core_areas_do_not_fully_confirm_lean")
+
+    else:
+        profile_strength = {
+            "code": "lean_with_context",
+            "label": "Lean With Context",
+            "summary": f"{target} has the lean, but the supporting profile is not fully settled.",
+        }
+        cautions.append("supporting_context_is_mixed_or_limited")
+
+    if not target or confidence == "Low":
+        outcome_confidence = {
+            "code": "low",
+            "label": "Low",
+            "summary": "This should be treated cautiously rather than as a strong outcome read.",
+        }
+
+    elif confidence == "Medium":
+        outcome_confidence = {
+            "code": "medium",
+            "label": "Medium",
+            "summary": "The lean is usable, but not strong enough to treat as a high-confidence outcome.",
+        }
+
+    elif confidence == "High":
+        if (
+            profile_strength.get("code") == "strong_profile"
+            and edge_strength == "strong"
+            and signal_gap >= 8
+            and core_gap is not None
+            and core_gap >= 0.25
+        ):
+            outcome_confidence = {
+                "code": "high",
+                "label": "High",
+                "summary": "The lean is backed by a clean profile and strong separation.",
+            }
+        else:
+            outcome_confidence = {
+                "code": "medium",
+                "label": "Medium",
+                "summary": "The profile is strong, but outcome confidence is kept measured.",
+            }
+            cautions.append("strong_profile_does_not_guarantee_outcome")
+
+    else:
+        outcome_confidence = {
+            "code": str(confidence or "unknown").lower(),
+            "label": confidence or "Unknown",
+            "summary": "Outcome confidence is based on the current matchup lean.",
+        }
+
+    return {
+        "profile_strength": profile_strength,
+        "outcome_confidence": outcome_confidence,
+        "display_label": (
+            f"{profile_strength['label']} / "
+            f"{outcome_confidence['label']} Outcome Confidence"
+        ),
+        "cautions": cautions,
+    }
+
+
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
+
+
+def _safe_float(value):
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(value):
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_label(side: str, header: dict) -> str:
+    if side == "away":
+        return header["away_team"]["abbreviation"]
+    if side == "home":
+        return header["home_team"]["abbreviation"]
+    return "Neither team"
+
+
+def classify_percentile_gap(percentile_gap):
+    """
+    Convert ranking percentile gap into product-safe language.
+
+    This is descriptive, not predictive.
+    """
+
+    if percentile_gap is None:
+        return "insufficient"
+
+    if percentile_gap < 3.5:
+        return "near_even"
+
+    if percentile_gap < 10:
+        return "slight_advantage"
+
+    if percentile_gap < 20:
+        return "advantage"
+
+    return "clear_advantage"
+
+def is_headline_edge_metric(row: dict) -> bool:
+    """
+    Decide whether a metric is allowed to become a headline matchup driver.
+
+    This intentionally keeps supporting, workload, volume, and watch metrics out
+    of the main summary layer.
+
+    They can still appear as context notes, but they should not steer:
+    - metric_highlights
+    - category_summaries
+    - core_area_summaries
+    """
+
+    if not row:
+        return False
+
+    return (
+        row.get("ranking_usage") == "edge"
+        and row.get("ranking_kind") == "edge"
+        and row.get("edge_language_allowed") is True
+        and row.get("confidence_eligible") is True
+        and row.get("signal_strength") == "strong"
+        and row.get("data_quality_status") == "good"
+    )
+
+
+def format_advantage_phrase(summary_label: str) -> str:
+    """
+    Human wording helper.
+
+    Avoids awkward strings like:
+    - "has a advantage"
+
+    Prefer:
+    - "shows an advantage"
+    - "shows a slight advantage"
+    - "shows a clear advantage"
+    """
+
+    if summary_label == "clear_advantage":
+        return "a clear advantage"
+
+    if summary_label == "advantage":
+        return "an advantage"
+
+    if summary_label == "slight_advantage":
+        return "a slight advantage"
+
+    return "an edge"
+
+
+def build_non_headline_context_note(comparison: dict, reason: str) -> dict:
+    """
+    Convert a ranking comparison into a context note when it should not be
+    used as a headline edge.
+
+    This keeps the data visible for future UI use without letting it drive
+    the main matchup story too hard.
+    """
+
+    label = comparison.get("label") or comparison.get("metric")
+    ranking_usage = comparison.get("ranking_usage")
+    ranking_kind = comparison.get("ranking_kind")
+
+    if ranking_usage == "context_only" or ranking_kind == "context":
+        summary_label = "context_only"
+        summary = f"{label} is descriptive context, not a better/worse edge."
+    else:
+        summary_label = "supporting_context"
+        summary = f"{label} is supporting context, so it is not used as a headline driver."
+
+    return {
+        "metric": comparison.get("metric"),
+        "label": label,
+        "category": comparison.get("category"),
+        "core_area": comparison.get("core_area"),
+        "summary_label": summary_label,
+        "summary": summary,
+        "reason": reason,
+        "leader": comparison.get("leader"),
+        "leader_team": comparison.get("leader_team"),
+        "away": comparison.get("away"),
+        "home": comparison.get("home"),
+        "percentile_gap": comparison.get("percentile_gap"),
+        "rank_gap": comparison.get("rank_gap"),
+        "ranking_usage": comparison.get("ranking_usage"),
+        "ranking_kind": comparison.get("ranking_kind"),
+        "signal_strength": comparison.get("signal_strength"),
+        "confidence_eligible": comparison.get("confidence_eligible"),
+        "edge_language_allowed": comparison.get("edge_language_allowed"),
+        "data_quality_status": comparison.get("data_quality_status"),
+    }
+    
+def compare_ranking_metric(
+    metric_name: str,
+    away_row: dict,
+    home_row: dict,
+    header: dict,
+) -> dict:
+    away_percentile = _safe_float(away_row.get("league_percentile"))
+    home_percentile = _safe_float(home_row.get("league_percentile"))
+
+    away_rank = _safe_int(away_row.get("league_rank"))
+    home_rank = _safe_int(home_row.get("league_rank"))
+
+    percentile_gap = None
+    if away_percentile is not None and home_percentile is not None:
+        percentile_gap = abs(away_percentile - home_percentile)
+
+    rank_gap = None
+    if away_rank is not None and home_rank is not None:
+        rank_gap = abs(away_rank - home_rank)
+
+    if percentile_gap is None:
+        leader = "neutral"
+    elif percentile_gap < 3.5:
+        leader = "neutral"
+    elif away_percentile > home_percentile:
+        leader = "away"
+    else:
+        leader = "home"
+
+    gap_type = classify_percentile_gap(percentile_gap)
+    leader_team = _team_label(leader, header)
+
+    label = away_row.get("label") or home_row.get("label") or metric_name
+    category = away_row.get("category") or home_row.get("category")
+    core_area = away_row.get("core_area") or home_row.get("core_area")
+
+    if leader == "neutral":
+        summary = f"{label} is near even."
+    else:
+        advantage_phrase = format_advantage_phrase(gap_type)
+        summary = f"{leader_team} shows {advantage_phrase} in {label}."
+
+    ranking_usage = away_row.get("ranking_usage") or home_row.get("ranking_usage")
+    ranking_kind = away_row.get("ranking_kind") or home_row.get("ranking_kind")
+    signal_strength = away_row.get("signal_strength") or home_row.get("signal_strength")
+    data_quality_status = (
+        away_row.get("data_quality_status")
+        or home_row.get("data_quality_status")
+    )
+
+    edge_language_allowed = _as_bool(
+        away_row.get("edge_language_allowed")
+        or home_row.get("edge_language_allowed")
+    )
+
+    confidence_eligible = _as_bool(
+        away_row.get("confidence_eligible")
+        or home_row.get("confidence_eligible")
+    )
+
+    comparison = {
+        "metric": metric_name,
+        "label": label,
+        "category": category,
+        "core_area": core_area,
+        "leader": leader,
+        "leader_team": leader_team if leader in {"away", "home"} else None,
+        "summary_label": gap_type,
+        "summary": summary,
+        "away": {
+            "team": header["away_team"]["abbreviation"],
+            "value": away_row.get("value"),
+            "league_rank": away_rank,
+            "league_percentile": away_percentile,
+            "tier": away_row.get("tier"),
+            "tier_label": away_row.get("tier_label"),
+        },
+        "home": {
+            "team": header["home_team"]["abbreviation"],
+            "value": home_row.get("value"),
+            "league_rank": home_rank,
+            "league_percentile": home_percentile,
+            "tier": home_row.get("tier"),
+            "tier_label": home_row.get("tier_label"),
+        },
+        "percentile_gap": round(percentile_gap, 3) if percentile_gap is not None else None,
+        "rank_gap": rank_gap,
+        "ranking_usage": ranking_usage,
+        "ranking_kind": ranking_kind,
+        "signal_strength": signal_strength,
+        "edge_language_allowed": edge_language_allowed,
+        "confidence_eligible": confidence_eligible,
+        "data_quality_status": data_quality_status,
+        "data_lag_days": max(
+            _safe_int(away_row.get("data_lag_days")) or 0,
+            _safe_int(home_row.get("data_lag_days")) or 0,
+        ),
+    }
+
+    comparison["headline_eligible"] = is_headline_edge_metric(comparison)
+
+    return comparison
+
+
+def build_group_summary(
+    group_name: str,
+    rows: list,
+    group_type: str,
+    header: dict,
+) -> dict:
+    """
+    Summarize headline-eligible metric comparisons into a category or Core Area read.
+
+    Important:
+    - This should only receive headline-eligible rows.
+    - Supporting/context metrics should be kept in context_notes instead.
+    - This summarizes matchup shape. It does not create winner logic.
+    """
+
+    away_score = 0
+    home_score = 0
+    near_even_count = 0
+    drivers = []
+    cautions = []
+
+    for row in rows or []:
+        summary_label = row.get("summary_label")
+        leader = row.get("leader")
+
+        if summary_label == "near_even":
+            near_even_count += 1
+            continue
+
+        weight = 2 if summary_label in {"advantage", "clear_advantage"} else 1
+
+        if leader == "away":
+            away_score += weight
+            drivers.append(row)
+        elif leader == "home":
+            home_score += weight
+            drivers.append(row)
+
+    if not rows:
+        summary_label = "insufficient"
+        leader = "neutral"
+
+    elif away_score == 0 and home_score == 0:
+        summary_label = "near_even"
+        leader = "neutral"
+
+    elif abs(away_score - home_score) <= 1 and away_score > 0 and home_score > 0:
+        summary_label = "mixed"
+        leader = "neutral"
+        cautions.append("group_has_headline_edges_for_both_teams")
+
+    elif away_score > home_score:
+        leader = "away"
+        summary_label = "advantage" if away_score - home_score >= 2 else "slight_advantage"
+
+    else:
+        leader = "home"
+        summary_label = "advantage" if home_score - away_score >= 2 else "slight_advantage"
+
+    leader_team = _team_label(leader, header)
+
+    if summary_label == "insufficient":
+        summary = f"{group_name} does not have enough headline-eligible ranking data for a clean read."
+    elif summary_label == "near_even":
+        summary = f"{group_name} looks close to even."
+    elif summary_label == "mixed":
+        summary = f"{group_name} is mixed, with useful headline signals on both sides."
+    elif summary_label == "clear_advantage":
+        summary = f"{group_name} clearly leans toward {leader_team}."
+    elif summary_label == "advantage":
+        summary = f"{group_name} leans toward {leader_team}."
+    elif summary_label == "slight_advantage":
+        summary = f"{group_name} slightly leans toward {leader_team}."
+    else:
+        summary = f"{group_name} has a matchup read for {leader_team}."
+
+    top_drivers = sorted(
+        drivers,
+        key=lambda row: row.get("percentile_gap") or 0,
+        reverse=True,
+    )[:3]
+
+    return {
+        "type": group_type,
+        "name": group_name,
+        "leader": leader,
+        "leader_team": leader_team if leader in {"away", "home"} else None,
+        "summary_label": summary_label,
+        "summary": summary,
+        "away_score": away_score,
+        "home_score": home_score,
+        "near_even_metric_count": near_even_count,
+        "metric_count": len(rows or []),
+        "drivers": [
+            {
+                "metric": row.get("metric"),
+                "label": row.get("label"),
+                "leader": row.get("leader"),
+                "leader_team": row.get("leader_team"),
+                "summary_label": row.get("summary_label"),
+                "percentile_gap": row.get("percentile_gap"),
+                "summary": row.get("summary"),
+            }
+            for row in top_drivers
+        ],
+        "cautions": cautions,
+    }
+
+
+def build_matchup_breakdown(
+    away_rankings: dict = None,
+    home_rankings: dict = None,
+    header: dict = None,
+    max_metric_highlights: int = 8,
+    max_context_notes: int = 12,
+) -> dict:
+    """
+    Build ranking-based matchup summaries.
+
+    Output levels:
+    - metric_highlights
+    - category_summaries
+    - core_area_summaries
+    - context_notes
+
+    This is descriptive. It should not force winner/confidence decisions.
+
+    Important:
+    - Only headline-eligible metrics drive metric/category/core-area summaries.
+    - Supporting/context/workload metrics are kept in context_notes.
+    """
+
+    away_rankings = away_rankings or {}
+    home_rankings = home_rankings or {}
+    header = header or {}
+
+    common_metrics = sorted(set(away_rankings.keys()) & set(home_rankings.keys()))
+
+    if not common_metrics:
+        return {
+            "available": False,
+            "reason": "ranking_context_unavailable",
+            "metric_highlights": [],
+            "category_summaries": [],
+            "core_area_summaries": [],
+            "context_notes": [],
+            "freshness": {},
+            "summary_counts": {
+                "common_metric_count": 0,
+                "headline_metric_count": 0,
+                "context_note_count": 0,
+            },
+        }
+
+    headline_rows = []
+    context_notes = []
+
+    max_lag = 0
+    as_of_dates = set()
+    source_data_dates = set()
+    window_types = set()
+
+    for metric in common_metrics:
+        away_row = away_rankings.get(metric) or {}
+        home_row = home_rankings.get(metric) or {}
+
+        ranking_usage = away_row.get("ranking_usage") or home_row.get("ranking_usage")
+        ranking_kind = away_row.get("ranking_kind") or home_row.get("ranking_kind")
+        data_quality_status = (
+            away_row.get("data_quality_status")
+            or home_row.get("data_quality_status")
+        )
+
+        if data_quality_status == "exclude" or ranking_usage == "exclude":
+            continue
+
+        for row in [away_row, home_row]:
+            if row.get("as_of_date"):
+                as_of_dates.add(str(row.get("as_of_date")))
+            if row.get("source_data_date"):
+                source_data_dates.add(str(row.get("source_data_date")))
+            if row.get("window_type"):
+                window_types.add(str(row.get("window_type")))
+
+            lag = _safe_int(row.get("data_lag_days"))
+            if lag is not None:
+                max_lag = max(max_lag, lag)
+
+        comparison = compare_ranking_metric(
+            metric_name=metric,
+            away_row=away_row,
+            home_row=home_row,
+            header=header,
+        )
+
+        if comparison.get("headline_eligible"):
+            headline_rows.append(comparison)
+            continue
+
+        if ranking_usage == "context_only" or ranking_kind == "context":
+            reason = "context_only_metric"
+        elif data_quality_status != "good":
+            reason = f"data_quality_{data_quality_status or 'unknown'}"
+        elif comparison.get("confidence_eligible") is not True:
+            reason = "not_confidence_eligible"
+        elif comparison.get("signal_strength") != "strong":
+            reason = "not_strong_signal"
+        elif comparison.get("edge_language_allowed") is not True:
+            reason = "edge_language_not_allowed"
+        else:
+            reason = "not_headline_eligible"
+
+        context_notes.append(
+            build_non_headline_context_note(
+                comparison=comparison,
+                reason=reason,
+            )
+        )
+
+    metric_highlights = sorted(
+        headline_rows,
+        key=lambda row: (
+            0 if row.get("summary_label") == "near_even" else 1,
+            row.get("percentile_gap") or 0,
+        ),
+        reverse=True,
+    )[:max_metric_highlights]
+
+    by_category = {}
+    by_core_area = {}
+
+    for row in headline_rows:
+        category = row.get("category")
+        core_area = row.get("core_area")
+
+        if category:
+            by_category.setdefault(category, []).append(row)
+
+        if core_area:
+            by_core_area.setdefault(core_area, []).append(row)
+
+    category_summaries = [
+        build_group_summary(
+            group_name=category,
+            rows=rows,
+            group_type="category",
+            header=header,
+        )
+        for category, rows in sorted(by_category.items())
+    ]
+
+    core_area_summaries = [
+        build_group_summary(
+            group_name=core_area,
+            rows=rows,
+            group_type="core_area",
+            header=header,
+        )
+        for core_area, rows in sorted(by_core_area.items())
+    ]
+
+    sorted_context_notes = sorted(
+        context_notes,
+        key=lambda row: row.get("percentile_gap") or 0,
+        reverse=True,
+    )
+
+    return {
+        "available": True,
+        "metric_highlights": metric_highlights,
+        "category_summaries": category_summaries,
+        "core_area_summaries": core_area_summaries,
+        "context_notes": sorted_context_notes[:max_context_notes],
+        "freshness": {
+            "as_of_dates": sorted(as_of_dates),
+            "source_data_dates": sorted(source_data_dates),
+            "window_types": sorted(window_types),
+            "max_data_lag_days": max_lag,
+            "data_lag_note": (
+                "Data lag is freshness context only; it is not an automatic confidence penalty."
+            ),
+        },
+        "summary_counts": {
+            "common_metric_count": len(common_metrics),
+            "headline_metric_count": len(headline_rows),
+            "context_note_count": len(context_notes),
+            "category_summary_count": len(category_summaries),
+            "core_area_summary_count": len(core_area_summaries),
+        },
+    }
+
+
+def get_ranking_context_for_game_safe(game_id: str) -> tuple:
+    """
+    Fetch ranking context from queries.game_queries without making game_service.py
+    brittle to one exact function name.
+
+    Expected preferred shape from the ranking fetcher:
+
+    (
+        ranking_context,
+        away_rankings,
+        home_rankings
+    )
+
+    ranking_context should include:
+    {
+        "available": true,
+        ...
+    }
+
+    away_rankings/home_rankings should be dicts keyed by metric name.
+    """
+
+    default_context = {
+        "available": False,
+        "reason": "ranking_fetch_function_missing_or_failed",
+        "game_id": game_id,
+    }
+
+    try:
+        from queries import game_queries
+    except Exception as exc:
+        default_context["reason"] = "game_queries_import_failed"
+        default_context["error"] = str(exc)[:200]
+        return default_context, {}, {}
+
+    possible_function_names = [
+        "get_ranking_context_for_game",
+        "get_team_metric_rankings_for_game",
+        "get_metric_rankings_for_game",
+        "get_game_metric_rankings",
+        "get_game_rankings",
+        "get_team_rankings_for_game",
+    ]
+
+    for function_name in possible_function_names:
+        fetcher = getattr(game_queries, function_name, None)
+
+        if not callable(fetcher):
+            continue
+
+        try:
+            result = fetcher(game_id)
+        except Exception:
+            continue
+
+        if isinstance(result, tuple) and len(result) == 3:
+            first, second, third = result
+
+            if isinstance(first, dict) and "available" in first:
+                return first, second or {}, third or {}
+
+            if isinstance(third, dict) and "available" in third:
+                return third, first or {}, second or {}
+
+        if isinstance(result, dict):
+            ranking_context = result.get("ranking_context") or result.get("context")
+
+            if ranking_context:
+                return (
+                    ranking_context,
+                    result.get("away_rankings") or {},
+                    result.get("home_rankings") or {},
+                )
+
+            if "available" in result and result.get("away_rankings") is not None:
+                return (
+                    result,
+                    result.get("away_rankings") or {},
+                    result.get("home_rankings") or {},
+                )
+
+    return default_context, {}, {}
 
 def build_matchup_lean(
     game_profile: list,
@@ -299,10 +1431,22 @@ def build_matchup_lean(
 
     score = {away: 0, home: 0}
 
+    team_edge_context = build_team_comparison_edge_context(
+        team_comparison=team_comparison or []
+    )
+
+    confidence_guardrails = {
+        "applied": False,
+        "capped_from": None,
+        "capped_to": None,
+        "reasons": [],
+        "team_comparison_edge_context": team_edge_context,
+    }
+
     # --------------------
     # Team comparison scoring
     # --------------------
-    for metric in team_comparison:
+    for metric in team_comparison or []:
         better = metric.get("better")
 
         if better == "away":
@@ -313,12 +1457,10 @@ def build_matchup_lean(
     # --------------------
     # Game profile signal scoring
     # --------------------
-    for signal in game_profile:
+    for signal in game_profile or []:
         level = signal.get("level", "Neutral")
         weight = 2 if level == "Elevated" else 1 if level == "Moderate" else 0
 
-        # Prefer structured backend field.
-        # Keep tilt text fallback for backward compatibility.
         tilt_team = signal.get("tilt_team")
 
         if tilt_team == "away":
@@ -349,16 +1491,30 @@ def build_matchup_lean(
             lean_side=None,
         )
 
+        profile_labels = build_profile_strength_labels(
+            target=None,
+            confidence="Low",
+            profile_type="no_clear_edge",
+            core_area_context=core_area_context,
+            team_edge_context=team_edge_context,
+            signal_score=signal_score,
+        )
+
         return {
             "target_team": "None",
             "target_side": None,
-            "lean_summary": "No strong directional edge",
-            "focus_summary": "Signal gap too small to justify a lean",
+            "lean_summary": "No clear matchup edge",
+            "focus_summary": "The available signals are too close to call this a clean lean",
             "confidence": "Low",
-            "confidence_context": "Signals are not separated enough to support a clear lean",
+            "confidence_context": "The signal gap is small, so this stays in cautious territory",
             "profile_type": "no_clear_edge",
             "signal_score": signal_score,
             "core_area_context": core_area_context,
+            "confidence_guardrails": confidence_guardrails,
+            "profile_strength": profile_labels["profile_strength"],
+            "outcome_confidence": profile_labels["outcome_confidence"],
+            "matchup_label": profile_labels["display_label"],
+            "matchup_cautions": profile_labels["cautions"],
         }
 
     target = away if score[away] > score[home] else home
@@ -368,7 +1524,13 @@ def build_matchup_lean(
 
     week_num = get_week_number(header)
     if week_num and week_num <= 2:
+        original_confidence = confidence
         confidence = "Low"
+
+        confidence_guardrails["applied"] = True
+        confidence_guardrails["capped_from"] = original_confidence
+        confidence_guardrails["capped_to"] = "Low"
+        confidence_guardrails["reasons"].append("early_season_week_1_or_2")
 
     core_area_context = build_core_area_context(
         core_area_comparison=core_area_comparison or [],
@@ -381,42 +1543,93 @@ def build_matchup_lean(
     # Core Area sanity check
     # --------------------
     if profile_type == "confirmed_edge":
-        lean_summary = f"{target} holds the broader matchup edge"
+        lean_summary = f"{target} has the stronger overall matchup profile"
         focus_summary = (
-            f"{target} is supported by both signal scoring and Core Area advantage"
+            f"{target} is supported by both the signal score and the broader Core Area read"
         )
-        confidence_context = "Core Areas support the same side as the signal lean"
+        confidence_context = "The broader matchup profile lines up with the signal lean"
 
     elif profile_type == "coin_flip_profile":
-        lean_summary = f"This matchup is close overall, with a slight lean toward {target}"
+        lean_summary = f"{target} has a small lean, but the matchup is pretty tight overall"
         focus_summary = (
-            f"{target} has the stronger signal score, but Core Areas are nearly even overall"
+            f"{target} has the stronger signal score, but the Core Areas are close enough to keep this cautious"
         )
+
+        if confidence != "Low":
+            confidence_guardrails["applied"] = True
+            confidence_guardrails["capped_from"] = confidence
+            confidence_guardrails["capped_to"] = "Low"
+            confidence_guardrails["reasons"].append("coin_flip_core_area_profile")
+
         confidence = "Low"
-        confidence_context = "Core Areas are nearly even, limiting confidence"
+        confidence_context = "The Core Area gap is small, so this is treated as a cautious lean"
 
     elif profile_type == "split_profile":
-        lean_summary = f"{target} shows a slight signal lean, but the broader profile is mixed"
+        lean_summary = f"{target} gets the lean, though the matchup is not clean"
         focus_summary = (
-            f"{target} has signal support, but Core Area wins are split across the matchup"
+            f"{target} has signal support, but the Core Areas are split across both teams"
         )
-        confidence = "Low" if confidence != "Low" else confidence
-        confidence_context = "Core Areas are split, limiting confidence"
+
+        if confidence != "Low":
+            confidence_guardrails["applied"] = True
+            confidence_guardrails["capped_from"] = confidence
+            confidence_guardrails["capped_to"] = "Low"
+            confidence_guardrails["reasons"].append("split_core_area_profile")
+
+        confidence = "Low"
+        confidence_context = "The profile is split, so confidence stays low"
 
     elif profile_type == "conflicting_profile":
-        lean_summary = f"{target} has signal support, but Core Areas do not fully confirm the edge"
-        focus_summary = (
-            f"{target} leads the signal score, but the broader Core Area profile points elsewhere"
+        lean_summary = (
+            f"{target} has signal support, but the broader matchup does not fully back it up"
         )
+        focus_summary = (
+            f"{target} leads the signal score, but the Core Area read is pushing back"
+        )
+
+        if confidence != "Low":
+            confidence_guardrails["applied"] = True
+            confidence_guardrails["capped_from"] = confidence
+            confidence_guardrails["capped_to"] = "Low"
+            confidence_guardrails["reasons"].append("conflicting_core_area_profile")
+
         confidence = "Low"
-        confidence_context = "Core Area context conflicts with the signal lean"
+        confidence_context = "The broader profile does not fully agree with the signal lean"
 
     else:
-        lean_summary = f"{target} shows a directional signal lean"
+        lean_summary = f"The signals lean toward {target}, but the matchup is not fully settled"
         focus_summary = (
-            f"{target} advantage is driven by efficiency, pressure, and turnover signals"
+            f"{target} has a directional lean, but the supporting context is still mixed"
         )
-        confidence_context = "Core Area context is mixed or limited"
+        confidence_context = "The matchup has some signal support, but the full profile is not clean"
+
+    # --------------------
+    # Guardrail:
+    # Do not allow High confidence when visible Team Comparison is weak.
+    # --------------------
+    if (
+        confidence == "High"
+        and team_edge_context.get("edge_strength") in {"low", "none"}
+    ):
+        confidence_guardrails["applied"] = True
+        confidence_guardrails["capped_from"] = "High"
+        confidence_guardrails["capped_to"] = "Medium"
+        confidence_guardrails["reasons"].append("low_visible_team_comparison_edge")
+
+        confidence = "Medium"
+        confidence_context = (
+            f"{confidence_context}; the visible Team Comparison edge is limited, "
+            "so this is capped at Medium instead of High"
+        )
+
+    profile_labels = build_profile_strength_labels(
+        target=target,
+        confidence=confidence,
+        profile_type=profile_type,
+        core_area_context=core_area_context,
+        team_edge_context=team_edge_context,
+        signal_score=signal_score,
+    )
 
     return {
         "target_team": f"{target} edge",
@@ -428,6 +1641,11 @@ def build_matchup_lean(
         "profile_type": profile_type,
         "signal_score": signal_score,
         "core_area_context": core_area_context,
+        "confidence_guardrails": confidence_guardrails,
+        "profile_strength": profile_labels["profile_strength"],
+        "outcome_confidence": profile_labels["outcome_confidence"],
+        "matchup_label": profile_labels["display_label"],
+        "matchup_cautions": profile_labels["cautions"],
     }
 
 
@@ -460,7 +1678,7 @@ def build_model_outcome(matchup_lean: dict, final_score: dict, header: dict):
 
 
 # =========================
-# NEW: BIGQUERY SAVE LOGIC
+# BIGQUERY SAVE LOGIC
 # =========================
 
 def save_model_results(header, matchup_lean, model_outcome, model_trust):
@@ -626,6 +1844,11 @@ def get_game_details(game_id: str) -> dict:
 
     Backend owns all matchup/model logic.
     Frontend should render the structured response directly.
+
+    This version adds:
+    - ranking_context
+    - matchup_breakdown
+    - profile_strength / outcome_confidence inside matchup_lean
     """
 
     header = get_game_header(game_id)
@@ -651,15 +1874,42 @@ def get_game_details(game_id: str) -> dict:
             },
             "team_comparison": [],
             "core_area_comparison": [],
+            "ranking_context": {
+                "available": False,
+                "reason": "missing_game_header",
+            },
+            "matchup_breakdown": {
+                "available": False,
+                "reason": "missing_game_header",
+                "metric_highlights": [],
+                "category_summaries": [],
+                "core_area_summaries": [],
+                "context_notes": [],
+                "freshness": {},
+            },
         }
 
     away_metrics, home_metrics = get_team_metrics(game_id)
     final_score = get_final_score(game_id)
 
-    team_comparison = build_team_comparison(
-        away_metrics=away_metrics,
-        home_metrics=home_metrics,
+    ranking_context, away_rankings, home_rankings = get_ranking_context_for_game_safe(
+        game_id=game_id
     )
+
+    # Support both old and new build_team_comparison signatures.
+    # Newer version can accept away_rankings/home_rankings for near-even handling.
+    try:
+        team_comparison = build_team_comparison(
+            away_metrics=away_metrics,
+            home_metrics=home_metrics,
+            away_rankings=away_rankings if ranking_context.get("available") else {},
+            home_rankings=home_rankings if ranking_context.get("available") else {},
+        )
+    except TypeError:
+        team_comparison = build_team_comparison(
+            away_metrics=away_metrics,
+            home_metrics=home_metrics,
+        )
 
     core_area_comparison = build_core_area_comparison(
         away_metrics=away_metrics,
@@ -694,6 +1944,12 @@ def get_game_details(game_id: str) -> dict:
         header=header,
     )
 
+    matchup_breakdown = build_matchup_breakdown(
+        away_rankings=away_rankings if ranking_context.get("available") else {},
+        home_rankings=home_rankings if ranking_context.get("available") else {},
+        header=header,
+    )
+
     game_status = str(header.get("game_status") or "").lower()
 
     if game_status in {"final", "final/ot"}:
@@ -719,4 +1975,6 @@ def get_game_details(game_id: str) -> dict:
         },
         "team_comparison": team_comparison,
         "core_area_comparison": core_area_comparison,
+        "ranking_context": ranking_context,
+        "matchup_breakdown": matchup_breakdown,
     }

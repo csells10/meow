@@ -1589,3 +1589,225 @@ Valves closed by default.
 Old path protected.
 New path locally validated.
 No ingestion risk introduced.
+
+## Future Context Layer — Injury Data
+
+A development injury API call exists, with one raw test file currently saved in Google Cloud Storage. This is not part of the daily production pipeline yet.
+
+Injury data should eventually become a supporting context layer for `/game/<game_id>`, especially for later-season matchup analysis where roster availability can explain why season-to-date or windowed metrics may be misleading.
+
+Plain English rule:
+
+```text
+Windowed metrics explain what the team has shown.
+Historical context explains whether that performance is meaningful.
+Injury context explains whether the current roster may change that profile.
+
+Initial injury usage should be display/explanation only, not direct Matchup Lean scoring.
+
+Recommended future posture:
+
+✅ Keep injury ingestion separate from current app.py plumbing for now
+✅ Preserve raw injury API snapshots for audit/debugging
+✅ Add injury context behind a future feature flag
+✅ Use injuries to flag roster risk by position group
+❌ Do not trigger daily injury ingestion until table design and idempotency are reviewed
+❌ Do not let injuries directly change model picks until the context layer is stable
+
+Possible future flag:
+
+USE_INJURY_CONTEXT_FOR_GAME=false
+
+Possible future value:
+
+A team may look strong in pressure, pass protection, rushing defense, or scoring efficiency, but injury context 
+
+5/4/2026:
+
+## Early-Season Confidence Calibration With Historical Support
+
+Do not use a blanket early-season confidence cap by itself.
+
+Early-season and midseason confidence should be adjusted based on whether current-season windowed metrics are supported by historical team profile data.
+
+The goal is not to force the model to be correct.
+
+The goal is to prevent the model from becoming overconfident when current-season sample sizes are still fragile.
+
+Plain English rule:
+
+Current-season windowed metrics explain what the team has shown this season.
+Historical data helps decide whether that signal is stable, believable, or possibly small-sample noise.
+
+Historical data should act as a confidence-support layer, not as a direct pick override.
+
+---
+
+## Recommended Calibration Work Order
+
+### 1. Fix tie handling
+
+Team Comparison should not give one team credit when both values are equal.
+
+Example:
+
+```text
+BUF turnover_margin = 1.0
+ATL turnover_margin = 1.0
+
+This should produce:
+
+better = neutral
+
+not:
+
+better = home
+
+Equal values should not create artificial matchup advantage.
+
+2. Add neutral thresholds for tiny metric gaps
+
+Very small metric differences should not count as full wins.
+
+Example:
+
+PHI points_allowed_per_play = 0.344
+NYG points_allowed_per_play = 0.345
+
+Technically PHI is better, but the gap is too small to treat as meaningful.
+
+Add metric-level neutral thresholds so tiny differences become:
+
+better = neutral
+
+instead of creating fake clean sweeps.
+
+Recommended starting examples:
+
+points_per_play: neutral if gap < 0.015
+points_allowed_per_play: neutral if gap < 0.015
+third_down_pct: neutral if gap < 0.025
+red_zone_efficiency: neutral if gap < 0.040
+turnover_margin: neutral if gap < 1
+
+These thresholds should be treated as calibration defaults and adjusted after QA.
+
+3. Quarantine weak Field Control from confidence
+
+Field Control / Special Teams should not drive confidence yet.
+
+Reason:
+
+Current source coverage for snap-load and special-teams-related metrics is weak.
+
+Field Control may still be displayed as context later, but it should not help create:
+
+confirmed_edge
+High confidence
+strong matchup advantage
+
+until the data coverage and meaning are reviewed.
+
+Plain English rule:
+
+Do not let low-coverage Core Areas increase confidence.
+
+4. Add historical_context as a confidence support layer
+
+Add a new backend object:
+
+historical_context
+
+This should help answer:
+
+Does prior-season team profile support what the current-season windowed metrics are saying?
+
+Historical data should not directly flip the pick.
+
+It should influence confidence only.
+
+Suggested shape:
+
+{
+  "available": true,
+  "support_level": "supports_current_edge",
+  "continuity_level": "unknown",
+  "confidence_effect": "supportive",
+  "summary": "Historical team profile supports the current-season scoring edge, but continuity has not been fully evaluated."
+}
+
+Possible support_level values:
+
+supports_current_edge
+conflicts_with_current_edge
+mixed
+insufficient_data
+not_used_low_continuity
+
+Possible confidence_effect values:
+
+boost_allowed
+hold
+soften
+cap_high_confidence
+ignore
+
+Historical data should be treated like a stability check, not a prediction engine.
+
+5. Add early-season confidence rule that uses historical_context
+
+Replace the hard Week 1–7 confidence cap with a confirmation rule.
+
+High confidence should be allowed early only when the current-season profile is strong and supported.
+
+Example rule:
+
+For Weeks 1–7, High confidence requires:
+- current-season windowed metrics show a confirmed edge
+- Team Comparison is not driven by tiny metric gaps
+- low-coverage Core Areas are not driving the result
+- historical_context supports the edge, or at minimum does not conflict with it
+- no major injury/context warning contradicts the profile
+
+If current-season and historical signals conflict, confidence should be softened.
+
+If historical support is unavailable, the model can still lean, but should be more cautious before assigning High confidence.
+
+Plain English rule:
+
+It is not “Week 6, so cap confidence.”
+It is “Week 6, so prove this confidence deserves trust.”
+
+6. Rerun the same four-game QA batch
+
+After the calibration fixes, rerun the same games with:
+
+USE_WINDOWED_METRICS_FOR_GAME=true
+
+Test batch:
+
+20251207_CIN@BUF
+20251013_BUF@ATL
+20251020_TB@DET
+20251009_PHI@NYG
+
+Do not judge the update only by whether picks become correct.
+
+Judge whether the model becomes more honest.
+
+Key QA questions:
+
+Did response shape stay stable?
+Did tiny gaps stop creating fake metric wins?
+Did Field Control stop inflating confidence?
+Did confirmed_edge remain justified?
+Did High confidence become harder to earn?
+Did known misses avoid becoming overconfident misses?
+Did No Pick / Low Confidence restraint survive where appropriate?
+
+Success does not mean every pick is correct.
+
+Success means the model stops overstating certainty.
+
+
+I like this version a lot better. It keeps the windowed table path alive, but adds the right guardrails before trusting
