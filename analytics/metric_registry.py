@@ -50,6 +50,7 @@ RAW_OR_DERIVED_VALUES = {"raw", "derived", "contextual"}
 AGGREGATION_METHODS = {
     "sum",
     "ratio_from_sums",
+    "per_game_from_sum",
     "mean_contextual",
     "latest",
 }
@@ -154,6 +155,7 @@ EXPECTED_METRICS = {
     "fumbles_recovered",
     "interceptions_thrown",
     "turnover_margin",
+    "turnover_margin_per_game",
     "defensive_success_rate",
     "opponent_total_plays",
     "points_allowed_per_yard",
@@ -1205,7 +1207,7 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
     ),
     "turnover_margin": _metric(
         label="Turnover Margin",
-        definition="Takeaways minus giveaways.",
+        definition="Cumulative takeaways minus giveaways across the selected window.",
         category="Turnovers",
         core_area="Disruption and Turnovers",
         comparison_direction="higher",
@@ -1214,11 +1216,42 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
         format="integer",
         decimals=0,
         notes=(
-            "Turnover-balance metric. Higher is generally better, but turnover signals "
-            "are volatile and should not dominate confidence alone."
+            "Cumulative turnover-balance metric. Higher is generally better, but this "
+            "can exaggerate differences when windows have different game counts. Prefer "
+            "turnover_margin_per_game for visible matchup comparison."
+        ),
+        signal_strength="supporting",
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        lens_tags=["turnovers", "takeaway-margin", "cumulative", "supporting", "volatility"],
+    ),
+    "turnover_margin_per_game": _metric(
+        label="Turnover Margin Per Game",
+        definition=(
+            "Average turnover margin per game, calculated as cumulative turnover "
+            "margin divided by games in the selected window."
+        ),
+        category="Turnovers",
+        core_area="Disruption and Turnovers",
+        comparison_direction="higher",
+        raw_or_derived="derived",
+        aggregation_method="per_game_from_sum",
+        numerator="turnover_margin",
+        format="decimal",
+        decimals=2,
+        notes=(
+            "User-facing turnover-balance metric. Higher is generally better, but "
+            "turnover signals are volatile and should not dominate confidence alone. "
+            "Use this over cumulative turnover_margin for visible matchup comparison."
         ),
         signal_strength="strong",
-        lens_tags=["turnovers", "takeaway-margin", "strong-signal", "volatility"],
+        lens_tags=[
+            "turnovers",
+            "takeaway-margin",
+            "per-game",
+            "strong-signal",
+            "volatility",
+        ],
     ),
 
     # ------------------------------------------------------------------
@@ -1615,6 +1648,22 @@ def validate_metric_registry() -> None:
                 raise ValueError(f"{metric} numerator not found in registry: {numerator}")
             if denominator not in METRIC_REGISTRY:
                 raise ValueError(f"{metric} denominator not found in registry: {denominator}")
+
+        if cfg["aggregation_method"] == "per_game_from_sum":
+            if not cfg.get("numerator"):
+                raise ValueError(
+                    f"{metric} uses per_game_from_sum but is missing numerator"
+                )
+
+            if cfg.get("denominator") is not None:
+                raise ValueError(
+                    f"{metric} uses per_game_from_sum but should not define denominator; "
+                    "the denominator is games_in_window from the windowed builder"
+                )
+
+            numerator = cfg["numerator"]
+            if numerator not in METRIC_REGISTRY:
+                raise ValueError(f"{metric} numerator not found in registry: {numerator}")
 
 
 # Validate at import time so bad metadata fails fast in ETL/API jobs.

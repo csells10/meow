@@ -186,9 +186,9 @@ def build_team_comparison(
             "higher",
         ),
         (
-            "Turnovers::turnover_margin",
-            "turnover_margin",
-            "Turnover Margin",
+            "Turnovers::turnover_margin_per_game",
+            "turnover_margin_per_game",
+            "Turnover Margin / Game",
             "higher",
         ),
     ]
@@ -404,8 +404,8 @@ def build_game_profile(away_metrics: dict, home_metrics: dict, header: dict):
     # --------------------
     # Turnover Environment
     # --------------------
-    away_to = metric_value(away_metrics, "Turnovers::turnover_margin")
-    home_to = metric_value(home_metrics, "Turnovers::turnover_margin")
+    away_to = metric_value(away_metrics, "Turnovers::turnover_margin_per_game")
+    home_to = metric_value(home_metrics, "Turnovers::turnover_margin_per_game")
 
     if away_to is not None and home_to is not None:
         diff = compare(away_to, home_to)

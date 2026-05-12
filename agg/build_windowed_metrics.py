@@ -291,9 +291,12 @@ def calculate_metric_value(
 ) -> Optional[float]:
     """Calculate one metric for a window.
 
-    Important rule:
-    ratio_from_sums metrics are recalculated from summed numerator/denominator
-    ingredients. They are not averaged from game-level percentages.
+    Important rules:
+    - ratio_from_sums metrics are recalculated from summed numerator/denominator
+      ingredients. They are not averaged from game-level percentages.
+    - per_game_from_sum metrics divide the summed numerator by the actual number
+      of games in the current window subset. This keeps last_3_games,
+      last_7_games, and early-season partial windows accurate.
     """
     aggregation_method = cfg["aggregation_method"]
 
@@ -316,6 +319,25 @@ def calculate_metric_value(
             numerator = 0.0
 
         return numerator / denominator
+
+    if aggregation_method == "per_game_from_sum":
+        numerator_metric = cfg.get("numerator") or metric
+
+        if not numerator_metric:
+            raise ValueError(
+                f"{metric} uses per_game_from_sum but is missing numerator"
+            )
+
+        numerator = _safe_number(metric_sums.get(numerator_metric))
+
+        if numerator is None:
+            return None
+
+        games_in_window = len(subset)
+        if games_in_window == 0:
+            return None
+
+        return numerator / games_in_window
 
     if aggregation_method == "sum":
         return _safe_number(metric_sums.get(metric))
