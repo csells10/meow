@@ -1,6 +1,6 @@
-# GameLens v1.5+ Status, Frontend Handoff, and Backlog
+# GameLens v1.5+ Mission-Critical Status, Frontend Handoff, and Backlog
 
-_Last updated: May 7, 2026_
+_Last updated: May 12, 2026_
 
 ## Current Product Frame
 
@@ -20,6 +20,355 @@ It should help users understand:
 GameLens should **not** behave like a forced pick machine.
 
 The winner lean can remain part of the page, but the larger value is explaining the matchup shape.
+
+---
+
+# Mission-Critical Objectives
+
+These are the priorities that matter most before large new feature work.
+
+## 1. Productionize the New Builder Chain Safely
+
+Status:
+
+```text
+Mission critical / not yet complete
+```
+
+Current concern:
+
+```text
+The live ingestion flow in app.py may still be tied to the older aggregate process.
+The new GameLens data model now depends on the cleaned facts, windowed metrics, and ranking builders.
+```
+
+Current new builder chain:
+
+```text
+agg/build_metric_facts.py
+→ agg/build_windowed_metrics.py
+→ agg/build_metric_rankings.py
+→ /game output
+```
+
+Do not rush this into `app.py` without an ingestion/idempotency review.
+
+Questions to settle before automation:
+
+- When stats are inserted, which season should rebuild?
+- Should the build chain run only for the affected season?
+- Should it run facts → windowed → rankings every time?
+- How do we prevent duplicate/stale runs?
+- How should failures be handled if one builder succeeds and another fails?
+- Should env flags control each builder?
+- Should local/dev and Cloud Run behavior differ?
+
+Possible future env vars:
+
+```text
+ENABLE_METRIC_FACTS_BUILD=false
+ENABLE_WINDOWED_METRICS_BUILD=false
+ENABLE_METRIC_RANKINGS_BUILD=false
+```
+
+Do not wire builders into `app.py` until this is designed.
+
+---
+
+## 2. Rebuild and Validate Older Seasons
+
+Status:
+
+```text
+Mission critical / next backend validation step
+```
+
+Why this matters:
+
+```text
+The metric registry changed.
+turnover_margin_per_game now exists as a real windowed metric.
+Older seasons should be rebuilt so historical testing uses the same metric contract as 2025.
+```
+
+Recommended rebuild chain for each season:
+
+```bash
+python -m agg.build_metric_facts --season 2023 --if-exists replace
+python -m agg.build_windowed_metrics --season 2023 --if-exists replace
+python -m agg.build_metric_rankings --season 2023 --if-exists replace
+
+python -m agg.build_metric_facts --season 2024 --if-exists replace
+python -m agg.build_windowed_metrics --season 2024 --if-exists replace
+python -m agg.build_metric_rankings --season 2024 --if-exists replace
+```
+
+Validate that `turnover_margin_per_game` exists in:
+
+```text
+Analytics.team_metrics_windowed_2023
+Analytics.team_metric_rankings_2023
+Analytics.team_metrics_windowed_2024
+Analytics.team_metric_rankings_2024
+```
+
+---
+
+## 3. Keep GameLens From Becoming a Pick Machine
+
+Status:
+
+```text
+Always active product guardrail
+```
+
+GameLens should explain matchup shape.
+
+It should not become:
+
+```text
+Team A ranks higher in three things, therefore Team A wins.
+```
+
+Continue protecting:
+
+- neutral/even as a real result
+- low confidence / no-pick restraint
+- profile strength vs outcome confidence separation
+- context-only metrics as descriptive, not decisive
+- historical data as support, not a pick override
+- injury data as context, not a pick override
+
+---
+
+## 4. Keep Frontend v1.6 Small
+
+Status:
+
+```text
+Mission critical scope control
+```
+
+The safest next frontend step is still:
+
+```text
+Display matchup_lean.matchup_label and related profile/outcome summaries.
+```
+
+Do not use limited frontend/Lovable work on:
+
+- full redesign
+- Field Control repair
+- historical modeling
+- League Discovery UI
+- injury context
+- dynamic driver UI
+
+Those are bigger projects.
+
+---
+
+## 5. Keep Field Control and Snap Counts in Audit Mode
+
+Status:
+
+```text
+Mission critical data-quality caution
+```
+
+Current state:
+
+```text
+Field Control is hidden.
+Snap-count-related metrics are interesting but not trusted enough to steer confidence.
+```
+
+Do not let Field Control or snap counts drive the strongest language until source quality and interpretation are validated.
+
+---
+
+## 6. Build Internal QA Before Public Success-Rate UI
+
+Status:
+
+```text
+Mission critical product discipline
+```
+
+A historical success-rate view may be useful internally, but a public accuracy board could pull GameLens toward the wrong goal.
+
+Better first version:
+
+```text
+Internal QA / admin reporting
+```
+
+Measure:
+
+- pick accuracy
+- no-pick rate
+- high/medium/low confidence calibration
+- matchup_label distribution
+- matchup_cautions
+- correct but narrow outcomes
+- incorrect close-variance misses
+- incorrect calibration failures
+- no pick / good restraint
+- no pick / missed opportunity
+
+The goal is not only:
+
+```text
+Was the winner correct?
+```
+
+The better question is:
+
+```text
+Did GameLens explain the matchup honestly?
+```
+
+---
+
+## 7. Treat Lens-Tag League Discovery as Exploratory
+
+Status:
+
+```text
+Exploratory / after plumbing is safe
+```
+
+Lens tags may become a league discovery tool, heatmap, movers-and-shakers board, or trend explorer.
+
+Do not build the UI yet.
+
+First:
+
+```text
+clean product-facing lens tags
+build BigQuery view/query
+validate whether the patterns are useful
+```
+
+---
+
+# Work Completed on May 12, 2026
+
+## Turnover Margin Per Game Cleanup
+
+Status:
+
+```text
+✅ Complete
+```
+
+This item was previously listed as a backend cleanup to-do. It has now been completed and validated.
+
+### Problem Fixed
+
+The new windowed `/game` source exposed cumulative:
+
+```text
+turnover_margin
+```
+
+That could exaggerate differences when windows had different game counts.
+
+The desired user-facing metric was:
+
+```text
+turnover_margin_per_game
+```
+
+### Implementation Completed
+
+Updated files:
+
+```text
+analytics/metric_registry.py
+agg/build_windowed_metrics.py
+services/game_service.py
+```
+
+Changes made:
+
+- added `turnover_margin_per_game` as a real registry metric
+- added `per_game_from_sum` as an aggregation method
+- calculated per-game value as `sum(turnover_margin) / games_in_window`
+- kept cumulative `turnover_margin` as supporting context
+- rebuilt downstream 2025 tables
+- updated visible Team Comparison to use `Turnovers::turnover_margin_per_game`
+- updated Game Profile Turnover Risk to use `turnover_margin_per_game`
+- confirmed frontend displays `Turnover Margin / Game`
+
+### Rebuild Completed for 2025
+
+Completed chain:
+
+```text
+game_team_metric_facts
+→ team_metrics_windowed
+→ team_metric_rankings
+```
+
+Observed successful row counts:
+
+```text
+Analytics.game_team_metric_facts_2025: 36,532 rows
+Analytics.team_metrics_windowed_2025: 138,532 rows
+Analytics.team_metric_rankings_2025: 426,086 rows
+```
+
+### Validation Completed
+
+Validated `turnover_margin_per_game` exists in all 2025 windowed metric windows:
+
+```text
+last_3_games
+last_7_games
+preseason_to_date
+regular_plus_postseason_to_date
+regular_season_to_date
+```
+
+Validated `turnover_margin_per_game` exists in 2025 rankings across all 5 window types with 32 teams.
+
+Validated `/game` response for:
+
+```text
+20251020_TB@DET
+```
+
+Confirmed:
+
+```json
+"metric": "turnover_margin_per_game"
+"label": "Turnover Margin / Game"
+```
+
+Validated frontend after Google Build using:
+
+```text
+20260104_LAC@DEN
+```
+
+Frontend displayed:
+
+```text
+Turnover Margin / Game
+LAC 0.250
+DEN -0.312
+```
+
+### Current Status
+
+This is no longer a pending cleanup item.
+
+Remaining related work:
+
+```text
+Rebuild 2023 and 2024 using the updated registry and builders.
+```
 
 ---
 
@@ -212,12 +561,13 @@ Windowed metrics fixed the old early-season issue where preseason data leaked in
 
 Derived rates are recalculated from summed ingredients, not averaged from existing rates.
 
-Example:
+Examples:
 
 ```text
 points_per_play = sum(actual_points) / sum(total_plays)
 red_zone_efficiency = sum(red_zone_tds) / sum(red_zone_attempts)
 yards_per_play = sum(total_yards) / sum(total_plays)
+turnover_margin_per_game = sum(turnover_margin) / games_in_window
 ```
 
 ---
@@ -633,6 +983,37 @@ API returns everything frontend expects
 
 ---
 
+## 17. Turnover Margin Per Game Cleanup
+
+Status: ✅ Complete
+
+This was previously listed as:
+
+```text
+Definitely do / backend cleanup
+```
+
+It is now complete.
+
+Completed behavior:
+
+- `turnover_margin_per_game` exists as a real derived windowed metric
+- it is defined in `analytics/metric_registry.py`
+- it is calculated in `agg/build_windowed_metrics.py`
+- it exists in `team_metrics_windowed`
+- it exists in `team_metric_rankings`
+- visible Team Comparison uses `Turnovers::turnover_margin_per_game`
+- Game Profile Turnover Risk uses `Turnovers::turnover_margin_per_game`
+- cumulative `turnover_margin` remains supporting context
+
+Goal achieved:
+
+```text
+Visible matchup comparison uses per-game turnover margin, while cumulative turnover margin is not the default user-facing comparison metric.
+```
+
+---
+
 # Frontend Handoff
 
 ## What frontend can use now
@@ -643,7 +1024,7 @@ API returns everything frontend expects
 matchup_lean.matchup_label
 ```
 
-Example:
+Examples:
 
 ```text
 Strong Profile / Medium Outcome Confidence
@@ -1071,7 +1452,7 @@ Show whether recent form supports, conflicts with, or sharpens the season-to-dat
 Status:
 
 ```text
-Deferred
+Deferred / mission critical before full production confidence
 ```
 
 Do not wire builders into `app.py` yet.
@@ -1087,7 +1468,198 @@ Future possible env vars:
 ```text
 ENABLE_METRIC_FACTS_BUILD=false
 ENABLE_WINDOWED_METRICS_BUILD=false
+ENABLE_METRIC_RANKINGS_BUILD=false
 ```
+
+Current interpretation:
+
+```text
+This is one of the most important backend items before relying on live automated updates.
+```
+
+---
+
+### 14. Rebuild Older Seasons With Current Registry
+
+Status:
+
+```text
+Mission critical / next backend validation step
+```
+
+Need to rebuild:
+
+```text
+2023
+2024
+```
+
+Reason:
+
+```text
+The registry and windowed builder changed after turnover_margin_per_game was added.
+Historical QA and future discovery tools should use consistent metric definitions.
+```
+
+---
+
+### 15. Internal Historical QA / Model Performance View
+
+Status:
+
+```text
+Future internal/admin layer
+```
+
+Purpose:
+
+```text
+Use historical seasons as a testing ground without turning GameLens into a public accuracy scoreboard.
+```
+
+Possible measures:
+
+```text
+pick accuracy
+no-pick rate
+confidence-tier calibration
+matchup_label distribution
+outcome_confidence distribution
+profile_strength distribution
+miss severity
+no-pick restraint quality
+```
+
+Avoid:
+
+```text
+public profit-style accuracy marketing
+```
+
+---
+
+### 16. Lens-Tag League Discovery Tool
+
+Status:
+
+```text
+Exploratory / future intelligence platform layer
+```
+
+Purpose:
+
+```text
+Use lens_tags to show league-wide patterns over time.
+```
+
+Potential displays:
+
+```text
+movers and shakers
+league heatmap
+team trend lines
+rising/falling themes
+weekly identity shifts
+```
+
+Important:
+
+```text
+This should remain an intelligence/discovery layer, not a betting edge board.
+```
+
+---
+
+# Future / Exploratory
+
+## Dynamic Matchup Advantage / Dynamic Matchup Drivers
+
+Status:
+
+```text
+Exploratory / v2 product idea
+```
+
+Current state:
+
+The visible Team Comparison / Matchup Advantage section currently uses a stable set of static metrics:
+
+```text
+Points per Play
+Points Allowed per Play
+3rd Down %
+Red Zone TD %
+Turnover Margin / Game
+```
+
+This is useful because it gives every game a consistent comparison baseline.
+
+Exploratory v2 idea:
+
+```text
+Add a dynamic matchup-driver layer that selects the most meaningful metrics for each specific game, instead of always showing only the same static metrics.
+```
+
+Important caution:
+
+Dynamic drivers should not simply mean:
+
+```text
+pick the biggest percentile gaps
+```
+
+They should select metrics that are:
+
+- headline eligible
+- confidence eligible
+- strong signal
+- edge-language allowed
+- good data quality
+- not near-even
+- not repetitive across the same category/Core Area
+
+Possible selection rules:
+
+```text
+ranking_usage = edge
+ranking_kind = edge
+edge_language_allowed = true
+confidence_eligible = true
+signal_strength = strong
+data_quality_status = good
+```
+
+Possible diversity rules:
+
+- max 2 metrics from the same Core Area
+- max 1–2 metrics from the same category
+- prefer multiple Core Areas when available
+- exclude near-even metrics from dynamic headline drivers
+- keep context-only/supporting metrics in context notes
+
+Potential v2 structure:
+
+```text
+Core Comparison = stable/familiar baseline
+Key Matchup Drivers = dynamic game-specific explanation
+Context Notes = descriptive but not decisive
+```
+
+Goal:
+
+Move GameLens from:
+
+```text
+Here are the same five metrics every game.
+```
+
+toward:
+
+```text
+Here is what actually separates these two teams in this matchup.
+```
+
+This should begin as an explanation/display layer before it influences confidence or model scoring.
 
 ---
 
@@ -1109,6 +1681,7 @@ Included:
 - confidence guardrail
 - supporting/context filtering
 - Field Control hidden
+- Turnover Margin / Game cleanup
 
 ## v1.6.0 — Suggested next
 
@@ -1128,6 +1701,15 @@ Frontend displays matchup_breakdown cards.
 Full matchup page redesign around GameLens explanation model.
 ```
 
+Possible v2+ additions:
+
+```text
+dynamic matchup drivers
+historical/stability context
+lens-based league discovery
+internal QA dashboard
+```
+
 ---
 
 # Do Not Do Yet
@@ -1142,6 +1724,9 @@ Do not:
 - treat historical context as a pick override
 - treat injury context as a pick override
 - remove QA discipline just because v1.5.0 shipped
+- expose a public model-success-rate board before internal QA is mature
+- build League Discovery UI before lens-tag cleaning and backend validation
+- show raw backend lens tags directly to users
 
 ---
 
@@ -1164,121 +1749,22 @@ matchup_breakdown.context_notes
 
 This lets the frontend adopt the new backend intelligence gradually without requiring a full GameLens 2.0 redesign immediately.
 
+---
 
+# Practical Backend Note
 
-### Turnover Margin Per Game Cleanup
-
-Status:
-
-```text
-Definitely do / backend cleanup
-
-Current issue:
-
-/game now uses the windowed metrics source by default. The old legacy query path previously created turnover_margin_per_game, but the new windowed source currently exposes cumulative turnover_margin.
-
-That means visible matchup comparison may currently show total window turnover margin instead of average turnover margin per game.
-
-Why this matters:
-
-cumulative turnover margin can exaggerate differences when windows have different game counts
-per-game turnover margin is easier to understand in the UI
-Team Comparison, ranking context, and matchup breakdown should agree on what “Turnover Margin” means
-
-Preferred fix:
-
-add turnover_margin_per_game as a real derived windowed metric
-define it in analytics/metric_registry.py
-calculate it in the windowed metrics builder
-rebuild downstream tables:
-game_team_metric_facts
-team_metrics_windowed
-team_metric_rankings
-update visible Team Comparison to use Turnovers::turnover_margin_per_game
-keep cumulative turnover_margin as supporting context if still useful
-
-Goal:
-
-Visible matchup comparison should use per-game turnover margin, while cumulative turnover margin should not be the default user-facing comparison metric.
-
-
-## Add this under “Future / Exploratory”
-
-```markdown
-### Dynamic Matchup Advantage / Dynamic Matchup Drivers
-
-Status:
+The current backend priority is:
 
 ```text
-Exploratory / v2 product idea
+Make sure the new data-building system becomes the trusted production path.
+```
 
-Current state:
+Recommended next backend order:
 
-The visible Team Comparison / Matchup Advantage section currently uses a stable set of static metrics:
-
-Points per Play
-Points Allowed per Play
-3rd Down %
-Red Zone TD %
-Turnover Margin
-
-This is useful because it gives every game a consistent comparison baseline.
-
-Exploratory v2 idea:
-
-Add a dynamic matchup-driver layer that selects the most meaningful metrics for each specific game, instead of always showing only the same static metrics.
-
-Important caution:
-
-Dynamic drivers should not simply mean “pick the biggest percentile gaps.”
-
-They should select metrics that are:
-
-headline eligible
-confidence eligible
-strong signal
-edge-language allowed
-good data quality
-not near-even
-not repetitive across the same category/Core Area
-
-Possible selection rules:
-
-ranking_usage = edge
-ranking_kind = edge
-edge_language_allowed = true
-confidence_eligible = true
-signal_strength = strong
-data_quality_status = good
-
-Possible diversity rules:
-
-max 2 metrics from the same Core Area
-max 1–2 metrics from the same category
-prefer multiple Core Areas when available
-exclude near-even metrics from dynamic headline drivers
-keep context-only/supporting metrics in context notes
-
-Potential v2 structure:
-
-Core Comparison = stable/familiar baseline
-Key Matchup Drivers = dynamic game-specific explanation
-Context Notes = descriptive but not decisive
-
-Goal:
-
-Move GameLens from:
-
-Here are the same five metrics every game.
-
-toward:
-
-Here is what actually separates these two teams in this matchup.
-
-This should begin as an explanation/display layer before it influences confidence or model scoring.
-
-
-## My recommendation
-
-Put **Turnover Margin Per Game Cleanup before frontend v1.6**, because it affects the meaning of one of your core visible metrics.
-
+```text
+1. Rebuild and validate 2023.
+2. Rebuild and validate 2024.
+3. Add/upgrade internal QA summary script.
+4. Design safe builder orchestration for app.py.
+5. Only then wire builder automation into live ingestion.
+```
