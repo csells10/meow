@@ -39,7 +39,7 @@ Current concern:
 
 ```text
 The live ingestion flow in app.py may still be tied to the older aggregate process.
-The new GameLens data model now depends on the cleaned facts, windowed metrics, and ranking builders.
+The new GameLens data model now depends on cleaned facts, windowed metrics, and ranking builders.
 ```
 
 Current new builder chain:
@@ -62,6 +62,7 @@ Questions to settle before automation:
 - How should failures be handled if one builder succeeds and another fails?
 - Should env flags control each builder?
 - Should local/dev and Cloud Run behavior differ?
+- Should the build run immediately after ingestion, or as a scheduled/queued job?
 
 Possible future env vars:
 
@@ -71,50 +72,11 @@ ENABLE_WINDOWED_METRICS_BUILD=false
 ENABLE_METRIC_RANKINGS_BUILD=false
 ```
 
-Do not wire builders into `app.py` until this is designed.
+This is one of the most important backend items before relying on live automated updates.
 
 ---
 
-## 2. Rebuild and Validate Older Seasons
-
-Status:
-
-```text
-Mission critical / next backend validation step
-```
-
-Why this matters:
-
-```text
-The metric registry changed.
-turnover_margin_per_game now exists as a real windowed metric.
-Older seasons should be rebuilt so historical testing uses the same metric contract as 2025.
-```
-
-Recommended rebuild chain for each season:
-
-```bash
-python -m agg.build_metric_facts --season 2023 --if-exists replace
-python -m agg.build_windowed_metrics --season 2023 --if-exists replace
-python -m agg.build_metric_rankings --season 2023 --if-exists replace
-
-python -m agg.build_metric_facts --season 2024 --if-exists replace
-python -m agg.build_windowed_metrics --season 2024 --if-exists replace
-python -m agg.build_metric_rankings --season 2024 --if-exists replace
-```
-
-Validate that `turnover_margin_per_game` exists in:
-
-```text
-Analytics.team_metrics_windowed_2023
-Analytics.team_metric_rankings_2023
-Analytics.team_metrics_windowed_2024
-Analytics.team_metric_rankings_2024
-```
-
----
-
-## 3. Keep GameLens From Becoming a Pick Machine
+## 2. Keep GameLens From Becoming a Pick Machine
 
 Status:
 
@@ -138,10 +100,11 @@ Continue protecting:
 - context-only metrics as descriptive, not decisive
 - historical data as support, not a pick override
 - injury data as context, not a pick override
+- postgame validation as learning, not a profit scoreboard
 
 ---
 
-## 4. Keep Frontend v1.6 Small
+## 3. Keep Frontend v1.6 Small
 
 Status:
 
@@ -163,12 +126,13 @@ Do not use limited frontend/Lovable work on:
 - League Discovery UI
 - injury context
 - dynamic driver UI
+- model-performance dashboard
 
 Those are bigger projects.
 
 ---
 
-## 5. Keep Field Control and Snap Counts in Audit Mode
+## 4. Keep Field Control and Snap Counts in Audit Mode
 
 Status:
 
@@ -187,7 +151,7 @@ Do not let Field Control or snap counts drive the strongest language until sourc
 
 ---
 
-## 6. Build Internal QA Before Public Success-Rate UI
+## 5. Build Internal QA Before Public Success-Rate UI
 
 Status:
 
@@ -215,6 +179,8 @@ Measure:
 - incorrect calibration failures
 - no pick / good restraint
 - no pick / missed opportunity
+- signal validation
+- Core Area validation
 
 The goal is not only:
 
@@ -230,7 +196,7 @@ Did GameLens explain the matchup honestly?
 
 ---
 
-## 7. Treat Lens-Tag League Discovery as Exploratory
+## 6. Treat Lens-Tag League Discovery as Exploratory
 
 Status:
 
@@ -296,9 +262,8 @@ Changes made:
 - added `per_game_from_sum` as an aggregation method
 - calculated per-game value as `sum(turnover_margin) / games_in_window`
 - kept cumulative `turnover_margin` as supporting context
-- rebuilt downstream 2025 tables
 - updated visible Team Comparison to use `Turnovers::turnover_margin_per_game`
-- updated Game Profile Turnover Risk to use `turnover_margin_per_game`
+- updated Game Profile Turnover Risk to use `Turnovers::turnover_margin_per_game`
 - confirmed frontend displays `Turnover Margin / Game`
 
 ### Rebuild Completed for 2025
@@ -319,7 +284,7 @@ Analytics.team_metrics_windowed_2025: 138,532 rows
 Analytics.team_metric_rankings_2025: 426,086 rows
 ```
 
-### Validation Completed
+### Validation Completed for 2025
 
 Validated `turnover_margin_per_game` exists in all 2025 windowed metric windows:
 
@@ -360,15 +325,119 @@ LAC 0.250
 DEN -0.312
 ```
 
-### Current Status
+---
 
-This is no longer a pending cleanup item.
+## Historical Rebuild With Current Registry
 
-Remaining related work:
+Status:
 
 ```text
-Rebuild 2023 and 2024 using the updated registry and builders.
+✅ Complete
 ```
+
+The current metric registry and builder chain have now been rebuilt and validated for:
+
+```text
+2023
+2024
+2025
+```
+
+### 2024 Rebuild Completed
+
+Completed chain:
+
+```text
+game_team_metric_facts_2024
+→ team_metrics_windowed_2024
+→ team_metric_rankings_2024
+```
+
+Observed successful row counts:
+
+```text
+Analytics.game_team_metric_facts_2024: 33,060 rows
+Analytics.team_metrics_windowed_2024: 132,986 rows
+Analytics.team_metric_rankings_2024: 439,708 rows
+```
+
+Validated `turnover_margin_per_game` exists in available 2024 windows:
+
+```text
+last_3_games
+last_7_games
+regular_plus_postseason_to_date
+regular_season_to_date
+```
+
+Validation result:
+
+```text
+non_null_row_count = row_count
+team_count = 32 in rankings
+```
+
+Note:
+
+```text
+No preseason_to_date rows appeared for 2024, likely because the 2024 source/fact data did not include preseason games.
+```
+
+### 2023 Rebuild Completed
+
+Completed chain:
+
+```text
+game_team_metric_facts_2023
+→ team_metrics_windowed_2023
+→ team_metric_rankings_2023
+```
+
+Observed successful row counts:
+
+```text
+Analytics.game_team_metric_facts_2023: 33,060 rows
+Analytics.team_metrics_windowed_2023: 132,986 rows
+Analytics.team_metric_rankings_2023: 431,600 rows
+```
+
+Validated `turnover_margin_per_game` exists in available 2023 windows:
+
+```text
+last_3_games
+last_7_games
+regular_plus_postseason_to_date
+regular_season_to_date
+```
+
+Validation result:
+
+```text
+non_null_row_count = row_count
+team_count = 32 in rankings
+```
+
+Note:
+
+```text
+No preseason_to_date rows appeared for 2023, likely because the 2023 source/fact data did not include preseason games.
+```
+
+---
+
+## Current Interpretation
+
+The turnover cleanup and historical rebuilds are now complete.
+
+The new behavior is better because:
+
+- the app still captures turnover advantage
+- the app no longer overstates cumulative turnover totals
+- Team Comparison, Matchup Breakdown, Game Profile, rankings, and frontend display now agree
+- historical seasons now use the same metric contract as 2025
+- future last_3 / last_7 recent-form work can use turnover margin per game correctly
+
+Turnover Margin Per Game Cleanup is no longer a blocker for frontend v1.6.
 
 ---
 
@@ -1201,6 +1270,7 @@ matchup_label distribution
 matchup_cautions counts
 headline_metric_count
 context_note_count
+turnover_margin_per_game presence
 ```
 
 ---
@@ -1276,6 +1346,7 @@ outcome_confidence
 matchup_label
 matchup_cautions
 matchup_breakdown.summary_counts
+turnover_margin_per_game presence
 ```
 
 This will make future before/after testing easier.
@@ -1447,7 +1518,7 @@ Show whether recent form supports, conflicts with, or sharpens the season-to-dat
 
 ---
 
-### 13. Builder automation in app.py
+### 13. Builder Automation in app.py
 
 Status:
 
@@ -1479,31 +1550,7 @@ This is one of the most important backend items before relying on live automated
 
 ---
 
-### 14. Rebuild Older Seasons With Current Registry
-
-Status:
-
-```text
-Mission critical / next backend validation step
-```
-
-Need to rebuild:
-
-```text
-2023
-2024
-```
-
-Reason:
-
-```text
-The registry and windowed builder changed after turnover_margin_per_game was added.
-Historical QA and future discovery tools should use consistent metric definitions.
-```
-
----
-
-### 15. Internal Historical QA / Model Performance View
+### 14. Internal Historical QA / Model Performance View
 
 Status:
 
@@ -1528,6 +1575,8 @@ outcome_confidence distribution
 profile_strength distribution
 miss severity
 no-pick restraint quality
+signal validation
+Core Area validation
 ```
 
 Avoid:
@@ -1535,6 +1584,48 @@ Avoid:
 ```text
 public profit-style accuracy marketing
 ```
+
+---
+
+### 15. Postgame Signal Validation Feedback Loop
+
+Status:
+
+```text
+Future high-value QA/model-trust layer
+```
+
+Purpose:
+
+```text
+Validate whether GameLens correctly identified the shape of the game, not only whether it picked the winner.
+```
+
+Possible validation areas:
+
+```text
+Pressure
+Turnover Risk
+Scoring Efficiency
+Defensive Control
+Offensive Output
+Team Comparison
+No Pick restraint
+Confidence calibration
+```
+
+Possible labels:
+
+```text
+confirmed
+partially confirmed
+contradicted
+not enough data
+good restraint
+missed opportunity
+```
+
+This should start as an internal QA layer before becoming user-facing.
 
 ---
 
@@ -1682,6 +1773,7 @@ Included:
 - supporting/context filtering
 - Field Control hidden
 - Turnover Margin / Game cleanup
+- 2023/2024/2025 rebuilt with current metric contract
 
 ## v1.6.0 — Suggested next
 
@@ -1708,6 +1800,7 @@ dynamic matchup drivers
 historical/stability context
 lens-based league discovery
 internal QA dashboard
+postgame signal validation
 ```
 
 ---
@@ -1762,9 +1855,9 @@ Make sure the new data-building system becomes the trusted production path.
 Recommended next backend order:
 
 ```text
-1. Rebuild and validate 2023.
-2. Rebuild and validate 2024.
-3. Add/upgrade internal QA summary script.
-4. Design safe builder orchestration for app.py.
-5. Only then wire builder automation into live ingestion.
+1. Add/upgrade internal QA summary script.
+2. Design safe builder orchestration for app.py.
+3. Decide how completed-game ingestion should trigger facts → windowed → rankings.
+4. Only then wire builder automation into live ingestion.
+5. Later, explore historical/stability context and lens-tag discovery views.
 ```
