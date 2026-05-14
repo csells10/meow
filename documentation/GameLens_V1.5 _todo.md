@@ -1,25 +1,123 @@
 # GameLens v1.5+ Mission-Critical Status, Frontend Handoff, and Backlog
 
-_Last updated: May 12, 2026_
+_Last updated: May 13, 2026_
 
 ## Current Product Frame
 
 GameLens is best understood as:
 
-> A matchup intelligence and confidence-calibration tool.
+```text
+A matchup intelligence and confidence-calibration tool.
+```
 
-It should help users understand:
+The product should help users understand:
 
 - where each team has an edge
 - where the matchup is close or near-even
 - which areas are clean, split, mixed, or uncertain
 - whether confidence language is appropriate
 - why the model leaned a certain direction
+- what supported the read
+- what challenged the read
 - what parts of the matchup were descriptive context rather than decisive evidence
+- whether the pregame read held up after the game is final
 
 GameLens should **not** behave like a forced pick machine.
 
-The winner lean can remain part of the page, but the larger value is explaining the matchup shape.
+The winner lean can remain part of the page, but the larger value is explaining the matchup shape and confidence level honestly.
+
+---
+
+# Current Section Ownership
+
+This is now the clearest mental model for the matchup page.
+
+```text
+Matchup Lean = pregame read + pregame confidence
+Game Profile = football environment signals
+Team Comparison / Core Area Advantage = visible matchup evidence
+Model Trust & Outcome = postgame validation
+What supported or challenged the read? = diagnostic explanation
+```
+
+## Matchup Lean
+
+Purpose:
+
+```text
+Show the pregame decision-support read.
+```
+
+This section owns:
+
+- target team / no clear edge
+- matchup shape
+- profile strength
+- pregame confidence
+- why the read is clean, thin, mixed, or cautious
+- useful caution notes
+
+Current frontend display now includes:
+
+```text
+MATCHUP READ
+Clear Lean / Medium Confidence
+
+Profile: GB has the matchup lean, but the profile is not overwhelming.
+Confidence: The profile is strong, but outcome confidence is kept measured.
+```
+
+## Game Profile
+
+Purpose:
+
+```text
+Show football-readable environment signals.
+```
+
+Examples:
+
+- Pressure
+- Turnover Risk
+- Scoring Efficiency
+
+This section helps users understand the football shape of the game, not just the winner lean.
+
+Important interpretation:
+
+```text
+Game Profile signals are also used downstream in Model Trust diagnostics as Game Profile Signals.
+```
+
+## Model Trust & Outcome
+
+Purpose:
+
+```text
+Validate the pregame read after the game is final.
+```
+
+This section owns:
+
+- Correct / Incorrect / No Pick
+- Predicted vs Actual
+- why the model picked or avoided the game
+- whether the pregame read held up
+- matchup advantage counts
+- learning label
+- diagnostic explanation of what supported or challenged the read
+
+Important current rule:
+
+```text
+Model Trust & Outcome no longer shows its own confidence pill.
+```
+
+Reason:
+
+```text
+Confidence has one clear home: Matchup Lean / Matchup Read.
+```
 
 ---
 
@@ -101,24 +199,30 @@ Continue protecting:
 - historical data as support, not a pick override
 - injury data as context, not a pick override
 - postgame validation as learning, not a profit scoreboard
+- confidence as one clear concept, owned by Matchup Lean
 
 ---
 
-## 3. Keep Frontend v1.6 Small
+## 3. Keep Frontend v1.6.x Small
 
 Status:
 
 ```text
-Mission critical scope control
+v1.6.0 / v1.6.1 / v1.6.2 completed
 ```
 
-The safest next frontend step is still:
+Completed v1.6.x frontend work:
 
-```text
-Display matchup_lean.matchup_label and related profile/outcome summaries.
-```
+- displayed `matchup_lean.matchup_label` through the Matchup Read block
+- added Profile + Confidence chips in Matchup Lean
+- displayed profile and confidence summaries
+- mapped caution codes into user-facing language
+- removed duplicate confidence from Model Trust & Outcome
+- renamed Model Trust diagnostic labels so they do not sound like a second confidence score
 
-Do not use limited frontend/Lovable work on:
+Do not use frontend/Lovable work on large redesigns yet.
+
+Avoid spending v1.6.x work on:
 
 - full redesign
 - Field Control repair
@@ -127,6 +231,7 @@ Do not use limited frontend/Lovable work on:
 - injury context
 - dynamic driver UI
 - model-performance dashboard
+- full matchup_breakdown cards
 
 Those are bigger projects.
 
@@ -172,6 +277,8 @@ Measure:
 - pick accuracy
 - no-pick rate
 - high/medium/low confidence calibration
+- profile_strength distribution
+- outcome_confidence distribution
 - matchup_label distribution
 - matchup_cautions
 - correct but narrow outcomes
@@ -427,9 +534,9 @@ No preseason_to_date rows appeared for 2023, likely because the 2023 source/fact
 
 ## Current Interpretation
 
-The turnover cleanup and historical rebuilds are now complete.
+The turnover cleanup and historical rebuilds are complete.
 
-The new behavior is better because:
+The behavior is better because:
 
 - the app still captures turnover advantage
 - the app no longer overstates cumulative turnover totals
@@ -437,7 +544,245 @@ The new behavior is better because:
 - historical seasons now use the same metric contract as 2025
 - future last_3 / last_7 recent-form work can use turnover margin per game correctly
 
-Turnover Margin Per Game Cleanup is no longer a blocker for frontend v1.6.
+Turnover Margin Per Game Cleanup is no longer a blocker.
+
+---
+
+# Work Completed on May 13, 2026
+
+## v1.6.0 — Matchup Lean Honesty Pass
+
+Status:
+
+```text
+✅ Complete
+```
+
+Purpose:
+
+```text
+Teach the frontend about the new /game response fields and display Matchup Lean in a more honest way.
+```
+
+Updated files:
+
+```text
+src/lib/nfl-api.ts
+src/pages/Matchup.tsx
+```
+
+Fields added to frontend typing:
+
+```text
+matchup_lean.profile_strength
+matchup_lean.outcome_confidence
+matchup_lean.matchup_label
+matchup_lean.matchup_cautions
+```
+
+Frontend behavior added:
+
+- existing Matchup Lean card stayed in place
+- new `Matchup Read` sub-block added inside the card
+- profile chip rendered from `profile_strength.label`
+- confidence chip rendered from `outcome_confidence.label`
+- fallback can split `matchup_label` on ` / `
+- legacy fallback still uses old `matchup_lean.confidence` if new fields are absent
+- profile summary shown when available
+- confidence summary shown when available
+- caution row shown only when useful
+
+Example display:
+
+```text
+MATCHUP READ
+Clear Lean / Medium Confidence
+
+Profile: GB has the matchup lean, but the profile is not overwhelming.
+Confidence: The profile is strong, but outcome confidence is kept measured.
+```
+
+Why it matters:
+
+```text
+The page no longer relies only on raw Low / Medium / High confidence.
+It now separates matchup shape from confidence calibration.
+```
+
+---
+
+## v1.6.0 Refinement — User-Facing Cautions
+
+Status:
+
+```text
+✅ Complete
+```
+
+Problem fixed:
+
+```text
+Raw backend caution codes looked like debug output when shown directly to users.
+```
+
+Updated file:
+
+```text
+src/pages/Matchup.tsx
+```
+
+Implemented behavior:
+
+- changed `Outcome:` supporting label to `Confidence:` inside Matchup Read
+- confidence chips now read as `Low Confidence`, `Medium Confidence`, `High Confidence` when appropriate
+- caution codes are mapped into user-facing language
+- all-caps `CAUTIONS` label was softened to `Why cautious`
+- philosophy-style caution `strong_profile_does_not_guarantee_outcome` is hidden
+- unknown caution fallback converts snake_case to readable title case
+
+Known caution mapping:
+
+```text
+core_area_gap_is_small → Core areas are close
+core_areas_are_split → Core areas are split
+core_areas_do_not_fully_confirm_lean → Broader profile is mixed
+supporting_context_is_mixed_or_limited → Supporting context is limited
+strong_profile_does_not_guarantee_outcome → hidden
+```
+
+---
+
+## v1.6.1 — Duplicate Confidence Cleanup
+
+Status:
+
+```text
+✅ Complete
+```
+
+Problem fixed:
+
+```text
+Confidence appeared in both Matchup Lean and Model Trust & Outcome.
+```
+
+Example problem:
+
+```text
+Matchup Lean: Clear Lean / Medium Confidence
+Model Trust & Outcome: Correct / High Confidence
+```
+
+Why that was confusing:
+
+- Matchup Read used newer `matchup_lean.outcome_confidence.label`
+- Model Trust still used legacy `matchup_lean.confidence`
+- both displayed as “confidence” even though they came from different concepts
+
+Decision:
+
+```text
+Matchup Lean owns pregame confidence.
+Model Trust & Outcome owns postgame validation.
+```
+
+Updated file:
+
+```text
+src/pages/Matchup.tsx
+```
+
+Changes made:
+
+- removed confidence pill from Model Trust & Outcome
+- Model Trust now shows only result chip: Correct / Incorrect / No Pick
+- removed local `tier` and `confStyle` variables inside `ModelTrustCard`
+- left shared confidence helpers in place because Matchup Read legacy fallback still uses them
+- left `confidence_context` rendering in place below Predicted vs Actual
+
+Current behavior:
+
+```text
+Matchup Lean = pregame confidence source
+Model Trust & Outcome = result validation source
+```
+
+---
+
+## v1.6.2 — Model Trust Diagnostic Label Cleanup
+
+Status:
+
+```text
+✅ Complete
+```
+
+Problem fixed:
+
+```text
+The diagnostic labels inside Model Trust sounded like a second confidence verdict.
+```
+
+Old labels:
+
+```text
+How reliable was the edge?
+Metric Agreement
+Signal Alignment
+```
+
+Why they were confusing:
+
+- `Metric Agreement: Strong` sounded like overall model confidence
+- it actually meant visible Team Comparison edge strength
+- `Signal Alignment` came from Game Profile signals, but the label did not make that clear
+- this could conflict mentally with `Matchup Read: Low Confidence`
+
+Updated file:
+
+```text
+src/pages/Matchup.tsx
+```
+
+New labels:
+
+```text
+How reliable was the edge? → What supported or challenged the read?
+Metric Agreement → Team Comparison Support
+Signal Alignment → Game Profile Signals
+```
+
+New tooltip meanings:
+
+```text
+Team Comparison Support:
+How lopsided the visible Team Comparison stats are. Edge strength only — not overall confidence.
+
+Game Profile Signals:
+Whether each Game Profile signal, such as Pressure, Turnover Risk, and Scoring Efficiency, tilted toward the predicted team.
+```
+
+Important interpretation:
+
+```text
+Team Comparison Support is not overall confidence.
+Game Profile Signals are diagnostic context.
+The diagnostic area explains what supported or challenged the read.
+```
+
+Example improved reading:
+
+```text
+Matchup Read: Strong Profile / Low Confidence
+Team Comparison Support: Strong
+Game Profile Signals: Mixed
+```
+
+Now reads as:
+
+```text
+Visible comparison metrics supported the lean, but Game Profile signals were mixed, so confidence stayed cautious.
+```
 
 ---
 
@@ -447,13 +792,15 @@ Turnover Margin Per Game Cleanup is no longer a blocker for frontend v1.6.
 
 Status:
 
-✅ Committed  
-✅ Tagged  
-✅ Pushed  
-✅ Google Cloud Build passed  
-✅ Frontend loaded successfully  
-✅ API response shape stayed stable  
-✅ Existing frontend expectations still work  
+```text
+✅ Committed
+✅ Tagged
+✅ Pushed
+✅ Google Cloud Build passed
+✅ Frontend loaded successfully
+✅ API response shape stayed stable
+✅ Existing frontend expectations still work
+```
 
 ## v1.5.0 Release Summary
 
@@ -472,11 +819,15 @@ This release:
 
 ---
 
-# Completed Work
+# Completed Backend / API Work
 
 ## 1. Product Refocus
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 GameLens has been reframed away from:
 
@@ -515,7 +866,11 @@ Avoid language like:
 
 ## 2. Metric Registry Foundation
 
-Status: ✅ Complete, but future audit recommended
+Status:
+
+```text
+✅ Complete, but future audit recommended
+```
 
 Canonical file:
 
@@ -547,13 +902,17 @@ It tells downstream code how carefully each metric may be used.
 
 Registry metadata now helps prevent bad language, such as treating context-only metrics as better/worse edges.
 
-Future audit is still recommended, but not required for the current v1.5.0 release.
+Future audit is still recommended, but not required for the current v1.5/v1.6 path.
 
 ---
 
 ## 3. Cleaned Fact Tables
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Builder:
 
@@ -588,7 +947,11 @@ are legacy/non-authoritative.
 
 ## 4. Windowed Metrics Tables
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Builder:
 
@@ -643,7 +1006,11 @@ turnover_margin_per_game = sum(turnover_margin) / games_in_window
 
 ## 5. Ranking Tables
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Builder:
 
@@ -694,9 +1061,13 @@ Context metrics should not create winner logic.
 
 ---
 
-## 6. `/game` Now Uses Windowed Metrics by Default
+## 6. `/game` Uses Windowed Metrics by Default
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Updated file:
 
@@ -736,7 +1107,11 @@ Rollback would come from Git history, not by flipping the env var.
 
 ## 7. Exact Neutral and Near-Even Handling
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Updated files:
 
@@ -764,7 +1139,11 @@ PHI@NYG Points Allowed Per Play: tiny gap → near_even
 
 ## 8. High-Confidence Guardrail
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Problem addressed:
 
@@ -792,7 +1171,11 @@ This keeps GameLens from sounding too loud when the visible matchup edge is narr
 
 ## 9. Field Control Hidden
 
-Status: ✅ Complete for API behavior, source repair still future
+Status:
+
+```text
+✅ Complete for API behavior, source repair still future
+```
 
 Current behavior:
 
@@ -818,7 +1201,11 @@ Repair backend source/extraction layer before reintroducing Field Control.
 
 ## 10. Step 3 Matchup Explanation Layer
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 Updated file:
 
@@ -858,7 +1245,11 @@ This allows GameLens to explain:
 
 ## 11. Metric Highlights
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 API field:
 
@@ -885,7 +1276,11 @@ This prevents noisy/supporting metrics from steering the main story.
 
 ## 12. Category Summaries
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 API field:
 
@@ -909,7 +1304,11 @@ Supporting/context metrics are excluded from category scoring.
 
 ## 13. Core Area Summaries
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 API field:
 
@@ -940,7 +1339,11 @@ Frontend should be careful not to present them as the exact same calculation.
 
 ## 14. Context Notes
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 API field:
 
@@ -978,7 +1381,11 @@ Instead of being treated as decisive matchup drivers.
 
 ## 15. Profile Strength vs Outcome Confidence
 
-Status: ✅ Complete
+Status:
+
+```text
+✅ Complete
+```
 
 New fields inside:
 
@@ -1007,15 +1414,17 @@ Example:
 Strong Profile / Medium Outcome Confidence
 ```
 
-This is important because a team can have a strong statistical profile and still lose.
-
-Frontend should eventually prefer `matchup_label` over displaying raw `confidence` alone.
+Frontend now displays this through the Matchup Read block.
 
 ---
 
 ## 16. API Compatibility
 
-Status: ✅ Complete / validated
+Status:
+
+```text
+✅ Complete / validated
+```
 
 Existing frontend-safe fields remain:
 
@@ -1052,155 +1461,231 @@ API returns everything frontend expects
 
 ---
 
-## 17. Turnover Margin Per Game Cleanup
+# Current Frontend Contract
 
-Status: ✅ Complete
+## Matchup Lean Uses
 
-This was previously listed as:
-
-```text
-Definitely do / backend cleanup
-```
-
-It is now complete.
-
-Completed behavior:
-
-- `turnover_margin_per_game` exists as a real derived windowed metric
-- it is defined in `analytics/metric_registry.py`
-- it is calculated in `agg/build_windowed_metrics.py`
-- it exists in `team_metrics_windowed`
-- it exists in `team_metric_rankings`
-- visible Team Comparison uses `Turnovers::turnover_margin_per_game`
-- Game Profile Turnover Risk uses `Turnovers::turnover_margin_per_game`
-- cumulative `turnover_margin` remains supporting context
-
-Goal achieved:
+Primary fields:
 
 ```text
-Visible matchup comparison uses per-game turnover margin, while cumulative turnover margin is not the default user-facing comparison metric.
-```
-
----
-
-# Frontend Handoff
-
-## What frontend can use now
-
-### Best immediate field to display
-
-```text
-matchup_lean.matchup_label
-```
-
-Examples:
-
-```text
-Strong Profile / Medium Outcome Confidence
-Clear Lean / Medium Outcome Confidence
-Strong Profile / High Outcome Confidence
-```
-
-This is safer and more accurate than displaying only:
-
-```text
-matchup_lean.confidence
-```
-
-### Useful supporting fields
-
-```text
+matchup_lean.target_team
+matchup_lean.lean_summary
+matchup_lean.focus_summary
+matchup_lean.core_area_context
 matchup_lean.profile_strength.label
 matchup_lean.profile_strength.summary
 matchup_lean.outcome_confidence.label
 matchup_lean.outcome_confidence.summary
+matchup_lean.matchup_label
 matchup_lean.matchup_cautions
 ```
 
-### New future display section
+Frontend fallback order for Matchup Read:
 
 ```text
-matchup_breakdown
+1. profile_strength.label + outcome_confidence.label
+2. split matchup_label on " / "
+3. use matchup_label as one chip
+4. legacy fallback to matchup_lean.confidence
 ```
 
-Possible frontend cards:
+## Model Trust & Outcome Uses
 
-- Metric Highlights
-- Category Summary
-- Core Area Summary
-- Context Notes
-- Freshness / As-Of Context
+Primary fields:
+
+```text
+model_outcome.result
+model_outcome.predicted_team
+model_outcome.actual_winner
+model_trust.reasoning
+model_trust.matchup_advantage
+model_trust.edge
+model_trust.signal_alignment
+model_trust.learning_label
+matchup_lean.confidence_context
+```
+
+Important behavior:
+
+```text
+Model Trust no longer displays matchup_lean.confidence as a second confidence pill.
+```
+
+## Diagnostic Area Uses
+
+Current title:
+
+```text
+What supported or challenged the read?
+```
+
+Rows:
+
+```text
+Team Comparison Support = model_trust.edge.strength
+Game Profile Signals = model_trust.signal_alignment.summary + signal rows
+```
+
+Interpretation:
+
+```text
+Team Comparison Support explains visible metric edge strength.
+Game Profile Signals explains whether football environment signals supported or challenged the picked side.
+Neither row is an overall confidence verdict.
+```
 
 ---
 
-## Suggested frontend display hierarchy
-
-Recommended eventual page structure:
-
-1. Game Header
-2. Final Score / Status
-3. Matchup Lean
-4. Matchup Label
-5. Profile Strength
-6. Outcome Confidence
-7. Core Area Comparison
-8. Matchup Breakdown
-   - Metric Highlights
-   - Category Summaries
-   - Core Area Summaries
-   - Context Notes
-9. Model Trust / Outcome Learning
-
----
-
-# Remaining Backlog
+# Current Backlog
 
 ## Immediate / Next
 
-### 1. Frontend adoption of `matchup_label`
+### 1. Commit / Review v1.6.x Frontend Polish
 
 Status:
 
 ```text
-Next frontend-friendly step
+Immediate housekeeping
 ```
 
-Goal:
+Completed work should be reviewed and committed when ready:
 
 ```text
-Display the new matchup label so users see profile strength and outcome confidence separately.
+v1.6.0 Matchup Read display
+v1.6.1 duplicate confidence cleanup
+v1.6.2 diagnostic label cleanup
 ```
 
-Suggested display:
+Suggested commit scope:
 
 ```text
-BUF edge
-Strong Profile / High Outcome Confidence
+src/lib/nfl-api.ts
+src/pages/Matchup.tsx
 ```
 
-or:
+Suggested validation games:
 
 ```text
-PHI edge
-Strong Profile / Medium Outcome Confidence
+Clear Lean / Medium Confidence
+Strong Profile / High Confidence
+Thin Edge / Low Confidence
+No Clear Edge / Low Confidence
+Correct final result
+Incorrect final result
+No Pick final result
+Mixed Game Profile Signals
+Neutral Game Profile signal included
 ```
-
-This is likely a v1.6-level frontend update, not a full redesign.
 
 ---
 
-### 2. Frontend adoption of `matchup_breakdown`
+### 2. QA Script Upgrade
 
 Status:
 
 ```text
-Future frontend pass
+Useful next quality-of-life improvement
+```
+
+Update the QA script to summarize new fields:
+
+```text
+profile_strength
+outcome_confidence
+matchup_label
+matchup_cautions
+matchup_breakdown.summary_counts
+turnover_margin_per_game presence
+model_trust.edge.strength
+model_trust.signal_alignment.summary_label
+model_trust.signal_alignment.summary
+```
+
+This will make future before/after testing easier.
+
+---
+
+### 3. Rerun Larger QA Batch After v1.6.x Commit
+
+Status:
+
+```text
+Optional but useful
+```
+
+We previously tested targeted games after hard-coding the windowed source and after frontend polish.
+
+Still useful later:
+
+```text
+Run the larger 73-game QA again after v1.6.x settles to confirm no accidental drift.
+```
+
+Add new QA summaries for:
+
+```text
+profile_strength distribution
+outcome_confidence distribution
+matchup_label distribution
+matchup_cautions counts
+headline_metric_count
+context_note_count
+turnover_margin_per_game presence
+Team Comparison Support distribution
+Game Profile Signals distribution
+```
+
+---
+
+### 4. Builder Automation Planning
+
+Status:
+
+```text
+Mission critical before full production confidence
+```
+
+Do not wire builders into `app.py` yet.
+
+Reason:
+
+```text
+Need ingestion/idempotency review before automating post-stats builders.
+```
+
+Future possible env vars:
+
+```text
+ENABLE_METRIC_FACTS_BUILD=false
+ENABLE_WINDOWED_METRICS_BUILD=false
+ENABLE_METRIC_RANKINGS_BUILD=false
+```
+
+Recommended planning questions:
+
+- What triggers the builder chain?
+- Which season rebuilds after a completed game?
+- Should rebuilds run immediately or as scheduled/queued jobs?
+- How should failures be logged and recovered?
+- How do we avoid duplicate/stale runs?
+- How should local/dev behavior differ from Cloud Run?
+
+---
+
+## Future Frontend Work
+
+### 5. Frontend Adoption of `matchup_breakdown`
+
+Status:
+
+```text
+Future frontend pass / likely v1.7
 ```
 
 Goal:
 
 ```text
-Expose the new Step 3 explanation layer in a readable way.
+Expose the Step 3 explanation layer in a readable way.
 ```
 
 Possible sections:
@@ -1210,13 +1695,19 @@ Top Metric Drivers
 Category Reads
 Core Area Reads
 Context Notes
+Freshness / As-Of Context
 ```
 
-This may be v1.7-level work.
+Important:
+
+```text
+Do not dump every field.
+Use matchup_breakdown as a summary layer, not a wall of data.
+```
 
 ---
 
-### 3. Full frontend redesign
+### 6. Full Frontend Redesign
 
 Status:
 
@@ -1245,37 +1736,9 @@ This is bigger than simply showing one new label.
 
 ---
 
-### 4. Rerun 73-game QA after final hard-code
+## Future Backend Work
 
-Status:
-
-```text
-Optional but useful
-```
-
-We already tested targeted games after hard-coding the windowed source.
-
-Still useful later:
-
-```text
-Run the larger 73-game QA again after v1.5.0 to confirm no accidental drift.
-```
-
-Add new QA summaries for:
-
-```text
-profile_strength distribution
-outcome_confidence distribution
-matchup_label distribution
-matchup_cautions counts
-headline_metric_count
-context_note_count
-turnover_margin_per_game presence
-```
-
----
-
-### 5. Metric registry audit branch
+### 7. Metric Registry Audit Branch
 
 Status:
 
@@ -1292,7 +1755,7 @@ git checkout -b registry-metadata-audit
 Goal:
 
 ```text
-Align registry metadata with the service-layer behavior from v1.5.0.
+Align registry metadata with service-layer behavior from v1.5/v1.6.
 ```
 
 Candidates for audit:
@@ -1330,32 +1793,7 @@ metric_registry.py
 
 ---
 
-### 6. QA script upgrade
-
-Status:
-
-```text
-Future quality-of-life improvement
-```
-
-Update the QA script to summarize new fields:
-
-```text
-profile_strength
-outcome_confidence
-matchup_label
-matchup_cautions
-matchup_breakdown.summary_counts
-turnover_margin_per_game presence
-```
-
-This will make future before/after testing easier.
-
----
-
-## Future Backend Work
-
-### 7. Field Control source repair
+### 8. Field Control Source Repair
 
 Status:
 
@@ -1379,7 +1817,7 @@ Re-enable only after validation.
 
 ---
 
-### 8. Historical / stability context
+### 9. Historical / Stability Context
 
 Status:
 
@@ -1407,7 +1845,7 @@ It should support or soften confidence language.
 
 ---
 
-### 9. Injury context
+### 10. Injury Context
 
 Status:
 
@@ -1433,7 +1871,7 @@ Do not let injury context directly override picks until the layer is stable.
 
 ---
 
-### 10. Outcome quality labels
+### 11. Outcome Quality Labels
 
 Status:
 
@@ -1460,7 +1898,7 @@ no pick / missed opportunity
 
 ---
 
-### 11. Postgame swing factors
+### 12. Postgame Swing Factors
 
 Status:
 
@@ -1489,7 +1927,7 @@ Explain what changed the game without pretending the pregame model should have k
 
 ---
 
-### 12. Recent form / rolling-window layer
+### 13. Recent Form / Rolling-Window Layer
 
 Status:
 
@@ -1514,38 +1952,6 @@ Future use:
 
 ```text
 Show whether recent form supports, conflicts with, or sharpens the season-to-date profile.
-```
-
----
-
-### 13. Builder Automation in app.py
-
-Status:
-
-```text
-Deferred / mission critical before full production confidence
-```
-
-Do not wire builders into `app.py` yet.
-
-Reason:
-
-```text
-Need ingestion/idempotency review before automating post-stats builders.
-```
-
-Future possible env vars:
-
-```text
-ENABLE_METRIC_FACTS_BUILD=false
-ENABLE_WINDOWED_METRICS_BUILD=false
-ENABLE_METRIC_RANKINGS_BUILD=false
-```
-
-Current interpretation:
-
-```text
-This is one of the most important backend items before relying on live automated updates.
 ```
 
 ---
@@ -1738,16 +2144,8 @@ Context Notes = descriptive but not decisive
 
 Goal:
 
-Move GameLens from:
-
 ```text
-Here are the same five metrics every game.
-```
-
-toward:
-
-```text
-Here is what actually separates these two teams in this matchup.
+Move GameLens from showing the same five metrics every game toward showing what actually separates these two teams in this matchup.
 ```
 
 This should begin as an explanation/display layer before it influences confidence or model scoring.
@@ -1775,19 +2173,65 @@ Included:
 - Turnover Margin / Game cleanup
 - 2023/2024/2025 rebuilt with current metric contract
 
-## v1.6.0 — Suggested next
+## v1.6.0 — Complete
 
 ```text
-Frontend displays matchup_label and profile/outcome confidence summaries.
+Frontend Matchup Read display using profile strength and outcome confidence.
 ```
 
-## v1.7.0 — Suggested after that
+Included:
+
+- typed new `matchup_lean` fields
+- displayed Matchup Read block
+- displayed Profile + Confidence chips
+- displayed summary text
+- mapped user-facing caution labels
+
+## v1.6.1 — Complete
+
+```text
+Duplicate confidence cleanup.
+```
+
+Included:
+
+- Matchup Lean owns confidence
+- Model Trust no longer displays a second confidence pill
+
+## v1.6.2 — Complete
+
+```text
+Model Trust diagnostic label clarification.
+```
+
+Included:
+
+- `What supported or challenged the read?`
+- `Team Comparison Support`
+- `Game Profile Signals`
+- updated tooltips
+
+## v1.6.3 — Backburner Polish
+
+See separate file:
+
+```text
+GameLens_Backburner_Cleanup_v1.6.3.md
+```
+
+Likely theme:
+
+```text
+Small wording polish only; not urgent.
+```
+
+## v1.7.0 — Suggested Next Larger Frontend Step
 
 ```text
 Frontend displays matchup_breakdown cards.
 ```
 
-## v2.0.0 — Larger redesign
+## v2.0.0 — Larger Redesign
 
 ```text
 Full matchup page redesign around GameLens explanation model.
@@ -1816,22 +2260,25 @@ Do not:
 - wire builders into `app.py` before ingestion/idempotency review
 - treat historical context as a pick override
 - treat injury context as a pick override
-- remove QA discipline just because v1.5.0 shipped
+- remove QA discipline just because v1.5/v1.6 shipped
 - expose a public model-success-rate board before internal QA is mature
 - build League Discovery UI before lens-tag cleaning and backend validation
 - show raw backend lens tags directly to users
+- let Model Trust become a second confidence source
 
 ---
 
 # Practical Frontend Note
 
-For now, the safest frontend adoption is:
+Current stable frontend direction:
 
 ```text
-Use matchup_lean.matchup_label as the display label.
+Use Matchup Lean / Matchup Read as the confidence source.
+Use Model Trust & Outcome as the validation source.
+Use the diagnostic area to explain what supported or challenged the read.
 ```
 
-Then later add:
+Later frontend adoption:
 
 ```text
 matchup_breakdown.metric_highlights
@@ -1840,7 +2287,7 @@ matchup_breakdown.core_area_summaries
 matchup_breakdown.context_notes
 ```
 
-This lets the frontend adopt the new backend intelligence gradually without requiring a full GameLens 2.0 redesign immediately.
+This lets the frontend adopt backend intelligence gradually without requiring a full GameLens 2.0 redesign immediately.
 
 ---
 

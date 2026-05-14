@@ -54,3 +54,6 @@ pip-delete-this-directory.txt
 # Retool exports or backups
 *.bak
 *.tmp
+
+# Local QA outputs / working documentation
+qa/
