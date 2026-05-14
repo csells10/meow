@@ -1,10 +1,10 @@
 """
 Update GameLens claim training examples with Level 3 engineered feature scores.
 
-V2 scopes offense_finish_score to claim families where the feature showed useful signal.
+V5 keeps scoped offense_finish_score and requires Defensive Control for defensive_suppression_score.
 
 Recommended repo location:
-    agg/update_gamelens_claim_training_features_v2.py
+    agg/update_gamelens_claim_training_features_v5.py
 
 Purpose:
     Level 3 job for GameLens feature engineering.
@@ -14,8 +14,9 @@ Purpose:
     Level 3 begins adding pregame-only engineered features that can later help
     predict claim quality and calibrate language.
 
-This v1 only computes:
+This v5 computes:
     offense_finish_score
+    defensive_suppression_score
 
 Football idea:
     Can the claimed team both move the ball and finish drives?
@@ -36,12 +37,12 @@ Score meaning:
         Negative = opponent had the stronger offensive finish profile.
 
 Example dry run:
-    python -m agg.update_gamelens_claim_training_features_v2 \
+    python -m agg.update_gamelens_claim_training_features_v5 \
       --run-id baseline_96_stage1_v2 \
       --dry-run
 
 Example BigQuery update:
-    python -m agg.update_gamelens_claim_training_features_v2 \
+    python -m agg.update_gamelens_claim_training_features_v5 \
       --run-id baseline_96_stage1_v2 \
       --write-bigquery
 """
@@ -61,9 +62,9 @@ PROJECT_ID = "nfl-stream-406420"
 DATASET_ID = "Analytics"
 TRAINING_TABLE = "gamelens_claim_training_examples"
 DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_feature_update_runs")
-DEFAULT_FORMULA_VERSION = "offense_finish_v2_relevance_scoped"
+DEFAULT_FORMULA_VERSION = "offense_finish_v2__defensive_suppression_v3_control_required"
 
-REQUIRED_CORE_AREAS = ("Offensive Output", "Scoring Efficiency")
+REQUIRED_CORE_AREAS = ("Offensive Output", "Scoring Efficiency", "Defensive Control")
 
 # V2 finding:
 # offense_finish_score helped most for finishing-context claims, not as a
@@ -84,6 +85,33 @@ OFFENSE_FINISH_RELEVANT_METRICS = {
     "red_zone_efficiency",
     "yards_per_rush",
 }
+
+# V3 feature:
+# defensive_suppression_score asks whether the claimed team had pregame support
+# for limiting opponent movement/scoring. It is intentionally scoped to
+# defensive/suppression rows only. Turnovers and Pressure are not included here
+# because they are more volatile and deserve separate features later.
+DEFENSIVE_SUPPRESSION_RELEVANT_CORE_AREAS = {
+    "Defensive Control",
+}
+
+DEFENSIVE_SUPPRESSION_RELEVANT_CATEGORIES = {
+    "Scoring Suppression",
+    "Defensive Efficiency",
+}
+
+DEFENSIVE_SUPPRESSION_RELEVANT_METRICS = {
+    "points_allowed_per_play",
+    "points_allowed_per_yard",
+    "yards_allowed",
+    "points_allowed",
+    "defensive_success_rate",
+}
+
+DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS = (
+    "points_allowed_per_play",
+    "points_allowed_per_yard",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +164,13 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "home_offense_finish_score",
         "offensive_output_away_edge",
         "scoring_efficiency_away_edge",
+        "defensive_suppression_score",
+        "defensive_suppression_relevance_reason",
+        "away_defensive_suppression_score",
+        "home_defensive_suppression_score",
+        "defensive_control_away_edge",
+        "scoring_suppression_away_edge",
+        "scoring_suppression_metric",
         "feature_formula_version",
         "feature_status",
         "feature_notes",
@@ -186,6 +221,8 @@ def load_training_rows(
             category,
             metric,
             pregame_raw_gap,
+            pregame_percentile_gap,
+            pregame_abs_percentile_gap,
             claimed_team_value,
             opponent_team_value,
             core_area_agreement_rate,
@@ -256,6 +293,58 @@ def build_core_area_edges(training_rows: List[Dict[str, Any]]) -> Dict[str, Dict
     return edges
 
 
+def build_metric_edges(
+    training_rows: List[Dict[str, Any]],
+    *,
+    metrics: tuple[str, ...],
+) -> Dict[str, Dict[str, float]]:
+    """
+    Build game-level away-signed metric edges from pregame percentile gaps.
+
+    Returns:
+        {
+            game_id: {
+                metric: away_signed_edge,
+            }
+        }
+
+    away_signed_edge:
+        Positive if away had the edge.
+        Negative if home had the edge.
+
+    Notes:
+        - Uses pregame_percentile_gap because it is already oriented toward
+          the claimed/better team and is more comparable across metrics.
+        - Normalizes percentile gap from 0-100 into roughly 0-1.
+        - If duplicate rows exist for the same game/metric, keep the strongest
+          absolute edge.
+    """
+    wanted = set(metrics)
+    edges: Dict[str, Dict[str, float]] = defaultdict(dict)
+
+    for row in training_rows:
+        metric = row.get("metric")
+        if metric not in wanted:
+            continue
+
+        game_id = row.get("game_id")
+        claimed_side = row.get("claimed_side")
+        pct_gap = as_float(row.get("pregame_percentile_gap"))
+
+        if not game_id or claimed_side not in {"away", "home"} or pct_gap is None:
+            continue
+
+        normalized_gap = clamp(abs(pct_gap) / 100.0, 0.0, 1.0)
+        away_signed = normalized_gap if claimed_side == "away" else -normalized_gap
+
+        current = edges[str(game_id)].get(str(metric))
+        if current is None or abs(away_signed) > abs(current):
+            edges[str(game_id)][str(metric)] = away_signed
+
+    return edges
+
+
+
 def calculate_offense_finish_score(
     *,
     offensive_output_edge: Optional[float],
@@ -268,7 +357,7 @@ def calculate_offense_finish_score(
     Inputs are away-signed core area edges.
     If side is home, flip signs so the score is from that team's perspective.
 
-    Formula v1:
+    Formula v3:
         side_offense_edge = signed Offensive Output edge
         side_scoring_edge = signed Scoring Efficiency edge
 
@@ -362,12 +451,132 @@ def is_offense_finish_relevant(row: Dict[str, Any]) -> bool:
     return offense_finish_relevance_reason(row) is not None
 
 
+def calculate_defensive_suppression_score(
+    *,
+    defensive_control_edge: Optional[float],
+    scoring_suppression_edge: Optional[float],
+    side: str,
+) -> Optional[float]:
+    """
+    Compute a side-specific defensive_suppression_score.
+
+    Inputs are away-signed pregame edges:
+        defensive_control_edge:
+            from Core Area Comparison / Defensive Control
+        scoring_suppression_edge:
+            from a confirming scoring-suppression metric, currently
+            points_allowed_per_play or points_allowed_per_yard when available
+
+    Formula v3 / control-required:
+        Best:
+            Defensive Control + scoring suppression metric
+            base = 0.65 * defensive_control + 0.35 * scoring_suppression
+            + small bonus if both agree
+            - small penalty if they conflict
+
+        Partial allowed:
+            Defensive Control only:
+                score = 0.75 * defensive_control
+
+        Missing:
+            No Defensive Control -> NULL
+
+    Why require Defensive Control?
+        QA showed that metric-only fallback rows, especially
+        points_allowed_per_play without Defensive Control, validated poorly.
+        So direct suppression metrics can sharpen the score, but they should
+        not stand alone in v5.
+    """
+    if defensive_control_edge is None:
+        return None
+
+    if side == "away":
+        defense = defensive_control_edge
+        suppression = scoring_suppression_edge
+    elif side == "home":
+        defense = -defensive_control_edge
+        suppression = -scoring_suppression_edge if scoring_suppression_edge is not None else None
+    else:
+        return None
+
+    if suppression is None:
+        return round(clamp(0.75 * defense), 4)
+
+    base = (0.65 * defense) + (0.35 * suppression)
+
+    synergy_bonus = 0.0
+    conflict_penalty = 0.0
+
+    if defense > 0 and suppression > 0:
+        synergy_bonus = 0.10 * min(defense, suppression)
+    elif (defense > 0 > suppression) or (suppression > 0 > defense):
+        conflict_penalty = 0.10 * min(abs(defense), abs(suppression))
+
+    return round(clamp(base + synergy_bonus - conflict_penalty), 4)
+
+
+def defensive_suppression_relevance_reason(row: Dict[str, Any]) -> Optional[str]:
+    """
+    V3 scoping rule for defensive_suppression_score.
+
+    Included:
+        - Defensive Control core-area claims
+        - Scoring Suppression / Defensive Efficiency category claims
+        - Direct defensive suppression metrics:
+            points_allowed_per_play
+            points_allowed_per_yard
+            yards_allowed
+            points_allowed
+            defensive_success_rate
+
+    Excluded for now:
+        - Pressure
+        - Turnovers
+        - Generic Disruption and Turnovers
+
+    Those should become separate volatility/disruption features later.
+    """
+    core_area = row.get("core_area")
+    category = row.get("category")
+    metric = row.get("metric")
+
+    if metric in DEFENSIVE_SUPPRESSION_RELEVANT_METRICS:
+        return f"metric:{metric}"
+
+    if category in DEFENSIVE_SUPPRESSION_RELEVANT_CATEGORIES:
+        return f"category:{category}"
+
+    if core_area in DEFENSIVE_SUPPRESSION_RELEVANT_CORE_AREAS:
+        return f"core_area:{core_area}"
+
+    return None
+
+
+def is_defensive_suppression_relevant(row: Dict[str, Any]) -> bool:
+    return defensive_suppression_relevance_reason(row) is not None
+
+
+def strip_prior_level3_notes(notes: Optional[str]) -> str:
+    """
+    Prevent repeated local reruns from appending Level 3 notes forever.
+    Keeps Level 1/2 notes, removes any previous ' | Level 3 ...' suffix.
+    """
+    if not notes:
+        return ""
+    return notes.split(" | Level 3 ")[0]
+
+
+
 def build_feature_updates(
     training_rows: List[Dict[str, Any]],
     *,
     formula_version: str,
 ) -> List[Dict[str, Any]]:
     core_edges = build_core_area_edges(training_rows)
+    metric_edges = build_metric_edges(
+        training_rows,
+        metrics=DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS,
+    )
     now = utc_now_iso()
     updates: List[Dict[str, Any]] = []
 
@@ -376,57 +585,129 @@ def build_feature_updates(
         claimed_side = row.get("claimed_side")
         game_edges = core_edges.get(game_id, {})
 
+        # -------------------------
+        # Offense finish feature
+        # -------------------------
         offensive_output_away_edge = game_edges.get("Offensive Output")
         scoring_efficiency_away_edge = game_edges.get("Scoring Efficiency")
 
-        away_score = calculate_offense_finish_score(
+        away_offense_score = calculate_offense_finish_score(
             offensive_output_edge=offensive_output_away_edge,
             scoring_efficiency_edge=scoring_efficiency_away_edge,
             side="away",
         )
-        home_score = calculate_offense_finish_score(
+        home_offense_score = calculate_offense_finish_score(
             offensive_output_edge=offensive_output_away_edge,
             scoring_efficiency_edge=scoring_efficiency_away_edge,
             side="home",
         )
 
-        relevance_reason = offense_finish_relevance_reason(row)
+        offense_relevance_reason = offense_finish_relevance_reason(row)
 
-        if relevance_reason is None:
-            # V2 change:
-            # Do not apply the score to unrelated claim families.
-            row_score = None
-            level3_note = (
-                " | Level 3 v2: offense_finish_score intentionally left NULL because "
+        if offense_relevance_reason is None:
+            offense_score = None
+            offense_note = (
+                " | Level 3 v5: offense_finish_score intentionally left NULL because "
                 "this claim family is not offense-finish relevant."
             )
         elif claimed_side == "away":
-            row_score = away_score
-            level3_note = (
-                " | Level 3 v2: offense_finish_score applied to relevant claim family "
-                f"({relevance_reason}); computed pregame-only from Core Area Comparison "
+            offense_score = away_offense_score
+            offense_note = (
+                " | Level 3 v5: offense_finish_score applied to relevant claim family "
+                f"({offense_relevance_reason}); computed pregame-only from Core Area Comparison "
                 "(Offensive Output + Scoring Efficiency)."
             )
         elif claimed_side == "home":
-            row_score = home_score
-            level3_note = (
-                " | Level 3 v2: offense_finish_score applied to relevant claim family "
-                f"({relevance_reason}); computed pregame-only from Core Area Comparison "
+            offense_score = home_offense_score
+            offense_note = (
+                " | Level 3 v5: offense_finish_score applied to relevant claim family "
+                f"({offense_relevance_reason}); computed pregame-only from Core Area Comparison "
                 "(Offensive Output + Scoring Efficiency)."
             )
         else:
-            row_score = None
-            level3_note = (
-                " | Level 3 v2: offense_finish_score not calculated because claimed_side was missing/invalid."
+            offense_score = None
+            offense_note = (
+                " | Level 3 v5: offense_finish_score not calculated because claimed_side was missing/invalid."
             )
 
-        if relevance_reason is not None and row_score is None:
-            level3_note = (
-                " | Level 3 v2: offense_finish_score not calculated for relevant claim because "
+        if offense_relevance_reason is not None and offense_score is None:
+            offense_note = (
+                " | Level 3 v5: offense_finish_score not calculated for relevant claim because "
                 "required Core Area comparison rows were missing."
             )
 
-        feature_notes = (row.get("feature_notes") or "") + level3_note
+        # -------------------------
+        # Defensive suppression feature
+        # -------------------------
+        defensive_control_away_edge = game_edges.get("Defensive Control")
+        game_metric_edges = metric_edges.get(game_id, {})
+
+        scoring_suppression_away_edge = None
+        scoring_suppression_metric = None
+        for metric_name in DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS:
+            if metric_name in game_metric_edges:
+                scoring_suppression_away_edge = game_metric_edges[metric_name]
+                scoring_suppression_metric = metric_name
+                break
+
+        away_defense_score = calculate_defensive_suppression_score(
+            defensive_control_edge=defensive_control_away_edge,
+            scoring_suppression_edge=scoring_suppression_away_edge,
+            side="away",
+        )
+        home_defense_score = calculate_defensive_suppression_score(
+            defensive_control_edge=defensive_control_away_edge,
+            scoring_suppression_edge=scoring_suppression_away_edge,
+            side="home",
+        )
+
+        defense_relevance_reason = defensive_suppression_relevance_reason(row)
+
+        if defense_relevance_reason is None:
+            defensive_score = None
+            defensive_note = (
+                " | Level 3 v5: defensive_suppression_score intentionally left NULL because "
+                "this claim family is not defensive-suppression relevant."
+            )
+        elif claimed_side == "away":
+            defensive_score = away_defense_score
+            defensive_note = (
+                " | Level 3 v5: defensive_suppression_score applied to relevant claim family "
+                f"({defense_relevance_reason}); computed pregame-only "
+                + (
+                    f"from Defensive Control plus {scoring_suppression_metric}."
+                    if defensive_control_away_edge is not None and scoring_suppression_metric
+                    else "using partial Defensive Control only."
+                    if defensive_control_away_edge is not None
+                    else "but required Defensive Control input was missing; metric-only fallback intentionally disabled."
+                )
+            )
+        elif claimed_side == "home":
+            defensive_score = home_defense_score
+            defensive_note = (
+                " | Level 3 v5: defensive_suppression_score applied to relevant claim family "
+                f"({defense_relevance_reason}); computed pregame-only "
+                + (
+                    f"from Defensive Control plus {scoring_suppression_metric}."
+                    if defensive_control_away_edge is not None and scoring_suppression_metric
+                    else "using partial Defensive Control only."
+                    if defensive_control_away_edge is not None
+                    else "but required Defensive Control input was missing; metric-only fallback intentionally disabled."
+                )
+            )
+        else:
+            defensive_score = None
+            defensive_note = (
+                " | Level 3 v5: defensive_suppression_score not calculated because claimed_side was missing/invalid."
+            )
+
+        if defense_relevance_reason is not None and defensive_score is None:
+            defensive_note = (
+                " | Level 3 v5: defensive_suppression_score not calculated for relevant claim because "
+                "required Defensive Control comparison row was missing; metric-only fallback intentionally disabled."
+            )
+
+        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + offense_note + defensive_note
 
         updates.append({
             "run_id": row.get("run_id"),
@@ -440,12 +721,22 @@ def build_feature_updates(
             "core_area": row.get("core_area"),
             "category": row.get("category"),
             "metric": row.get("metric"),
-            "offense_finish_score": row_score,
-            "offense_finish_relevance_reason": relevance_reason,
-            "away_offense_finish_score": away_score,
-            "home_offense_finish_score": home_score,
+
+            "offense_finish_score": offense_score,
+            "offense_finish_relevance_reason": offense_relevance_reason,
+            "away_offense_finish_score": away_offense_score,
+            "home_offense_finish_score": home_offense_score,
             "offensive_output_away_edge": offensive_output_away_edge,
             "scoring_efficiency_away_edge": scoring_efficiency_away_edge,
+
+            "defensive_suppression_score": defensive_score,
+            "defensive_suppression_relevance_reason": defense_relevance_reason,
+            "away_defensive_suppression_score": away_defense_score,
+            "home_defensive_suppression_score": home_defense_score,
+            "defensive_control_away_edge": defensive_control_away_edge,
+            "scoring_suppression_away_edge": scoring_suppression_away_edge,
+            "scoring_suppression_metric": scoring_suppression_metric,
+
             "feature_formula_version": formula_version,
             "feature_status": row.get("feature_status"),
             "feature_notes": feature_notes,
@@ -464,6 +755,7 @@ def feature_update_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("run_id", "STRING"),
         bigquery.SchemaField("claim_key", "STRING"),
         bigquery.SchemaField("offense_finish_score", "FLOAT"),
+        bigquery.SchemaField("defensive_suppression_score", "FLOAT"),
         bigquery.SchemaField("feature_formula_version", "STRING"),
         bigquery.SchemaField("feature_notes", "STRING"),
         bigquery.SchemaField("updated_at", "TIMESTAMP"),
@@ -492,6 +784,7 @@ def update_bigquery_rows(
             "run_id": row["run_id"],
             "claim_key": row["claim_key"],
             "offense_finish_score": row["offense_finish_score"],
+            "defensive_suppression_score": row["defensive_suppression_score"],
             "feature_formula_version": row["feature_formula_version"],
             "feature_notes": row["feature_notes"],
             "updated_at": row["updated_at"],
@@ -514,12 +807,13 @@ def update_bigquery_rows(
            AND T.claim_key = S.claim_key
         WHEN MATCHED THEN UPDATE SET
             offense_finish_score = S.offense_finish_score,
+            defensive_suppression_score = S.defensive_suppression_score,
             feature_formula_version = S.feature_formula_version,
             feature_notes = S.feature_notes,
             updated_at = S.updated_at
     """
     client.query(merge_sql).result()
-    print(f"✅ Updated offense_finish_score in {target_table} for run_id={run_id}")
+    print(f"✅ Updated Level 3 feature scores in {target_table} for run_id={run_id}")
 
     client.delete_table(temp_table, not_found_ok=True)
     print(f"Deleted temp table {temp_table}")
@@ -544,40 +838,72 @@ def bucket_score(score: Optional[float]) -> str:
 
 
 def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    bucket_counts: Dict[str, int] = {}
-    relevance_counts: Dict[str, int] = {}
-    non_null_scores = []
+    offense_bucket_counts: Dict[str, int] = {}
+    offense_relevance_counts: Dict[str, int] = {}
+    offense_non_null_scores = []
+
+    defense_bucket_counts: Dict[str, int] = {}
+    defense_relevance_counts: Dict[str, int] = {}
+    defense_non_null_scores = []
 
     for row in update_rows:
-        bucket = bucket_score(row.get("offense_finish_score"))
-        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+        offense_bucket = bucket_score(row.get("offense_finish_score"))
+        offense_bucket_counts[offense_bucket] = offense_bucket_counts.get(offense_bucket, 0) + 1
 
-        relevance_reason = row.get("offense_finish_relevance_reason")
-        relevance_key = relevance_reason or "not_relevant"
-        relevance_counts[relevance_key] = relevance_counts.get(relevance_key, 0) + 1
+        offense_relevance_reason = row.get("offense_finish_relevance_reason")
+        offense_relevance_key = offense_relevance_reason or "not_relevant"
+        offense_relevance_counts[offense_relevance_key] = offense_relevance_counts.get(offense_relevance_key, 0) + 1
 
         if row.get("offense_finish_score") is not None:
-            non_null_scores.append(row["offense_finish_score"])
+            offense_non_null_scores.append(row["offense_finish_score"])
 
-    relevant_rows = [r for r in update_rows if r.get("offense_finish_relevance_reason")]
-    relevant_missing = [
-        r for r in relevant_rows
+        defense_bucket = bucket_score(row.get("defensive_suppression_score"))
+        defense_bucket_counts[defense_bucket] = defense_bucket_counts.get(defense_bucket, 0) + 1
+
+        defense_relevance_reason = row.get("defensive_suppression_relevance_reason")
+        defense_relevance_key = defense_relevance_reason or "not_relevant"
+        defense_relevance_counts[defense_relevance_key] = defense_relevance_counts.get(defense_relevance_key, 0) + 1
+
+        if row.get("defensive_suppression_score") is not None:
+            defense_non_null_scores.append(row["defensive_suppression_score"])
+
+    offense_relevant_rows = [r for r in update_rows if r.get("offense_finish_relevance_reason")]
+    offense_relevant_missing = [
+        r for r in offense_relevant_rows
         if r.get("offense_finish_score") is None
+    ]
+
+    defense_relevant_rows = [r for r in update_rows if r.get("defensive_suppression_relevance_reason")]
+    defense_relevant_missing = [
+        r for r in defense_relevant_rows
+        if r.get("defensive_suppression_score") is None
     ]
 
     return {
         "formula_version": DEFAULT_FORMULA_VERSION,
         "rows_updated": len(update_rows),
-        "rows_relevant_for_offense_finish": len(relevant_rows),
-        "rows_not_relevant_for_offense_finish": len(update_rows) - len(relevant_rows),
-        "rows_with_offense_finish_score": len(non_null_scores),
-        "rows_missing_offense_finish_score": len(update_rows) - len(non_null_scores),
-        "relevant_rows_missing_offense_finish_score": len(relevant_missing),
-        "min_offense_finish_score": min(non_null_scores) if non_null_scores else None,
-        "max_offense_finish_score": max(non_null_scores) if non_null_scores else None,
-        "avg_offense_finish_score": round(sum(non_null_scores) / len(non_null_scores), 4) if non_null_scores else None,
-        "score_bucket_distribution": dict(sorted(bucket_counts.items())),
-        "relevance_reason_distribution": dict(sorted(relevance_counts.items())),
+
+        "rows_relevant_for_offense_finish": len(offense_relevant_rows),
+        "rows_not_relevant_for_offense_finish": len(update_rows) - len(offense_relevant_rows),
+        "rows_with_offense_finish_score": len(offense_non_null_scores),
+        "rows_missing_offense_finish_score": len(update_rows) - len(offense_non_null_scores),
+        "relevant_rows_missing_offense_finish_score": len(offense_relevant_missing),
+        "min_offense_finish_score": min(offense_non_null_scores) if offense_non_null_scores else None,
+        "max_offense_finish_score": max(offense_non_null_scores) if offense_non_null_scores else None,
+        "avg_offense_finish_score": round(sum(offense_non_null_scores) / len(offense_non_null_scores), 4) if offense_non_null_scores else None,
+        "offense_score_bucket_distribution": dict(sorted(offense_bucket_counts.items())),
+        "offense_relevance_reason_distribution": dict(sorted(offense_relevance_counts.items())),
+
+        "rows_relevant_for_defensive_suppression": len(defense_relevant_rows),
+        "rows_not_relevant_for_defensive_suppression": len(update_rows) - len(defense_relevant_rows),
+        "rows_with_defensive_suppression_score": len(defense_non_null_scores),
+        "rows_missing_defensive_suppression_score": len(update_rows) - len(defense_non_null_scores),
+        "relevant_rows_missing_defensive_suppression_score": len(defense_relevant_missing),
+        "min_defensive_suppression_score": min(defense_non_null_scores) if defense_non_null_scores else None,
+        "max_defensive_suppression_score": max(defense_non_null_scores) if defense_non_null_scores else None,
+        "avg_defensive_suppression_score": round(sum(defense_non_null_scores) / len(defense_non_null_scores), 4) if defense_non_null_scores else None,
+        "defensive_score_bucket_distribution": dict(sorted(defense_bucket_counts.items())),
+        "defensive_relevance_reason_distribution": dict(sorted(defense_relevance_counts.items())),
     }
 
 
@@ -586,7 +912,7 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores. V2 scopes offense_finish_score to relevant claim families.")
+    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores. V5 requires Defensive Control for defensive_suppression_score.")
     parser.add_argument("--run-id", required=True, help="run_id in Analytics.gamelens_claim_training_examples.")
     parser.add_argument("--project-id", default=PROJECT_ID)
     parser.add_argument("--training-table", default=f"{PROJECT_ID}.{DATASET_ID}.{TRAINING_TABLE}")
@@ -631,6 +957,8 @@ def main() -> int:
     print(f"Feature rows built: {len(update_rows)}")
     print(f"Rows with offense_finish_score: {summary['rows_with_offense_finish_score']}")
     print(f"Rows missing offense_finish_score: {summary['rows_missing_offense_finish_score']}")
+    print(f"Rows with defensive_suppression_score: {summary['rows_with_defensive_suppression_score']}")
+    print(f"Rows missing defensive_suppression_score: {summary['rows_missing_defensive_suppression_score']}")
     print(f"Preview CSV: {output_dir / 'feature_update_preview.csv'}")
     print(f"Summary JSON: {output_dir / 'summary.json'}")
 
