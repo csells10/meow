@@ -67,6 +67,15 @@ Change sample size:
 
     python qa_collect_gamelens_payloads.py --games-per-season 20
 
+Collect a different repeatable random sample:
+
+    python qa_collect_gamelens_payloads.py \
+      --seasons 2023 2024 2025 \
+      --games-per-season 32 \
+      --sample-mode random \
+      --random-seed 20260514 \
+      --run-name fresh_96_features_qa_v2
+
 Dry run the selected sample without collecting payloads:
 
     python qa_collect_gamelens_payloads.py --dry-run
@@ -131,11 +140,9 @@ COMPARE_FIELDS = [
     "target_team",
     "target_side",
     "confidence",
-    "raw_confidence",
     "profile_type",
     "matchup_label",
     "profile_strength_label",
-    "outcome_confidence_code",
     "outcome_confidence_label",
     "model_result",
     "predicted_team",
@@ -149,11 +156,6 @@ COMPARE_FIELDS = [
     "category_summaries_count",
     "core_area_summaries_count",
     "context_notes_count",
-    "final_margin_abs",
-    "final_margin_bucket",
-    "miss_severity",
-    "expected_no_prior_data",
-    "qa_primary_bucket",
 ]
 
 
@@ -383,6 +385,17 @@ def choose_evenly(items: List[SampleGame], count: int) -> List[SampleGame]:
     return selected[:count]
 
 
+def choose_randomly(items: Sequence[SampleGame], count: int, rng: random.Random) -> List[SampleGame]:
+    """Choose a random subset without replacement, preserving no original ordering guarantee."""
+    if count <= 0 or not items:
+        return []
+    if count >= len(items):
+        shuffled = list(items)
+        rng.shuffle(shuffled)
+        return shuffled
+    return rng.sample(list(items), count)
+
+
 def allocate_bucket_counts(
     *,
     available_by_bucket: Dict[str, List[SampleGame]],
@@ -452,12 +465,36 @@ def smart_sample_games(
     seasons: Sequence[str],
     games_per_season: int,
     include_preseason: bool,
+    sample_mode: str = "even",
+    random_seed: Optional[int] = None,
 ) -> List[SampleGame]:
+    """
+    Select a balanced per-season sample.
+
+    sample_mode:
+        even:
+            deterministic evenly spaced games inside each season/bucket.
+            Good for stable baseline runs.
+
+        random:
+            random games inside each season/bucket using random_seed.
+            Good for fresh QA samples while keeping season/bucket balance.
+    """
+    if sample_mode not in {"even", "random"}:
+        raise ValueError(f"Unsupported sample_mode={sample_mode!r}; use 'even' or 'random'.")
+
+    rng = random.Random(random_seed)
+
     by_season: Dict[str, List[SampleGame]] = defaultdict(list)
     for game in candidates:
         by_season[str(game.season)].append(game)
 
     selected: List[SampleGame] = []
+
+    def choose(items: Sequence[SampleGame], count: int) -> List[SampleGame]:
+        if sample_mode == "random":
+            return choose_randomly(items, count, rng)
+        return choose_evenly(items, count)
 
     for season in [str(s) for s in seasons]:
         season_games = sorted(
@@ -477,13 +514,13 @@ def smart_sample_games(
         season_selected: List[SampleGame] = []
         for bucket, count in counts.items():
             bucket_games = sorted(by_bucket.get(bucket, []), key=lambda g: (g.game_date, g.game_id))
-            season_selected.extend(choose_evenly(bucket_games, count))
+            season_selected.extend(choose(bucket_games, count))
 
         # If a season was short in one bucket, top off from all remaining games.
         if len(season_selected) < games_per_season:
             already = {g.game_id for g in season_selected}
             remaining = [g for g in season_games if g.game_id not in already]
-            season_selected.extend(choose_evenly(remaining, games_per_season - len(season_selected)))
+            season_selected.extend(choose(remaining, games_per_season - len(season_selected)))
 
         season_selected = sorted(
             dedupe_sample_games(season_selected),
@@ -680,105 +717,6 @@ def compact_summary_rows(rows: List[Dict[str, Any]], limit: int = 5) -> List[Dic
     return compact
 
 
-
-def truthy(value: Any) -> bool:
-    return str(value).strip().lower() in {"true", "1", "yes", "y"}
-
-
-def falsey(value: Any) -> bool:
-    return str(value).strip().lower() in {"false", "0", "no", "n", "none", "null", ""}
-
-
-def safe_int(value: Any) -> Optional[int]:
-    try:
-        if value is None or value == "":
-            return None
-        return int(value)
-    except Exception:
-        return None
-
-
-def is_week_one(game_week: Any) -> bool:
-    return parse_regular_week(str(game_week or "")) == 1
-
-
-def is_directional_target(value: Any) -> bool:
-    text = str(value or "").strip().lower()
-    return bool(text) and text not in {"none", "no pick", "no strong directional edge", "no clear edge"}
-
-
-def final_margin_bucket(final_margin_abs: Optional[int]) -> str:
-    if final_margin_abs is None:
-        return "unknown"
-    if final_margin_abs == 0:
-        return "tie"
-    if final_margin_abs <= 3:
-        return "close_1_to_3"
-    if final_margin_abs <= 8:
-        return "one_score_4_to_8"
-    if final_margin_abs <= 16:
-        return "material_9_to_16"
-    return "severe_17_plus"
-
-
-def classify_miss_severity(model_result: Any, final_margin_abs: Optional[int]) -> str:
-    if str(model_result or "").strip().lower() != "incorrect":
-        return "not_a_miss"
-    bucket = final_margin_bucket(final_margin_abs)
-    if bucket in {"close_1_to_3", "tie"}:
-        return "close"
-    if bucket == "one_score_4_to_8":
-        return "one_score"
-    if bucket == "material_9_to_16":
-        return "material"
-    if bucket == "severe_17_plus":
-        return "severe"
-    return "unknown"
-
-
-def classify_qa_primary_bucket(row: Dict[str, Any]) -> str:
-    model_result = str(row.get("model_result") or "").strip().lower()
-    raw_confidence = str(row.get("raw_confidence") or row.get("confidence") or "").strip().lower()
-    outcome_code = str(row.get("outcome_confidence_code") or "").strip().lower()
-    outcome_label = str(row.get("outcome_confidence_label") or "").strip().lower()
-    profile_strength = str(row.get("profile_strength_code") or row.get("profile_strength_label") or "").strip().lower()
-    margin_abs = safe_int(row.get("final_margin_abs"))
-    miss_severity = str(row.get("miss_severity") or "").strip().lower()
-
-    if row.get("payload_error"):
-        return "payload_error"
-
-    if row.get("expected_no_prior_data") is True:
-        return "expected_week1_no_prior_data"
-
-    if model_result == "no pick":
-        if margin_abs is None:
-            return "no_pick_unknown_margin"
-        if margin_abs <= 8:
-            return "no_pick_close_game"
-        return "no_pick_wide_margin_review"
-
-    if model_result == "incorrect":
-        if outcome_code == "high" or outcome_label == "high":
-            return "outcome_high_incorrect"
-        if raw_confidence == "high" and (outcome_code == "medium" or outcome_label == "medium"):
-            return "raw_high_but_outcome_medium_incorrect"
-        if "strong" in profile_strength:
-            return "strong_profile_miss"
-        if outcome_code == "medium" or outcome_label == "medium":
-            return "medium_outcome_incorrect"
-        if miss_severity in {"material", "severe"}:
-            return "material_or_severe_miss"
-        return "incorrect_other"
-
-    if model_result == "correct":
-        if outcome_code == "high" or outcome_label == "high":
-            return "outcome_high_correct"
-        return "correct"
-
-    return "unclassified"
-
-
 def extract_snapshot(payload: Dict[str, Any], sample_meta: Optional[SampleGame] = None) -> Dict[str, Any]:
     header = payload.get("header", {}) or {}
     final_score = payload.get("final_score", {}) or {}
@@ -919,38 +857,6 @@ def extract_snapshot(payload: Dict[str, Any], sample_meta: Optional[SampleGame] 
         "payload_error": error,
     }
 
-    final_margin_abs = abs(margin) if margin is not None else None
-    raw_confidence = row.get("confidence")
-    outcome_code = str(row.get("outcome_confidence_code") or "").strip().lower()
-    outcome_label = str(row.get("outcome_confidence_label") or "").strip().lower()
-    raw_confidence_norm = str(raw_confidence or "").strip().lower()
-    model_result_norm = str(row.get("model_result") or "").strip().lower()
-    ranking_available = truthy(row.get("ranking_available"))
-    breakdown_available = truthy(row.get("matchup_breakdown_available"))
-    has_turnover_margin = truthy(row.get("has_turnover_margin_per_game"))
-
-    expected_no_prior_data = (
-        is_week_one(row.get("game_week"))
-        and not ranking_available
-        and str(row.get("ranking_reason") or "").strip().lower() in {"no_ranking_rows_found", "no ranking rows found"}
-    )
-
-    row.update({
-        "raw_confidence": raw_confidence,
-        "final_margin_abs": final_margin_abs,
-        "final_margin_bucket": final_margin_bucket(final_margin_abs),
-        "miss_severity": classify_miss_severity(row.get("model_result"), final_margin_abs),
-        "expected_no_prior_data": expected_no_prior_data,
-        "ranking_missing_unexpected": (not ranking_available) and not expected_no_prior_data,
-        "matchup_breakdown_missing_unexpected": (not breakdown_available) and not expected_no_prior_data,
-        "turnover_margin_missing_unexpected": (not has_turnover_margin) and not expected_no_prior_data,
-        "is_raw_high": raw_confidence_norm == "high",
-        "is_outcome_high": outcome_code == "high" or outcome_label == "high",
-        "is_raw_high_but_outcome_medium": raw_confidence_norm == "high" and (outcome_code == "medium" or outcome_label == "medium"),
-        "is_directional_lean": is_directional_target(row.get("target_team")),
-    })
-    row["qa_primary_bucket"] = classify_qa_primary_bucket(row)
-
     return row
 
 
@@ -1074,110 +980,6 @@ def markdown_table(rows: List[Dict[str, Any]], columns: List[str], max_rows: int
     return "\n".join(lines) + "\n"
 
 
-
-def build_review_flags(snapshots: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    def model_result_is(row: Dict[str, Any], value: str) -> bool:
-        return str(row.get("model_result") or "").strip().lower() == value.lower()
-
-    def bucket_is(row: Dict[str, Any], value: str) -> bool:
-        return str(row.get("qa_primary_bucket") or "") == value
-
-    flags = {
-        "outcome_high_incorrect": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and truthy(r.get("is_outcome_high"))
-        ],
-        "raw_high_incorrect": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and str(r.get("raw_confidence") or r.get("confidence") or "").lower() == "high"
-        ],
-        "raw_high_but_outcome_medium_incorrect": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and truthy(r.get("is_raw_high_but_outcome_medium"))
-        ],
-        "strong_profile_miss": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect")
-            and "strong" in str(r.get("profile_strength_code") or r.get("profile_strength_label") or "").lower()
-        ],
-        "medium_outcome_incorrect": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect")
-            and str(r.get("outcome_confidence_code") or r.get("outcome_confidence_label") or "").lower() == "medium"
-        ],
-        "close_miss": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and str(r.get("miss_severity") or "") == "close"
-        ],
-        "material_or_severe_miss": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and str(r.get("miss_severity") or "") in {"material", "severe"}
-        ],
-        "severe_miss": [
-            r for r in snapshots
-            if model_result_is(r, "incorrect") and str(r.get("miss_severity") or "") == "severe"
-        ],
-        "no_pick_games": [
-            r for r in snapshots
-            if model_result_is(r, "no pick")
-        ],
-        "no_pick_close_game": [
-            r for r in snapshots
-            if bucket_is(r, "no_pick_close_game")
-        ],
-        "no_pick_wide_margin_review": [
-            r for r in snapshots
-            if bucket_is(r, "no_pick_wide_margin_review")
-        ],
-        "low_confidence_directional_lean": [
-            r for r in snapshots
-            if str(r.get("raw_confidence") or r.get("confidence") or "").lower() == "low"
-            and truthy(r.get("is_directional_lean"))
-        ],
-        "expected_week1_no_prior_data": [
-            r for r in snapshots
-            if truthy(r.get("expected_no_prior_data"))
-        ],
-        "unexpected_missing_ranking_context": [
-            r for r in snapshots
-            if truthy(r.get("ranking_missing_unexpected"))
-        ],
-        "unexpected_missing_matchup_breakdown": [
-            r for r in snapshots
-            if truthy(r.get("matchup_breakdown_missing_unexpected"))
-        ],
-        "unexpected_missing_turnover_margin_per_game": [
-            r for r in snapshots
-            if truthy(r.get("turnover_margin_missing_unexpected"))
-        ],
-    }
-    return flags
-
-
-def review_bucket_count_rows(snapshots: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    rows = []
-    for bucket, count in count_by(snapshots, "qa_primary_bucket").items():
-        rows.append({"qa_primary_bucket": bucket, "count": count})
-    return rows
-
-
-def outcome_calibration_rows(snapshots: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    counts: Counter[Tuple[str, str]] = Counter()
-    for row in snapshots:
-        outcome = str(row.get("outcome_confidence_label") or row.get("outcome_confidence_code") or "missing")
-        result = str(row.get("model_result") or "missing")
-        counts[(outcome, result)] += 1
-
-    rows = []
-    for (outcome, result), count in sorted(counts.items(), key=lambda item: (item[0][0], item[0][1])):
-        rows.append({
-            "outcome_confidence": outcome,
-            "model_result": result,
-            "count": count,
-        })
-    return rows
-
-
 def build_review_markdown(
     *,
     output_dir: Path,
@@ -1190,13 +992,22 @@ def build_review_markdown(
     total = len(sampled_games)
     ok = len(snapshots)
     failed = len(errors)
-    flags = build_review_flags(snapshots)
 
-    unexpected_missing = (
-        flags["unexpected_missing_ranking_context"]
-        + flags["unexpected_missing_matchup_breakdown"]
-        + flags["unexpected_missing_turnover_margin_per_game"]
-    )
+    high_conf_incorrect = [
+        r for r in snapshots
+        if str(r.get("confidence") or "").lower() == "high"
+        and str(r.get("model_result") or "").lower() == "incorrect"
+    ]
+    no_pick_games = [r for r in snapshots if str(r.get("model_result") or "").lower() == "no pick"]
+    low_conf_edges = [
+        r for r in snapshots
+        if str(r.get("confidence") or "").lower() == "low"
+        and r.get("target_team")
+        and str(r.get("target_team")) not in {"None", "No Pick", "No strong directional edge"}
+    ]
+    missing_rankings = [r for r in snapshots if str(r.get("ranking_available")).lower() not in {"true", "1"}]
+    missing_breakdown = [r for r in snapshots if str(r.get("matchup_breakdown_available")).lower() not in {"true", "1"}]
+    missing_turnover = [r for r in snapshots if str(r.get("has_turnover_margin_per_game")).lower() not in {"true", "1"}]
 
     lines: List[str] = []
     lines.append("# GameLens QA Payload Run")
@@ -1247,39 +1058,17 @@ def build_review_markdown(
     output_dist_rows = []
     for field in [
         "confidence",
-        "raw_confidence",
         "model_result",
         "profile_type",
         "matchup_label",
         "profile_strength_label",
         "outcome_confidence_label",
-        "final_margin_bucket",
-        "miss_severity",
         "edge_strength",
         "signal_alignment_code",
-        "qa_primary_bucket",
     ]:
         for value, count in count_by(snapshots, field).items():
             output_dist_rows.append({"field": field, "value": value, "count": count})
-    lines.append(markdown_table(output_dist_rows, ["field", "value", "count"], max_rows=150))
-    lines.append("")
-
-    lines.append("## Outcome Confidence Calibration")
-    lines.append("")
-    lines.append(markdown_table(
-        outcome_calibration_rows(snapshots),
-        ["outcome_confidence", "model_result", "count"],
-        max_rows=80,
-    ))
-    lines.append("")
-
-    lines.append("## Review Bucket Counts")
-    lines.append("")
-    lines.append(markdown_table(
-        review_bucket_count_rows(snapshots),
-        ["qa_primary_bucket", "count"],
-        max_rows=80,
-    ))
+    lines.append(markdown_table(output_dist_rows, ["field", "value", "count"], max_rows=100))
     lines.append("")
 
     lines.append("## Games Selected")
@@ -1290,83 +1079,58 @@ def build_review_markdown(
     lines.append("## Review Queues")
     lines.append("")
 
-    key_columns = [
-        "game_id", "away", "home", "final_away_total", "final_home_total",
-        "target_team", "raw_confidence", "outcome_confidence_label", "matchup_label",
-        "final_margin_abs", "miss_severity", "qa_primary_bucket", "reasoning_headline",
-    ]
-
-    lines.append("### True High Outcome Confidence Misses")
-    lines.append("")
-    lines.append(markdown_table(flags["outcome_high_incorrect"], key_columns, max_rows=40))
-    lines.append("")
-
-    lines.append("### Raw High But Softened To Medium Misses")
-    lines.append("")
-    lines.append(markdown_table(flags["raw_high_but_outcome_medium_incorrect"], key_columns, max_rows=40))
-    lines.append("")
-
-    lines.append("### Raw High Incorrect")
-    lines.append("")
-    lines.append(markdown_table(flags["raw_high_incorrect"], key_columns, max_rows=40))
-    lines.append("")
-
-    lines.append("### Material / Severe Misses")
-    lines.append("")
-    lines.append(markdown_table(flags["material_or_severe_miss"], key_columns, max_rows=40))
-    lines.append("")
-
-    lines.append("### Close Misses")
-    lines.append("")
-    lines.append(markdown_table(flags["close_miss"], key_columns, max_rows=40))
-    lines.append("")
-
-    lines.append("### No Pick Wide-Margin Review")
+    lines.append("### High Confidence Incorrect")
     lines.append("")
     lines.append(markdown_table(
-        flags["no_pick_wide_margin_review"],
-        ["game_id", "away", "home", "final_away_total", "final_home_total", "final_margin_abs", "core_area_split", "edge_strength", "signal_gap", "reasoning_headline"],
-        max_rows=40,
+        high_conf_incorrect,
+        ["game_id", "away", "home", "final_away_total", "final_home_total", "target_team", "confidence", "matchup_label", "profile_type", "reasoning_headline"],
+        max_rows=30,
     ))
     lines.append("")
 
-    lines.append("### No Pick Close Games")
+    lines.append("### No Pick Games")
     lines.append("")
     lines.append(markdown_table(
-        flags["no_pick_close_game"],
-        ["game_id", "away", "home", "final_away_total", "final_home_total", "final_margin_abs", "core_area_split", "edge_strength", "signal_gap", "reasoning_headline"],
-        max_rows=60,
+        no_pick_games,
+        ["game_id", "away", "home", "final_away_total", "final_home_total", "confidence", "profile_type", "matchup_label", "reasoning_headline"],
+        max_rows=40,
     ))
     lines.append("")
 
     lines.append("### Low Confidence But Directional Lean")
     lines.append("")
     lines.append(markdown_table(
-        flags["low_confidence_directional_lean"],
-        ["game_id", "away", "home", "target_team", "raw_confidence", "outcome_confidence_label", "profile_type", "matchup_label", "matchup_cautions_json"],
+        low_conf_edges,
+        ["game_id", "away", "home", "target_team", "confidence", "profile_type", "matchup_label", "matchup_cautions_json"],
         max_rows=40,
     ))
     lines.append("")
 
-    lines.append("### Expected Week 1 / No Prior Data")
+    lines.append("### Missing Ranking Context")
     lines.append("")
     lines.append(markdown_table(
-        flags["expected_week1_no_prior_data"],
-        ["game_id", "season", "game_week", "ranking_available", "ranking_reason", "matchup_breakdown_available", "has_turnover_margin_per_game"],
+        missing_rankings,
+        ["game_id", "season", "game_week", "ranking_available", "ranking_reason"],
         max_rows=40,
     ))
     lines.append("")
 
-    lines.append("### Unexpected Missing Data Sections")
+    lines.append("### Missing Matchup Breakdown")
     lines.append("")
-    if unexpected_missing:
-        lines.append(markdown_table(
-            unexpected_missing,
-            ["game_id", "season", "game_week", "ranking_missing_unexpected", "matchup_breakdown_missing_unexpected", "turnover_margin_missing_unexpected", "ranking_reason"],
-            max_rows=80,
-        ))
-    else:
-        lines.append("_None._\n")
+    lines.append(markdown_table(
+        missing_breakdown,
+        ["game_id", "season", "game_week", "matchup_breakdown_available"],
+        max_rows=40,
+    ))
+    lines.append("")
+
+    lines.append("### Missing Turnover Margin / Game In Visible Team Comparison")
+    lines.append("")
+    lines.append(markdown_table(
+        missing_turnover,
+        ["game_id", "season", "game_week", "has_turnover_margin_per_game"],
+        max_rows=40,
+    ))
     lines.append("")
 
     if errors:
@@ -1384,15 +1148,8 @@ def build_review_markdown(
         lines.append("")
         lines.append(markdown_table(
             changed,
-            [
-                "game_id", "changed_fields",
-                "before_confidence", "after_confidence",
-                "before_outcome_confidence_label", "after_outcome_confidence_label",
-                "before_matchup_label", "after_matchup_label",
-                "before_qa_primary_bucket", "after_qa_primary_bucket",
-                "before_model_result", "after_model_result",
-            ],
-            max_rows=80,
+            ["game_id", "changed_fields", "before_confidence", "after_confidence", "before_matchup_label", "after_matchup_label", "before_model_result", "after_model_result"],
+            max_rows=60,
         ))
         lines.append("")
 
@@ -1400,11 +1157,11 @@ def build_review_markdown(
     lines.append("")
     lines.append("Use this run to ask:")
     lines.append("")
-    lines.append("- Are true High Outcome Confidence misses actually scary, or mostly close-game variance?")
-    lines.append("- Are raw High confidence games being softened correctly by `outcome_confidence`?")
-    lines.append("- Are No Pick games showing useful restraint, or hiding wide-margin missed opportunities?")
-    lines.append("- Are Week 1 missing rankings expected no-prior-data cases rather than real data failures?")
-    lines.append("- Are `matchup_label`, `profile_strength`, and `outcome_confidence` aligned with the final explanation?")
+    lines.append("- Are confidence labels too loud, too cautious, or about right?")
+    lines.append("- Do `matchup_label`, `profile_strength`, and `outcome_confidence` agree with each other?")
+    lines.append("- Are No Pick games showing useful restraint?")
+    lines.append("- Are high-confidence misses close/variance misses or true calibration failures?")
+    lines.append("- Are `matchup_breakdown` summaries explaining the matchup, or just repeating counts?")
     lines.append("- Are context-only metrics staying out of headline language?")
     lines.append("")
 
@@ -1419,7 +1176,6 @@ def build_analysis_packet(
     errors: List[Dict[str, Any]],
     compare_rows: Optional[List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
-    flags = build_review_flags(snapshots)
     return {
         "run_metadata": run_metadata,
         "sampled_games": [asdict(g) for g in sampled_games],
@@ -1430,16 +1186,29 @@ def build_analysis_packet(
             "by_season": count_by([asdict(g) for g in sampled_games], "season"),
             "by_bucket": count_by([asdict(g) for g in sampled_games], "bucket"),
             "confidence_distribution": count_by(snapshots, "confidence"),
-            "raw_confidence_distribution": count_by(snapshots, "raw_confidence"),
-            "outcome_confidence_distribution": count_by(snapshots, "outcome_confidence_label"),
             "model_result_distribution": count_by(snapshots, "model_result"),
             "profile_type_distribution": count_by(snapshots, "profile_type"),
             "matchup_label_distribution": count_by(snapshots, "matchup_label"),
-            "qa_primary_bucket_distribution": count_by(snapshots, "qa_primary_bucket"),
-            "miss_severity_distribution": count_by(snapshots, "miss_severity"),
-            "final_margin_bucket_distribution": count_by(snapshots, "final_margin_bucket"),
         },
-        "review_flags": flags,
+        "review_flags": {
+            "high_confidence_incorrect": [
+                r for r in snapshots
+                if str(r.get("confidence") or "").lower() == "high"
+                and str(r.get("model_result") or "").lower() == "incorrect"
+            ],
+            "no_pick_games": [
+                r for r in snapshots
+                if str(r.get("model_result") or "").lower() == "no pick"
+            ],
+            "missing_ranking_context": [
+                r for r in snapshots
+                if str(r.get("ranking_available")).lower() not in {"true", "1"}
+            ],
+            "missing_matchup_breakdown": [
+                r for r in snapshots
+                if str(r.get("matchup_breakdown_available")).lower() not in {"true", "1"}
+            ],
+        },
         "snapshots": snapshots,
         "errors": errors,
         "compare_to_previous": compare_rows or [],
@@ -1501,6 +1270,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seasons", nargs="+", default=DEFAULT_SEASONS, help="Seasons to sample when no explicit game list is provided.")
     parser.add_argument("--games-per-season", type=int, default=DEFAULT_GAMES_PER_SEASON, help="Number of games to sample per season.")
     parser.add_argument("--include-preseason", action="store_true", help="Include preseason games as a small part of the sample.")
+    parser.add_argument(
+        "--sample-mode",
+        choices=["even", "random"],
+        default="even",
+        help="Sampling mode when selecting from BigQuery schedule. 'even' preserves old deterministic behavior; 'random' uses --random-seed.",
+    )
+    parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=None,
+        help="Seed for --sample-mode random. Use this for repeatable fresh samples.",
+    )
     parser.add_argument("--project-id", default=PROJECT_ID, help="Google Cloud project id for BigQuery sampling.")
     parser.add_argument("--schedule-table", default=SCHEDULE_TABLE, help="Fully qualified BigQuery schedule table.")
 
@@ -1549,6 +1330,8 @@ def select_games(args: argparse.Namespace) -> List[SampleGame]:
         seasons=[str(s) for s in args.seasons],
         games_per_season=args.games_per_season,
         include_preseason=args.include_preseason,
+        sample_mode=args.sample_mode,
+        random_seed=args.random_seed,
     )
 
 
@@ -1579,6 +1362,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "seasons": [str(s) for s in args.seasons],
         "games_per_season": args.games_per_season,
         "include_preseason": args.include_preseason,
+        "sample_mode": args.sample_mode,
+        "random_seed": args.random_seed,
         "project_id": args.project_id,
         "schedule_table": args.schedule_table,
         "sample_file": args.sample_file,
@@ -1595,6 +1380,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print("\nGameLens QA payload collector")
     print("--------------------------------")
     print(f"Output folder: {output_dir}")
+    print(f"Sample mode: {args.sample_mode}")
+    print(f"Random seed: {args.random_seed}")
     print(f"Games selected: {len(sampled_games)}")
     print("Sample distribution:")
     for key, count in count_by([asdict(g) for g in sampled_games], "season").items():

@@ -1,10 +1,10 @@
 """
 Update GameLens claim training examples with Level 3 engineered feature scores.
 
-V5 keeps scoped offense_finish_score and requires Defensive Control for defensive_suppression_score.
+V6 keeps scoped offense_finish_score, requires Defensive Control for defensive_suppression_score, and adds two_way_context.
 
 Recommended repo location:
-    agg/update_gamelens_claim_training_features_v5.py
+    agg/gamelens_training/update_claim_training_features.py
 
 Purpose:
     Level 3 job for GameLens feature engineering.
@@ -14,7 +14,7 @@ Purpose:
     Level 3 begins adding pregame-only engineered features that can later help
     predict claim quality and calibrate language.
 
-This v5 computes:
+This worker computes:
     offense_finish_score
     defensive_suppression_score
 
@@ -37,12 +37,12 @@ Score meaning:
         Negative = opponent had the stronger offensive finish profile.
 
 Example dry run:
-    python -m agg.update_gamelens_claim_training_features_v5 \
+    python -m agg.gamelens_training.update_claim_training_features \
       --run-id baseline_96_stage1_v2 \
       --dry-run
 
 Example BigQuery update:
-    python -m agg.update_gamelens_claim_training_features_v5 \
+    python -m agg.gamelens_training.update_claim_training_features \
       --run-id baseline_96_stage1_v2 \
       --write-bigquery
 """
@@ -62,7 +62,7 @@ PROJECT_ID = "nfl-stream-406420"
 DATASET_ID = "Analytics"
 TRAINING_TABLE = "gamelens_claim_training_examples"
 DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_feature_update_runs")
-DEFAULT_FORMULA_VERSION = "offense_finish_v2__defensive_suppression_v3_control_required"
+DEFAULT_FORMULA_VERSION = "offense_finish_v2__defensive_suppression_v3__two_way_context_v1"
 
 REQUIRED_CORE_AREAS = ("Offensive Output", "Scoring Efficiency", "Defensive Control")
 
@@ -166,6 +166,8 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "scoring_efficiency_away_edge",
         "defensive_suppression_score",
         "defensive_suppression_relevance_reason",
+        "two_way_edge_score",
+        "two_way_context",
         "away_defensive_suppression_score",
         "home_defensive_suppression_score",
         "defensive_control_away_edge",
@@ -567,6 +569,64 @@ def strip_prior_level3_notes(notes: Optional[str]) -> str:
 
 
 
+def calculate_two_way_edge_score(
+    *,
+    offense_finish_score: Optional[float],
+    defensive_suppression_score: Optional[float],
+) -> Optional[float]:
+    """
+    Compute a simple two-way edge score from side-level feature context.
+
+    v1 rule:
+        If both offense_finish_score and defensive_suppression_score exist:
+            two_way_edge_score = min(offense_finish_score, defensive_suppression_score)
+
+        Else:
+            NULL
+
+    Why min()?
+        A two-way profile is only as strong as its weaker side. This prevents
+        a great offense score from hiding missing/weak defensive suppression,
+        and vice versa.
+    """
+    if offense_finish_score is None or defensive_suppression_score is None:
+        return None
+    return round(min(offense_finish_score, defensive_suppression_score), 4)
+
+
+def calculate_two_way_context(
+    *,
+    offense_finish_score: Optional[float],
+    defensive_suppression_score: Optional[float],
+) -> str:
+    """
+    Categorize side-level two-way context.
+
+    QA finding:
+        The reliable signal was not "strong + strong always wins."
+        The reliable signal was that claims, especially metric_highlight rows,
+        validated better when both offense and defensive context were available
+        and supportive.
+
+    Buckets:
+        supportive:
+            offense_finish_score >= 0.15 and defensive_suppression_score >= 0.15
+
+        available_mixed:
+            both scores exist, but they are not both supportive
+
+        unavailable:
+            either score is missing
+    """
+    if offense_finish_score is None or defensive_suppression_score is None:
+        return "unavailable"
+
+    if offense_finish_score >= 0.15 and defensive_suppression_score >= 0.15:
+        return "supportive"
+
+    return "available_mixed"
+
+
 def build_feature_updates(
     training_rows: List[Dict[str, Any]],
     *,
@@ -661,6 +721,28 @@ def build_feature_updates(
             side="home",
         )
 
+        # -------------------------
+        # Two-way context feature
+        # -------------------------
+        if claimed_side == "away":
+            side_offense_score = away_offense_score
+            side_defense_score = away_defense_score
+        elif claimed_side == "home":
+            side_offense_score = home_offense_score
+            side_defense_score = home_defense_score
+        else:
+            side_offense_score = None
+            side_defense_score = None
+
+        two_way_edge_score = calculate_two_way_edge_score(
+            offense_finish_score=side_offense_score,
+            defensive_suppression_score=side_defense_score,
+        )
+        two_way_context = calculate_two_way_context(
+            offense_finish_score=side_offense_score,
+            defensive_suppression_score=side_defense_score,
+        )
+
         defense_relevance_reason = defensive_suppression_relevance_reason(row)
 
         if defense_relevance_reason is None:
@@ -707,7 +789,12 @@ def build_feature_updates(
                 "required Defensive Control comparison row was missing; metric-only fallback intentionally disabled."
             )
 
-        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + offense_note + defensive_note
+        two_way_note = (
+            " | Level 3 v6: two_way_context computed from side-level offense_finish_score "
+            "and defensive_suppression_score; intended as reasoning support, not a standalone prediction score."
+        )
+
+        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + offense_note + defensive_note + two_way_note
 
         updates.append({
             "run_id": row.get("run_id"),
@@ -731,6 +818,8 @@ def build_feature_updates(
 
             "defensive_suppression_score": defensive_score,
             "defensive_suppression_relevance_reason": defense_relevance_reason,
+            "two_way_edge_score": two_way_edge_score,
+            "two_way_context": two_way_context,
             "away_defensive_suppression_score": away_defense_score,
             "home_defensive_suppression_score": home_defense_score,
             "defensive_control_away_edge": defensive_control_away_edge,
@@ -756,6 +845,8 @@ def feature_update_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("claim_key", "STRING"),
         bigquery.SchemaField("offense_finish_score", "FLOAT"),
         bigquery.SchemaField("defensive_suppression_score", "FLOAT"),
+        bigquery.SchemaField("two_way_edge_score", "FLOAT"),
+        bigquery.SchemaField("two_way_context", "STRING"),
         bigquery.SchemaField("feature_formula_version", "STRING"),
         bigquery.SchemaField("feature_notes", "STRING"),
         bigquery.SchemaField("updated_at", "TIMESTAMP"),
@@ -785,6 +876,8 @@ def update_bigquery_rows(
             "claim_key": row["claim_key"],
             "offense_finish_score": row["offense_finish_score"],
             "defensive_suppression_score": row["defensive_suppression_score"],
+            "two_way_edge_score": row["two_way_edge_score"],
+            "two_way_context": row["two_way_context"],
             "feature_formula_version": row["feature_formula_version"],
             "feature_notes": row["feature_notes"],
             "updated_at": row["updated_at"],
@@ -808,6 +901,8 @@ def update_bigquery_rows(
         WHEN MATCHED THEN UPDATE SET
             offense_finish_score = S.offense_finish_score,
             defensive_suppression_score = S.defensive_suppression_score,
+            two_way_edge_score = S.two_way_edge_score,
+            two_way_context = S.two_way_context,
             feature_formula_version = S.feature_formula_version,
             feature_notes = S.feature_notes,
             updated_at = S.updated_at
@@ -846,6 +941,9 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     defense_relevance_counts: Dict[str, int] = {}
     defense_non_null_scores = []
 
+    two_way_context_counts: Dict[str, int] = {}
+    two_way_non_null_scores = []
+
     for row in update_rows:
         offense_bucket = bucket_score(row.get("offense_finish_score"))
         offense_bucket_counts[offense_bucket] = offense_bucket_counts.get(offense_bucket, 0) + 1
@@ -866,6 +964,12 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         if row.get("defensive_suppression_score") is not None:
             defense_non_null_scores.append(row["defensive_suppression_score"])
+
+        two_way_context_value = row.get("two_way_context") or "NULL"
+        two_way_context_counts[two_way_context_value] = two_way_context_counts.get(two_way_context_value, 0) + 1
+
+        if row.get("two_way_edge_score") is not None:
+            two_way_non_null_scores.append(row["two_way_edge_score"])
 
     offense_relevant_rows = [r for r in update_rows if r.get("offense_finish_relevance_reason")]
     offense_relevant_missing = [
@@ -904,6 +1008,13 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "avg_defensive_suppression_score": round(sum(defense_non_null_scores) / len(defense_non_null_scores), 4) if defense_non_null_scores else None,
         "defensive_score_bucket_distribution": dict(sorted(defense_bucket_counts.items())),
         "defensive_relevance_reason_distribution": dict(sorted(defense_relevance_counts.items())),
+
+        "rows_with_two_way_edge_score": len(two_way_non_null_scores),
+        "rows_missing_two_way_edge_score": len(update_rows) - len(two_way_non_null_scores),
+        "min_two_way_edge_score": min(two_way_non_null_scores) if two_way_non_null_scores else None,
+        "max_two_way_edge_score": max(two_way_non_null_scores) if two_way_non_null_scores else None,
+        "avg_two_way_edge_score": round(sum(two_way_non_null_scores) / len(two_way_non_null_scores), 4) if two_way_non_null_scores else None,
+        "two_way_context_distribution": dict(sorted(two_way_context_counts.items())),
     }
 
 
@@ -912,7 +1023,7 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores. V5 requires Defensive Control for defensive_suppression_score.")
+    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores. Adds two_way_context.")
     parser.add_argument("--run-id", required=True, help="run_id in Analytics.gamelens_claim_training_examples.")
     parser.add_argument("--project-id", default=PROJECT_ID)
     parser.add_argument("--training-table", default=f"{PROJECT_ID}.{DATASET_ID}.{TRAINING_TABLE}")
@@ -959,6 +1070,8 @@ def main() -> int:
     print(f"Rows missing offense_finish_score: {summary['rows_missing_offense_finish_score']}")
     print(f"Rows with defensive_suppression_score: {summary['rows_with_defensive_suppression_score']}")
     print(f"Rows missing defensive_suppression_score: {summary['rows_missing_defensive_suppression_score']}")
+    print(f"Rows with two_way_edge_score: {summary['rows_with_two_way_edge_score']}")
+    print(f"Rows missing two_way_edge_score: {summary['rows_missing_two_way_edge_score']}")
     print(f"Preview CSV: {output_dir / 'feature_update_preview.csv'}")
     print(f"Summary JSON: {output_dir / 'summary.json'}")
 
