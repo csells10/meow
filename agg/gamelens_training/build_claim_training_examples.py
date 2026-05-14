@@ -1,8 +1,6 @@
 """
 Build GameLens claim training examples from saved GameLens payload JSON files.
 
-V2 adds richer numeric context for core area and summary claims.
-
 Recommended repo location:
     agg/build_gamelens_claim_training_examples_v2.py
 
