@@ -1656,14 +1656,26 @@ def build_model_outcome(matchup_lean: dict, final_score: dict, header: dict):
     away = header["away_team"]["abbreviation"]
     home = header["home_team"]["abbreviation"]
 
-    predicted = matchup_lean.get("target_team", "").replace(" edge", "")
+    predicted = matchup_lean.get("target_team", "").replace(" edge", "").strip()
 
     away_total = final_score["away"]["total"]
     home_total = final_score["home"]["total"]
 
-    actual_winner = away if away_total > home_total else home
+    if away_total is None or home_total is None:
+        return None
 
-    if predicted not in [away, home]:
+    is_tie = away_total == home_total
+
+    if is_tie:
+        actual_winner = "TIE"
+    elif away_total > home_total:
+        actual_winner = away
+    else:
+        actual_winner = home
+
+    if is_tie:
+        result = "No Decision"
+    elif predicted not in [away, home]:
         result = "No Pick"
     elif predicted == actual_winner:
         result = "Correct"
@@ -1673,9 +1685,14 @@ def build_model_outcome(matchup_lean: dict, final_score: dict, header: dict):
     return {
         "result": result,
         "actual_winner": actual_winner,
-        "predicted_team": predicted,
+        "predicted_team": predicted if predicted in [away, home] else None,
+        "is_tie": is_tie,
+        "outcome_note": (
+            "Final score was tied, so model accuracy is not graded."
+            if is_tie
+            else None
+        ),
     }
-
 
 # =========================
 # BIGQUERY SAVE LOGIC
@@ -1736,6 +1753,8 @@ def save_model_results(header, matchup_lean, model_outcome, model_trust):
         result_code = "incorrect"
     elif result_lower == "no pick":
         result_code = "no_pick"
+    elif result_lower in {"tie", "push", "no decision", "no_decision"}:
+        result_code = "tie"
     else:
         result_code = "unknown"
 

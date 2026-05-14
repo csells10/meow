@@ -159,6 +159,9 @@ def build_learning_label(model_outcome: dict) -> str:
 
     if result == "no pick":
         return "Neutral — model avoided low-confidence scenario"
+    
+    if result in {"tie", "push", "no decision", "no_decision"}:
+        return "Tie game — model accuracy not graded"
 
     return "Outcome not available yet"
 
