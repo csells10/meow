@@ -7,6 +7,9 @@ from queries.game_queries import (
 )
 from services.model_trust_service import build_model_trust
 from services.core_area_analysis import build_core_area_comparison
+from services.claim_language_features import build_runtime_two_way_context_by_side
+from services.claim_language_response import apply_claim_language_support_to_response_sections
+
 from utils.logging_setup import log_event
 from google.cloud import bigquery
 from datetime import datetime, timezone
@@ -1852,6 +1855,82 @@ def save_model_results(header, matchup_lean, model_outcome, model_trust):
         if detail_errors:
             raise RuntimeError(f"Failed to insert model trust details: {detail_errors}")
 
+def build_unavailable_game_details_response(reason: str) -> dict:
+    """
+    Build a stable empty /game response when the requested game cannot be loaded.
+
+    Keeping this in one helper avoids having a large inline return object inside
+    get_game_details().
+    """
+
+    return {
+        "header": {},
+        "final_score": None,
+        "game_profile": [],
+        "matchup_lean": {},
+        "model_outcome": None,
+        "model_trust": {
+            "reasoning": {
+                "headline": None,
+                "summary": None,
+                "has_content": False,
+                "drivers": [],
+            },
+            "matchup_advantage": {},
+            "edge": {},
+            "signal_alignment": {},
+            "learning_label": "Outcome not available yet",
+        },
+        "team_comparison": [],
+        "core_area_comparison": [],
+        "ranking_context": {
+            "available": False,
+            "reason": reason,
+        },
+        "claim_language_context": {
+            "available": False,
+            "reason": reason,
+            "scope": "claim_language_support",
+            "two_way_context_by_side": {},
+        },
+        "matchup_breakdown": {
+            "available": False,
+            "reason": reason,
+            "metric_highlights": [],
+            "category_summaries": [],
+            "core_area_summaries": [],
+            "context_notes": [],
+            "freshness": {},
+        },
+    }
+
+
+def build_claim_language_context(
+    *,
+    core_area_comparison: list,
+    team_comparison: list,
+) -> dict:
+    """
+    Build runtime claim-language context for /game.
+
+    Important:
+    - This is claim-language support only.
+    - This does not affect winner pick logic.
+    - This does not affect outcome confidence.
+    - This does not change model_trust.
+    """
+
+    two_way_context_by_side = build_runtime_two_way_context_by_side(
+        core_area_comparison=core_area_comparison,
+        team_comparison=team_comparison,
+    )
+
+    return {
+        "available": True,
+        "scope": "claim_language_support",
+        "two_way_context_by_side": two_way_context_by_side,
+    }
+
 
 # =========================
 # MAIN FUNCTION
@@ -1864,49 +1943,24 @@ def get_game_details(game_id: str) -> dict:
     Backend owns all matchup/model logic.
     Frontend should render the structured response directly.
 
-    This version adds:
+    This version includes:
     - ranking_context
     - matchup_breakdown
     - profile_strength / outcome_confidence inside matchup_lean
+    - claim_language_context for runtime claim-language support
+    - language_support annotations on response-only sections
+
+    Important:
+    language_support annotations are applied after model logic is built.
+    They do not change matchup_lean, model_outcome, or model_trust.
     """
 
     header = get_game_header(game_id)
 
     if not header:
-        return {
-            "header": {},
-            "final_score": None,
-            "game_profile": [],
-            "matchup_lean": {},
-            "model_outcome": None,
-            "model_trust": {
-                "reasoning": {
-                    "headline": None,
-                    "summary": None,
-                    "has_content": False,
-                    "drivers": [],
-                },
-                "matchup_advantage": {},
-                "edge": {},
-                "signal_alignment": {},
-                "learning_label": "Outcome not available yet",
-            },
-            "team_comparison": [],
-            "core_area_comparison": [],
-            "ranking_context": {
-                "available": False,
-                "reason": "missing_game_header",
-            },
-            "matchup_breakdown": {
-                "available": False,
-                "reason": "missing_game_header",
-                "metric_highlights": [],
-                "category_summaries": [],
-                "core_area_summaries": [],
-                "context_notes": [],
-                "freshness": {},
-            },
-        }
+        return build_unavailable_game_details_response(
+            reason="missing_game_header"
+        )
 
     away_metrics, home_metrics = get_team_metrics(game_id)
     final_score = get_final_score(game_id)
@@ -1934,6 +1988,11 @@ def get_game_details(game_id: str) -> dict:
         away_metrics=away_metrics,
         home_metrics=home_metrics,
         header=header,
+    )
+
+    claim_language_context = build_claim_language_context(
+        core_area_comparison=core_area_comparison,
+        team_comparison=team_comparison,
     )
 
     game_profile = build_game_profile(
@@ -1969,6 +2028,17 @@ def get_game_details(game_id: str) -> dict:
         header=header,
     )
 
+    # Response-only annotation.
+    # This does not feed back into matchup_lean/model_outcome/model_trust.
+    annotated_response_sections = apply_claim_language_support_to_response_sections(
+        team_comparison=team_comparison,
+        matchup_breakdown=matchup_breakdown,
+        claim_language_context=claim_language_context,
+    )
+
+    response_team_comparison = annotated_response_sections["team_comparison"]
+    response_matchup_breakdown = annotated_response_sections["matchup_breakdown"]
+
     game_status = str(header.get("game_status") or "").lower()
 
     if game_status in {"final", "final/ot"}:
@@ -1992,8 +2062,9 @@ def get_game_details(game_id: str) -> dict:
             "signal_alignment": model_trust.get("signal_alignment", {}),
             "learning_label": model_trust.get("learning_label"),
         },
-        "team_comparison": team_comparison,
+        "team_comparison": response_team_comparison,
         "core_area_comparison": core_area_comparison,
         "ranking_context": ranking_context,
-        "matchup_breakdown": matchup_breakdown,
+        "claim_language_context": claim_language_context,
+        "matchup_breakdown": response_matchup_breakdown,
     }
