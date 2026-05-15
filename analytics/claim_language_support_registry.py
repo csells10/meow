@@ -18,6 +18,7 @@ A claim may receive stronger wording only when:
 3. the metric is allowlisted for that surface
 """
 
+from __future__ import annotations
 
 LANGUAGE_SUPPORT_REASON = (
     "supported_by_offensive_finish_and_defensive_suppression_context"
