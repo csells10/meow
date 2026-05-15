@@ -353,3 +353,48 @@ Return:
 - safest next frontend candidate
 - what should stay hidden
 - risks of overloading the page
+
+
+
+/game API usage audit (post v1.7.11)
+Field-by-field
+ranking_context — 6. ignore for now. Not present in GameDetails type, not read anywhere. Without seeing payload shape it's unclear if it's percentile rank, league-wide context, or admin metadata. Defer until backend confirms intent.
+
+matchup_breakdown.metric_highlights — 3. unused but good user-facing candidate. Not typed, not rendered. Likely the cleanest "specific stat that drove this" payload. Best home: inline expansion inside each grouped row in What's shaping this matchup, OR as the source of truth for the existing "Key inputs:" line (replacing the current driver-label scrape). Do not make a new section.
+
+matchup_breakdown.core_area_summaries — 3. unused but good user-facing candidate. Natural fit under Core Area Advantage as a one-line caption per tile (mirrors what category_summaries did for Game Profile). Highest-leverage next addition because Core Area Advantage tiles currently show only % bars + a frontend-authored relationship label.
+
+matchup_breakdown.context_notes — 3 or 5, depends on tone. If they're plain-English caveats ("short week", "weather", "key injury impact") → user-facing, belongs as a muted footnote inside Matchup Lean's cautions stack. If they're model-debug strings → 5, internal QA only. Need a sample before committing.
+
+matchup_breakdown.freshness — 5. internal QA/admin candidate. Data-recency timestamps belong on a Settings/QA surface, not the matchup page. Surfacing it to analysts risks looking like a disclaimer.
+
+claim_language_context — 4. backend-only / do not show. Already an explicit guardrail. It exists to govern language_support.language_boost_allowed, which the UI already consumes via the Fits matchup badge. Keep invisible.
+
+model_trust details — 1. currently used (broadly). reasoning.headline/summary/drivers, matchup_advantage, edge.strength/description/tooltip, signal_alignment.signals/summary, learning_label are all rendered. Gap: edge.score (numeric) and signal_alignment.aligned_count/total_count are typed but not displayed — leave hidden, they'd add noise.
+
+Confidence guardrails (confidence, confidence_context, profile_strength, outcome_confidence, matchup_label, matchup_cautions) — 1. currently used. All rendered in Matchup Lean. No action needed.
+
+Ranking metadata — 6. ignore. Not in current payload type. If it shows up as team-level league ranks it could enrich Team Comparison rows (e.g. "12th in pressure rate"), but only if backend ships it as a structured per-row field. Defer.
+
+lens_tags — 4 or 6. Sounds like internal taxonomy/telemetry. Don't surface as pills — that's exactly the badge-creep the guardrails warn against. Keep hidden unless backend explicitly defines them as user-facing.
+
+Product recommendation
+The page is already dense: Game Profile + grouped What's shaping this matchup + Team Comparison (with Fits matchup) + Core Area Advantage + Matchup Lean + Model Trust + Outcome. Adding more sections will dilute the existing hierarchy. The next moves should enrich existing tiles, not add surfaces.
+
+Safest next frontend candidate
+matchup_breakdown.core_area_summaries → one-line caption under each Core Area Advantage tile. Reasons:
+
+Symmetrical with the v1.7.7–v1.7.11 work that gave Game Profile its explanation layer.
+Replaces the frontend-authored RELATIONSHIP_LABEL map in CoreAreaAdvantage.tsx with backend-owned copy → fewer hardcoded strings, more consistent voice.
+Zero new sections, no new badges, no new collapsibles.
+Second-safest: wire metric_highlights into the existing "Key inputs:" line so it stops scraping drivers[].label and instead renders backend-curated stats.
+
+What should stay hidden
+claim_language_context, freshness, lens_tags, edge.score, signal_alignment.aligned_count/total_count, and any *_code / *_index fields. These are model internals.
+
+Risks of overloading the page
+Signal collision: every new caption competes with the grouped explainer we just built. Two layers of "why" under one tile = users stop reading both.
+Badge creep: Fits matchup works because it's the only pill on a Team Comparison row. A second badge type would make both feel like decoration.
+Mobile (797px viewport): Core Area Advantage already wraps to 1 column; adding sub-captions there is fine, but adding another full section below would push Matchup Lean off the first scroll.
+Authority dilution: the more the page explains, the more it reads like a recommendation engine. Keep Matchup Lean as the single "what the model thinks" surface.
+Recommend queueing v1.7.12 = Core Area summaries only.
