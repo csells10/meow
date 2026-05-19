@@ -398,3 +398,26 @@ Badge creep: Fits matchup works because it's the only pill on a Team Comparison 
 Mobile (797px viewport): Core Area Advantage already wraps to 1 column; adding sub-captions there is fine, but adding another full section below would push Matchup Lean off the first scroll.
 Authority dilution: the more the page explains, the more it reads like a recommendation engine. Keep Matchup Lean as the single "what the model thinks" surface.
 Recommend queueing v1.7.12 = Core Area summaries only.
+
+
+# GameLens Frontend Language Guide
+
+Do not expose backend feature names.
+
+Core Areas should tell the football story.
+Metrics should support the story.
+Calibration features should decide how strongly the story is worded.
+
+Avoid:
+- two_way_context
+- claim language support
+- supportive / available_mixed
+- feature buckets
+
+Use:
+- clean read
+- supported read
+- fragile edge
+- split profile
+- stronger matchup support
+- not enough separation

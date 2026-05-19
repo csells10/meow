@@ -19,7 +19,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from analytics.claim_language_support_registry import build_language_support
+from services.claim_language_support_registry import build_language_support
 
 
 def _side_two_way_values(
