@@ -359,3 +359,19 @@ Validation completed:
 - `team_comparison_unclassified_claim_strength` warning dropped from 30 to 0
 
 Result: Team Comparison now speaks the same metadata language as Metric Highlights, Category Summaries, and claim-language support.
+
+## Number 2 — Category Summary No-Boost Reason Cleanup
+
+Completed the second Devil’s Advocate cleanup item. Category summary aggregate rows no longer return `reason: null` when no drivers qualify for boosted language. They now return:
+
+`no_category_drivers_allowed_language_boost`
+
+This improves QA clarity without changing scoring, matchup lean, outcome confidence, Model Trust, or frontend behavior.
+
+| Cleanup item | Before | After | Status |
+|---|---:|---:|---|
+| Team Comparison unclassified claim strength | 30 | 0 | ✅ Done |
+| Category aggregate missing no-boost reason | 218 | 0 | ✅ Done |
+| Confidence field mismatch | 10 | 10 | ⏭️ Next |
+| Core Area layer leader mismatch | 32 | 32 | Later |
+| Model Trust tooltip mismatch | 6 | 6 | Later |

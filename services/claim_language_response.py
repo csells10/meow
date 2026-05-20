@@ -366,7 +366,7 @@ def annotate_category_summaries_with_language_support(
             "reason": (
                 "one_or_more_category_drivers_have_two_way_support"
                 if supported_driver_count > 0
-                else None
+                else "no_category_drivers_allowed_language_boost"
             ),
             "claim_strength_bucket": primary_driver_support.get("claim_strength_bucket"),
             "claim_strength_context": primary_driver_support.get("claim_strength_context"),
