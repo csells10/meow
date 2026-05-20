@@ -427,3 +427,20 @@ Backend layers can preserve diagnostic nuance, but the frontend should not force
 2. Then fix Core Area direction consistency because it affects the coherence of the matchup page.
 3. Re-run the same 30-game smoke sample.
 4. QA `20251013_BUF@ATL` manually in the frontend before calling the Core Area issue resolved.
+
+## Model Trust Tooltip Cleanup
+
+Fixed the Model Trust edge tooltip so wording now reflects the actual neutral/even row count. Previously, some responses said “several even areas” even when only one neutral Team Comparison row existed.
+
+Updated `services/model_trust_service.py` so tooltip language changes based on neutral count:
+- `0` neutral rows: clear separation wording
+- `1` neutral row: one-neutral-row wording
+- `2+` neutral rows: multiple-neutral-rows wording
+
+Validation completed:
+- `services/model_trust_service.py` compiled successfully
+- Local API spot check confirmed corrected tooltip wording
+- Re-ran the same 30-game smoke sample
+- `model_trust_tooltip_even_area_mismatch` dropped from `6 → 0`
+
+Result: Model Trust tooltip language now matches the visible Team Comparison counts without changing scoring or model logic.

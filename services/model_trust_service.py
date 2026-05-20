@@ -110,22 +110,38 @@ def build_edge(matchup_advantage: dict) -> dict:
     if diff >= 3 and neutral == 0:
         strength = "strong"
         tooltip = (
-            "The visible Team Comparison metrics show clear separation. Core Area context and Game Profile signals may still add nuance."
+            "The visible Team Comparison metrics show clear separation. "
+            "Core Area context and Game Profile signals may still add nuance."
         )
+
     elif diff >= 3:
         strength = "moderate"
-        tooltip = ("Some Team Comparison metrics lean one way, but several even areas keep the edge from looking clean."
-)
+
+        if neutral == 1:
+            tooltip = (
+                "Most visible Team Comparison metrics favored the same side, "
+                "but one neutral row keeps the edge from looking overwhelming."
+            )
+        else:
+            tooltip = (
+                "Most visible Team Comparison metrics favored the same side, "
+                "but multiple neutral rows keep the edge from looking fully clean."
+            )
+
     elif diff >= 2:
         strength = "moderate"
         tooltip = (
-            "The visible Team Comparison metrics show a noticeable lean, but other matchup signals still matter."
+            "The visible Team Comparison metrics show a noticeable lean, "
+            "but other matchup signals still matter."
         )
+
     elif diff >= 1:
         strength = "low"
         tooltip = (
-            "The visible Team Comparison metrics show only a small edge. Use this as supporting context, not a standalone conclusion."
+            "The visible Team Comparison metrics show only a small edge. "
+            "Use this as supporting context, not a standalone conclusion."
         )
+
     else:
         strength = "none"
         tooltip = (
@@ -138,7 +154,6 @@ def build_edge(matchup_advantage: dict) -> dict:
         "tooltip": tooltip,
         "has_content": total_visible > 0,
     }
-
 
 def build_learning_label(model_outcome: dict) -> str:
     """
