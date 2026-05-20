@@ -613,3 +613,14 @@ Recommended next version:
 v1.7.12 or v1.7.13 — Core Area Advantage display-summary integration
 
 Tiny gut check: this is a good frontend task because it does **not** add more visual clutter. It makes an existing section smarter, which is exactly the right move here.
+
+
+## Frontend Performance Findings
+
+Chrome Performance showed that the GameLens matchup page is not suffering from major layout instability; CLS was 0, which is good. The main performance issue is LCP around 2.6s, with most of the delay coming from waiting to render the main matchup content after the document and scripts load.
+
+The likely improvement path is not a full redesign. The better next step is to make the page render a useful shell immediately — header, teams, date, and loading/skeleton cards — while Firebase auth, account lookup, route chunks, and the game API response finish loading.
+
+Team logos should also be optimized. Current 500px PNG logo assets are larger than needed for the UI and have short cache lifetimes. Smaller logo assets and longer cache headers would reduce repeat-load cost.
+
+DevTools also showed browser extension activity, especially Aura, contributing main-thread time. Future measurements should be run in Incognito or a clean browser profile before treating results as app-owned performance problems.
