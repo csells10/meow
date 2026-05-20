@@ -1509,28 +1509,38 @@ def build_matchup_lean(
             lean_side=None,
         )
 
+        confidence = "Low"
+
         profile_labels = build_profile_strength_labels(
             target=None,
-            confidence="Low",
+            confidence=confidence,
             profile_type="no_clear_edge",
             core_area_context=core_area_context,
             team_edge_context=team_edge_context,
             signal_score=signal_score,
         )
 
+        outcome_confidence = profile_labels["outcome_confidence"]
+
         return {
             "target_team": "None",
             "target_side": None,
             "lean_summary": "No clear matchup edge",
             "focus_summary": "The available signals are too close to call this a clean lean",
-            "confidence": "Low",
+            "confidence": confidence,
+            "raw_signal_confidence": confidence,
+            "confidence_role": "legacy_raw_signal_confidence",
+            "user_facing_confidence": {
+                "label": outcome_confidence.get("label"),
+                "source": "outcome_confidence",
+            },
             "confidence_context": "The signal gap is small, so this stays in cautious territory",
             "profile_type": "no_clear_edge",
             "signal_score": signal_score,
             "core_area_context": core_area_context,
             "confidence_guardrails": confidence_guardrails,
             "profile_strength": profile_labels["profile_strength"],
-            "outcome_confidence": profile_labels["outcome_confidence"],
+            "outcome_confidence": outcome_confidence,
             "matchup_label": profile_labels["display_label"],
             "matchup_cautions": profile_labels["cautions"],
         }
@@ -1649,19 +1659,27 @@ def build_matchup_lean(
         signal_score=signal_score,
     )
 
+    outcome_confidence = profile_labels["outcome_confidence"]
+
     return {
         "target_team": f"{target} edge",
         "target_side": target_side,
         "lean_summary": lean_summary,
         "focus_summary": focus_summary,
         "confidence": confidence,
+        "raw_signal_confidence": confidence,
+        "confidence_role": "legacy_raw_signal_confidence",
+        "user_facing_confidence": {
+            "label": outcome_confidence.get("label"),
+            "source": "outcome_confidence",
+        },
         "confidence_context": confidence_context,
         "profile_type": profile_type,
         "signal_score": signal_score,
         "core_area_context": core_area_context,
         "confidence_guardrails": confidence_guardrails,
         "profile_strength": profile_labels["profile_strength"],
-        "outcome_confidence": profile_labels["outcome_confidence"],
+        "outcome_confidence": outcome_confidence,
         "matchup_label": profile_labels["display_label"],
         "matchup_cautions": profile_labels["cautions"],
     }

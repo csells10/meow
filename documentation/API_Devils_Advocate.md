@@ -752,3 +752,166 @@ This is the smallest fix with the largest clarity payoff.
 ## 14. One-Sentence Summary
 
 The devil’s advocate run showed that the new claim-strength metadata works, but the API now needs alignment cleanup so Team Comparison, Core Area layers, confidence labels, and claim-language support all tell the same story without confusing the frontend.
+
+
+## Addendum — Directional Consistency Decision for `/game` Response
+
+After reviewing updated API output and frontend examples, the current position is:
+
+> The `/game` response should not expose competing directional leaders for the same user-facing Core Area.
+
+Even if two backend layers are technically answering slightly different analytical questions, the product should not make the user interpret that messiness. GameLens should translate the analytics into one coherent matchup read.
+
+### Product Decision
+
+For user-facing Core Area direction:
+
+```text
+core_area_comparison owns the visible Core Area leader.
+
+matchup_breakdown.core_area_summaries should explain the quality, strength, or weakness of the supporting drivers, but it should not create a second visible directional verdict that can disagree with core_area_comparison.
+
+Why This Matters
+
+The user does not need to know that:
+
+broad Core Area scoring may lean one way
+headline/ranking-eligible drivers may be neutral
+sub-metric families inside a Core Area may be mixed
+
+That information is useful internally, but user-facing output should say something clearer:
+
+BUF has a broad lean in Disruption and Turnovers, but the driver support is mixed.
+
+instead of:
+
+BUF Edge
+
+in one layer and:
+
+Near Even / Neutral
+
+in another.
+
+Updated Interpretation of Remaining Warnings
+Cleanup item	Before	After	Updated interpretation
+Core Area layer leader mismatch	32	32	Still unresolved. This should now be treated as a product/API consistency issue, not just an analytics nuance.
+Model Trust tooltip mismatch	6	6	Still unresolved. This is a smaller wording bug where tooltip language does not always match the actual neutral/even count.
+Core Area Direction Rule
+New rule
+One Core Area should have one displayed direction.
+
+The API may still preserve internal diagnostic fields, but frontend-facing fields should not force the user to reconcile multiple leaders for the same Core Area.
+
+Recommended API behavior
+
+For each Core Area summary:
+
+use core_area_comparison.leader as the display leader
+use core_area_comparison.leader_team as the display team
+use core_area_comparison score gap to determine strength language
+preserve the headline-driver leader separately if needed
+describe driver disagreement as context, not as a competing verdict
+Better response shape example
+{
+  "core_area": "Disruption and Turnovers",
+  "leader": "away",
+  "leader_team": "BUF",
+  "leader_source": "core_area_comparison",
+  "display_strength": "lean",
+  "display_summary": "BUF has a slight broad lean in Disruption and Turnovers, but the driver support is mixed.",
+  "headline_driver_leader": "neutral",
+  "headline_driver_summary": "Headline drivers looked close to even.",
+  "driver_alignment": "mixed_or_thin"
+}
+Core Area Display Strength
+
+The current frontend can make moderate gaps look too strong.
+
+Recommended display language based on broad Core Area score gap:
+
+Broad Core Area gap	Display language
+< 0.08	Near Even
+0.08–0.18	Lean
+0.18–0.30	Edge
+>= 0.30	Strong Edge
+
+Example:
+
+BUF 58%
+ATL 42%
+gap = 0.16
+
+This should display as:
+
+BUF Lean
+
+not:
+
+BUF Edge
+
+because the separation is real but not clean enough to sound decisive.
+
+Example QA Case
+20251013_BUF@ATL
+
+This game exposed the issue well.
+
+Visible tension:
+
+Game Profile showed BUF pressure and scoring support
+Turnover Risk tilted toward ATL
+Core Area Advantage showed Disruption and Turnovers as BUF Edge
+Team Comparison showed ATL had the better Turnover Margin / Game
+The model leaned BUF and missed
+
+This suggests the broad Core Area direction was not useless, but the language was too clean.
+
+Better product read:
+
+BUF had the broader matchup lean, especially through pressure and offensive efficiency, but ATL had defensive and turnover-related resistance. Treat this as a measured lean, not a clean edge.
+Model Trust Tooltip Cleanup
+
+The Model Trust tooltip mismatch is smaller and should be handled separately.
+
+Current issue
+
+Some tooltip language says things like:
+
+several even areas
+
+even when there is only one neutral/even row.
+
+Recommended fix
+
+Update services/model_trust_service.py, likely inside:
+
+build_edge()
+
+Tooltip language should depend on the actual neutral count.
+
+Suggested wording:
+
+Neutral count	Tooltip wording
+0	“The visible Team Comparison metrics show clear separation.”
+1	“Most visible Team Comparison metrics favored the same side, but one neutral row keeps the edge from looking overwhelming.”
+2+	“Most visible Team Comparison metrics favored the same side, but multiple neutral rows keep the edge from looking fully clean.”
+Definition of done
+Warning	Target
+core_area_layer_leader_mismatch	32 → 0, or converted into non-user-facing diagnostic context
+model_trust_tooltip_even_area_mismatch	6 → 0
+Updated Priority
+Fix Model Trust tooltip wording first because it is small, low-risk, and easy to validate.
+Then fix Core Area direction consistency because it affects how coherent the matchup page feels.
+Re-run the same smoke-test sample after both fixes.
+QA at least 20251013_BUF@ATL on the frontend before considering the Core Area issue resolved.
+
+My blunt take: this addendum is worth saving because it captures the **product decision**, not just the bug. That prevents a future chat from saying, “Well technically both leaders can be true.” You’re saying: **not good enough for the user-facing product.**
+
+| Priority | Item | Current Warning Count | Updated Interpretation | Recommended Action | Definition of Done |
+|---:|---|---:|---|---|---|
+| 1 | Model Trust tooltip mismatch | 6 | Small wording bug. Tooltip language sometimes says “several even areas” when the visible neutral count is only one. | Fix tooltip wording in `services/model_trust_service.py`, likely inside `build_edge()`, so text depends on actual neutral count. | `model_trust_tooltip_even_area_mismatch` drops from `6 → 0`. |
+| 2 | Core Area layer leader mismatch | 32 | Product/API consistency issue. `core_area_comparison` and `matchup_breakdown.core_area_summaries` can expose competing visible leaders for the same Core Area. | Make `core_area_comparison` own the user-facing Core Area leader. Use `core_area_summaries` to describe driver support quality, not to create a competing directional verdict. | `core_area_layer_leader_mismatch` drops from `32 → 0`, or becomes a non-user-facing diagnostic field. |
+| 3 | Core Area display strength language | N/A | Current language can make moderate broad-score gaps sound too decisive. | Add/adjust display strength language based on broad Core Area gap: `<0.08 = Near Even`, `0.08–0.18 = Lean`, `0.18–0.30 = Edge`, `>=0.30 = Strong Edge`. | Frontend/API says “Lean” when the gap is real but not clean enough to call an “Edge.” |
+| 4 | Frontend QA case | N/A | `20251013_BUF@ATL` is a useful stress test because it shows broad BUF support but ATL resistance in turnovers/defense. | QA this game after backend cleanup to confirm the page reads as a measured lean, not a clean contradiction. | User-facing read feels coherent: “BUF had the broader lean, but ATL had defensive/turnover resistance.” |
+| 5 | Smoke-test rerun | N/A | Same seeded sample gives clean before/after comparison. | Re-run `python qa/collect_gamelens_api_smoke_payloads.py --sample-size 30 --seed 20260520`. | Only acceptable remaining warnings are intentional diagnostics, not user-facing contradictions. |

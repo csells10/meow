@@ -372,6 +372,58 @@ This improves QA clarity without changing scoring, matchup lean, outcome confide
 |---|---:|---:|---|
 | Team Comparison unclassified claim strength | 30 | 0 | ✅ Done |
 | Category aggregate missing no-boost reason | 218 | 0 | ✅ Done |
-| Confidence field mismatch | 10 | 10 | ⏭️ Next |
+| Confidence field mismatch | 10 | 10 | ✅ Done |
 | Core Area layer leader mismatch | 32 | 32 | Later |
 | Model Trust tooltip mismatch | 6 | 6 | Later |
+
+## Number 3 — Confidence Contract Cleanup
+
+Completed the third Devil’s Advocate cleanup item.
+
+The API now preserves `matchup_lean.confidence` as a legacy/raw signal-confidence field while adding clearer fields for frontend use:
+
+- `raw_signal_confidence`
+- `confidence_role`
+- `user_facing_confidence`
+
+The frontend now has one clear confidence mouthpiece: `matchup_lean.user_facing_confidence.label`, sourced from `outcome_confidence`.
+
+Also updated the API smoke collector so it no longer treats raw signal confidence differing from outcome confidence as a mismatch. It now validates the new contract instead.
+
+Validation completed:
+- `services/game_service.py` compiled successfully
+- `qa/collect_gamelens_api_smoke_payloads.py` compiled successfully
+- Local API spot checks confirmed the new fields
+- Re-ran the same 30-game sample
+- `confidence_field_mismatch` dropped from 10 to 0
+
+Result: confidence fields now communicate their roles clearly without changing model scoring, matchup lean logic, or frontend behavior.
+
+-----Break in work then a re focus----
+
+## Devil’s Advocate Cleanup — Updated Direction
+
+After reviewing the updated API output, the remaining work should shift slightly.
+
+The first three cleanup items improved metadata alignment and API clarity. The remaining work is less about raw data correctness and more about making the `/game` response feel coherent to users.
+
+The key product rule moving forward:
+
+> One user-facing Core Area should have one displayed direction.
+
+Backend layers can preserve diagnostic nuance, but the frontend should not force users to reconcile competing leaders for the same Core Area.
+
+| Priority | Item | Current Warning Count | Updated Interpretation | Recommended Action | Definition of Done |
+|---:|---|---:|---|---|---|
+| 1 | Model Trust tooltip mismatch | 6 | Small wording bug. Tooltip language sometimes says “several even areas” when the visible neutral count is only one. | Fix tooltip wording in `services/model_trust_service.py`, likely inside `build_edge()`, so text depends on actual neutral count. | `model_trust_tooltip_even_area_mismatch` drops from `6 → 0`. |
+| 2 | Core Area layer leader mismatch | 32 | Product/API consistency issue. `core_area_comparison` and `matchup_breakdown.core_area_summaries` can expose competing visible leaders for the same Core Area. | Make `core_area_comparison` own the user-facing Core Area leader. Use `core_area_summaries` to describe driver support quality, not to create a competing directional verdict. | `core_area_layer_leader_mismatch` drops from `32 → 0`, or becomes a non-user-facing diagnostic field. |
+| 3 | Core Area display strength language | N/A | Current language can make moderate broad-score gaps sound too decisive. | Add/adjust display strength language based on broad Core Area gap: `<0.08 = Near Even`, `0.08–0.18 = Lean`, `0.18–0.30 = Edge`, `>=0.30 = Strong Edge`. | Frontend/API says “Lean” when the gap is real but not clean enough to call an “Edge.” |
+| 4 | Frontend QA case | N/A | `20251013_BUF@ATL` is a useful stress test because it shows broad BUF support but ATL resistance in turnovers/defense. | QA this game after backend cleanup to confirm the page reads as a measured lean, not a clean contradiction. | User-facing read feels coherent: “BUF had the broader lean, but ATL had defensive/turnover resistance.” |
+| 5 | Smoke-test rerun | N/A | Same seeded sample gives clean before/after comparison. | Re-run `python qa/collect_gamelens_api_smoke_payloads.py --sample-size 30 --seed 20260520`. | Only acceptable remaining warnings are intentional diagnostics, not user-facing contradictions. |
+
+### Updated Work Order
+
+1. Fix Model Trust tooltip wording first because it is small, isolated, and easy to validate.
+2. Then fix Core Area direction consistency because it affects the coherence of the matchup page.
+3. Re-run the same 30-game smoke sample.
+4. QA `20251013_BUF@ATL` manually in the frontend before calling the Core Area issue resolved.
