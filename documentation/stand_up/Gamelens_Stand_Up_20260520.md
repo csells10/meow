@@ -475,3 +475,663 @@ Validation completed:
 - Latest smoke sample returned `warning_counts: {}`
 
 Result: the `/game` response now has one coherent user-facing Core Area direction while still preserving driver nuance for explanation/debugging.
+
+
+Absolutely. I’d document this as a future synergy cleanup, not as a current blocker.
+
+The reason is simple: your philosophy doc says GameLens should avoid “sounding smarter than the evidence deserves,” avoid overstating noisy metrics, and preserve uncertainty when support is mixed. Your API metadata is already doing that, but some summary strings still say things like “clear advantage” even when language_support says blocked_metric, caution_only, or two_way_context_not_supportive.
+
+Here’s the copy/paste markdown addendum:
+
+## Addendum — Future Synergy Cleanup: Summary Text Should Obey `language_support`
+
+### Status
+
+```text
+Future polish / synergy cleanup
+Not a blocker for current API logic
+Product Decision
+
+The /game API response is now more logically structured, especially after the Core Area direction cleanup. However, there is one remaining copy-contract improvement:
+
+Human-readable summary text should eventually be generated through the same calibration rules as language_support.
+
+The current structured metadata is more disciplined than some of the summary strings.
+
+Example pattern:
+
+"summary": "BUF shows a clear advantage in Red Zone Efficiency.",
+"language_support": {
+  "language_boost_allowed": false,
+  "rule_status": "blocked_metric",
+  "claim_strength_language_signal": "caution_only",
+  "language_modifier": "block_stronger_language"
+}
+
+This is not a logic failure because the metadata is correct.
+
+But it creates a product-language mismatch:
+
+Summary sounds boosted.
+Metadata says do not boost.
+Why This Matters
+
+GameLens should not only calculate carefully; it should speak carefully.
+
+The philosophy of GameLens is to avoid:
+
+fake certainty
+narrative inflation
+overstating noisy metrics
+treating all support equally
+collapsing nuanced evidence into binary certainty
+
+So if a metric is blocked, caution-only, thin, near-even, or not supported by two-way context, the summary should not sound overly confident.
+
+Current API Behavior
+
+The API currently does a good job exposing calibration metadata:
+
+language_boost_allowed
+claim_strength_bucket
+claim_strength_context
+claim_strength_language_signal
+language_modifier
+rule_status
+reason
+two_way_context
+two_way_edge_score
+
+This is the correct safety layer.
+
+The remaining issue is that legacy/generated text fields such as:
+
+summary
+summary_label
+
+may still use generic wording like:
+
+clear advantage
+advantage
+
+even when the support metadata recommends softer language.
+
+Recommended Future Behavior
+
+Add or prefer a safer display-level text field such as:
+
+"display_summary": "BUF led Red Zone Efficiency, but this metric is blocked from stronger claim language."
+
+or:
+
+"display_summary": "BUF had the better Red Zone Efficiency profile, but this should be treated as cautious context."
+
+The frontend should eventually prefer:
+
+display_summary
+
+over raw:
+
+summary
+
+when language_support exists.
+
+Suggested Copy Rules
+language_support condition	Preferred tone
+language_boost_allowed = true	Stronger wording allowed
+claim_strength_language_signal = boost_candidate but no boost allowed	Interesting, but measured
+claim_strength_language_signal = measured	Balanced / useful support
+claim_strength_language_signal = caution_only	Cautious context
+claim_strength_language_signal = soften	Slight / thin / near-even language
+rule_status = blocked_metric	Do not use strong wording
+rule_status = context_not_supportive	Mention the edge, but avoid escalation
+rule_status = conditional_disabled_metric	Interesting but not trusted enough yet
+two_way_context = available_mixed	Preserve uncertainty
+two_way_context = unavailable	Avoid stronger claim language
+Example Rewrite Patterns
+Current
+BUF shows a clear advantage in Red Zone Efficiency.
+Better
+BUF leads Red Zone Efficiency, but this metric is treated cautiously.
+Current
+BUF shows a clear advantage in Yards Per Play.
+Better
+BUF has the better Yards Per Play profile, but stronger language is blocked for this metric.
+Current
+BUF shows a clear advantage in Points Per Play.
+Better
+BUF has a strong Points Per Play edge, but broader two-way support is mixed.
+Likely Files
+
+Potential backend location:
+
+services/claim_language_response.py
+services/game_service.py
+
+Potential frontend follow-up:
+
+CoreAreaAdvantage.tsx
+MatchupBreakdown-related components
+TeamComparison-related components
+
+Exact frontend files depend on where summary and summary_label are consumed.
+
+Definition of Done
+
+This cleanup is done when:
+
+summary/display text respects language_support
+blocked metrics no longer say “clear advantage” without caution
+caution-only metrics sound cautious
+thin/near-even claims use softer wording
+available_mixed two-way context prevents inflated language
+frontend prefers display_summary or calibrated copy when available
+raw summary remains available only as fallback/debug context
+Priority
+Medium-later
+
+This is not as urgent as fixing API direction conflicts or confidence field clarity.
+
+It becomes more important before:
+
+frontend badges
+public tooltips
+rewritten user-facing matchup explanations
+Lovable/frontend polish work
+wider user testing
+Product Framing
+
+This is a synergy improvement:
+
+The API already knows when not to talk loudly.
+Next, the visible words should follow that same discipline.
+
+My take: this is exactly the kind of note that keeps future-you from accidentally building a gorgeous frontend that ignores the best safety metadata you just worked hard to create. 🏈
+
+# GameLens Daily Log — API Response Cleanup + Philosophy Alignment
+
+_Date: 2026-05-20_
+
+## Focus of the Day
+
+Today’s work focused on reviewing whether the updated `/game` API response is more logically consistent, more product-safe, and better aligned with the GameLens philosophy.
+
+The main question was:
+
+> Does the API still hold up as a calibrated football reasoning engine, rather than drifting into a forced-pick or confidence-theater system?
+
+Overall answer:
+
+> Yes. The API response is now more coherent, more cautious, and better structured. A few future copy/presentation refinements remain, but the major response-logic issues are improved.
+
+---
+
+## Original Cleanup Items Reviewed
+
+| Cleanup item | Before | After | Current read |
+|---|---:|---:|---|
+| Team Comparison unclassified claim strength | 30 | 0 | Done |
+| Category aggregate missing no-boost reason | 218 | 0 | Done |
+| Confidence field mismatch | 10 | 10 | Product-fixed through `user_facing_confidence`; old QA warning should understand legacy/raw confidence |
+| Core Area layer leader mismatch | 32 | Improved in updated response shape | Looks fixed structurally in reviewed BUF@ATL payload |
+| Model Trust tooltip mismatch | 6 | Improved in updated response shape | Looks fixed in reviewed BUF@ATL payload |
+
+---
+
+## 1. Team Comparison Cleanup Confirmed
+
+Team Comparison rows now include richer context such as:
+
+```text
+category
+core_area
+language_support
+claim_strength_bucket
+claim_strength_context
+claim_strength_language_signal
+rule_status
+reason
+```
+
+This means Team Comparison is no longer just saying:
+
+```text
+Team A is better in this metric.
+```
+
+It now also says:
+
+```text
+Here is what kind of claim this is, where it belongs, and whether stronger language is allowed.
+```
+
+### Why This Matters
+
+This supports the GameLens philosophy that not all metrics should speak equally loudly.
+
+A metric can be useful without being trusted enough to boost confidence or headline language.
+
+---
+
+## 2. Category No-Boost Reasons Confirmed
+
+Category summaries now explain why they do not receive stronger language.
+
+Example pattern:
+
+```text
+reason: no_category_drivers_allowed_language_boost
+```
+
+This replaced the previous unclear state where a category could have:
+
+```text
+language_boost_allowed: false
+reason: null
+```
+
+### Why This Matters
+
+This makes the API easier to QA and safer for frontend use.
+
+The API now explains restraint instead of simply withholding support.
+
+---
+
+## 3. Confidence Field Mismatch Reframed
+
+The old API concern was that `confidence` could show one value while `outcome_confidence` showed another.
+
+The updated response now clarifies that:
+
+```text
+confidence = legacy/raw signal confidence
+user_facing_confidence = product-facing confidence
+```
+
+Example structure:
+
+```json
+{
+  "confidence": "High",
+  "confidence_role": "legacy_raw_signal_confidence",
+  "raw_signal_confidence": "High",
+  "user_facing_confidence": {
+    "label": "Medium",
+    "source": "outcome_confidence"
+  }
+}
+```
+
+### Current Decision
+
+This is acceptable as long as the frontend uses:
+
+```text
+user_facing_confidence.label
+```
+
+not the legacy raw `confidence` field.
+
+### QA Note
+
+The old warning may still fire if the QA script only compares `confidence` vs `outcome_confidence`.
+
+The QA script should be updated so this is not treated as a product bug when `user_facing_confidence` is present and clear.
+
+---
+
+## 4. Core Area Direction Consistency Decision
+
+A major product decision was clarified today:
+
+> The `/game` response should not expose competing directional leaders for the same user-facing Core Area.
+
+Even if two backend layers are technically answering slightly different analytical questions, the user should not have to reconcile that.
+
+### Product Rule
+
+```text
+One Core Area should have one displayed direction.
+```
+
+### Source of Truth
+
+```text
+core_area_comparison owns the visible Core Area leader.
+```
+
+`matchup_breakdown.core_area_summaries` should explain:
+
+```text
+driver quality
+driver alignment
+thin support
+mixed support
+headline-driver disagreement
+near-even support
+```
+
+but should not create a second competing product verdict.
+
+---
+
+## 5. Core Area Response Shape Improved
+
+The reviewed `20251013_BUF@ATL` response now uses a much better structure.
+
+Example:
+
+```json
+{
+  "name": "Disruption and Turnovers",
+  "leader": "away",
+  "leader_team": "BUF",
+  "leader_source": "core_area_comparison",
+  "display_strength": "lean",
+  "display_summary": "BUF has a broad lean in Disruption and Turnovers. Headline-driver support is thin or close to even.",
+  "headline_driver_leader": "neutral",
+  "driver_alignment": "thin_or_neutral"
+}
+```
+
+### Why This Is Better
+
+Before, this kind of case could feel like:
+
+```text
+BUF Edge
+Also neutral
+Also ATL turnover profile
+```
+
+Now it reads more like:
+
+```text
+BUF has the broad Core Area lean, but the driver support is thin.
+```
+
+That is much more coherent.
+
+---
+
+## 6. Core Area Strength Language Improved
+
+The updated response now distinguishes between broad edge strength levels.
+
+Example:
+
+```text
+BUF 58%
+ATL 42%
+gap = 0.166
+```
+
+This now becomes:
+
+```text
+BUF Lean
+```
+
+instead of automatically sounding like:
+
+```text
+BUF Edge
+```
+
+### Preferred Future Display Scale
+
+| Broad Core Area gap | Display language |
+|---:|---|
+| `< 0.08` | Near Even |
+| `0.08–0.18` | Lean |
+| `0.18–0.30` | Edge |
+| `>= 0.30` | Strong Edge |
+
+---
+
+## 7. Model Trust Tooltip Improved
+
+The reviewed response no longer showed the earlier tooltip problem where the copy could say:
+
+```text
+several even areas
+```
+
+when there was only one neutral/even row.
+
+The updated tooltip for the reviewed payload was more appropriate:
+
+```text
+The visible Team Comparison metrics show a noticeable lean, but other matchup signals still matter.
+```
+
+### Current Read
+
+This looks fixed in the reviewed payload.
+
+Still worth confirming across the same QA sample later.
+
+---
+
+## 8. Philosophy Alignment Review
+
+The API response was reviewed against the GameLens philosophy document.
+
+The philosophy says GameLens should not become:
+
+```text
+a hot-take engine
+a forced-pick machine
+a generic AI predicts NFL winners product
+a confidence theater system
+a sports-tout platform
+```
+
+Instead, GameLens should act as:
+
+```text
+a calibrated football reasoning engine
+```
+
+The updated response mostly supports that.
+
+### What Now Aligns Well
+
+The API now separates:
+
+```text
+matchup structure
+profile strength
+outcome confidence
+claim-language support
+two-way context
+driver alignment
+final outcome review
+model trust explanation
+```
+
+This is consistent with the idea that GameLens should explain football environments, not just pick winners.
+
+---
+
+## 9. Remaining Nitpick: Summary Text vs Language Support
+
+The main remaining issue is not the response structure.
+
+It is the copy contract.
+
+Some human-readable summary strings still sound stronger than the calibration metadata allows.
+
+Example pattern:
+
+```json
+{
+  "summary": "BUF shows a clear advantage in Red Zone Efficiency.",
+  "language_support": {
+    "language_boost_allowed": false,
+    "rule_status": "blocked_metric",
+    "claim_strength_language_signal": "caution_only",
+    "language_modifier": "block_stronger_language"
+  }
+}
+```
+
+### Interpretation
+
+The metadata is correct.
+
+But the visible text can still sound too strong.
+
+### Product Decision
+
+This is not a blocker.
+
+It should be documented as a future synergy cleanup:
+
+> The API already knows when not to speak loudly. Next, the user-facing text should follow that same discipline.
+
+---
+
+## 10. Future Synergy Cleanup: Summary Text Should Obey `language_support`
+
+### Status
+
+```text
+Future polish / synergy cleanup
+Not a blocker for current API logic
+```
+
+### Goal
+
+Human-readable fields such as:
+
+```text
+summary
+summary_label
+```
+
+should eventually be generated or softened using:
+
+```text
+language_support
+claim_strength_language_signal
+language_modifier
+rule_status
+two_way_context
+```
+
+### Better Future Examples
+
+Current:
+
+```text
+BUF shows a clear advantage in Red Zone Efficiency.
+```
+
+Better:
+
+```text
+BUF led Red Zone Efficiency, but this metric is treated cautiously.
+```
+
+Current:
+
+```text
+BUF shows a clear advantage in Yards Per Play.
+```
+
+Better:
+
+```text
+BUF has the better Yards Per Play profile, but stronger language is blocked for this metric.
+```
+
+Current:
+
+```text
+BUF shows a clear advantage in Points Per Play.
+```
+
+Better:
+
+```text
+BUF has a strong Points Per Play edge, but broader two-way support is mixed.
+```
+
+### Likely Files
+
+Potential backend areas:
+
+```text
+services/claim_language_response.py
+services/game_service.py
+```
+
+Potential frontend areas:
+
+```text
+CoreAreaAdvantage.tsx
+MatchupBreakdown-related components
+TeamComparison-related components
+```
+
+---
+
+## 11. Current Recommended Status
+
+| Area | Current status |
+|---|---|
+| API response logic | Much improved |
+| Directional consistency | Looks structurally fixed in reviewed payload |
+| Model Trust tooltip | Looks fixed in reviewed payload |
+| Confidence contract | Product-safe if frontend uses `user_facing_confidence` |
+| Claim-language metadata | Strong and useful |
+| Summary/copy calibration | Future polish |
+| Frontend readiness | Good, as long as frontend consumes the new display fields |
+
+---
+
+## 12. Next Recommended Steps
+
+1. Confirm the frontend is using the new Core Area fields:
+   - `display_strength`
+   - `display_summary`
+   - `leader_source`
+   - `driver_alignment`
+
+2. Update QA logic so legacy `confidence` does not falsely trigger a mismatch when `user_facing_confidence` is present.
+
+3. Re-run the same smoke-test sample and confirm:
+   - Core Area leader mismatch drops
+   - Model Trust tooltip mismatch drops
+   - no new regressions appear
+
+4. QA `20251013_BUF@ATL` on the website again.
+
+5. Later, implement the summary-text synergy cleanup so user-facing sentences obey `language_support`.
+
+---
+
+## Final Takeaway
+
+Today’s work moved the `/game` response from:
+
+```text
+smart but sometimes internally confusing
+```
+
+to:
+
+```text
+coherent, calibrated, and much more aligned with the GameLens philosophy
+```
+
+The API now supports the product identity better:
+
+```text
+GameLens explains the shape of the football environment.
+It does not merely shout a winner.
+```
+
+The next work is mostly making the visible copy sound as disciplined as the metadata already is.

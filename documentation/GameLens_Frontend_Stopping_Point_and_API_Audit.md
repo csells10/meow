@@ -421,3 +421,195 @@ Use:
 - split profile
 - stronger matchup support
 - not enough separation
+
+
+--updates on 5-20-2026--
+
+# Addendum — Core Area Advantage Now Has Better Backend Display Fields
+
+### Backstory
+
+During the Devil’s Advocate API audit, we found that the `/game` response could expose competing directional reads for the same Core Area.
+
+Example issue:
+
+- `core_area_comparison` said **BUF led Disruption and Turnovers**
+- `matchup_breakdown.core_area_summaries` could say the same area was **neutral / near even**
+- The frontend then had to decide which layer to believe
+
+That created a product problem:
+
+> The user should not have to reconcile multiple visible leaders for the same Core Area.
+
+Even if those backend layers are technically answering slightly different analytical questions, the frontend needs one coherent matchup story.
+
+### API/Product Decision
+
+`core_area_comparison` now owns the user-facing Core Area direction.
+
+`matchup_breakdown.core_area_summaries` should explain the quality of supporting drivers, not create a second competing visible verdict.
+
+In plain English:
+
+- Core Area cards should show one visible direction.
+- Driver disagreement should be explained as context.
+- Backend diagnostic nuance should still be preserved, but not forced onto the user.
+
+### Backend/API Change Completed
+
+Updated `services/game_service.py` so `matchup_breakdown.core_area_summaries` now align their visible leader fields to `core_area_comparison`.
+
+The previous headline-driver result is still preserved as diagnostic metadata.
+
+New useful fields now available inside:
+
+```text
+matchup_breakdown.core_area_summaries[]
+
+Key fields:
+
+leader
+leader_team
+leader_source
+display_strength
+display_summary
+broad_score_gap
+headline_driver_leader
+headline_driver_summary
+driver_alignment
+
+Example from 20251013_BUF@ATL:
+
+{
+  "name": "Disruption and Turnovers",
+  "leader": "away",
+  "leader_team": "BUF",
+  "leader_source": "core_area_comparison",
+  "display_strength": "lean",
+  "display_summary": "BUF has a broad lean in Disruption and Turnovers. Headline-driver support is thin or close to even.",
+  "driver_alignment": "thin_or_neutral",
+  "headline_driver_leader": "neutral",
+  "headline_driver_summary": "Disruption and Turnovers looks close to even.",
+  "broad_score_gap": 0.166
+}
+Why This Improves the API Response
+
+Before this change, the API could technically be “correct” but product-confusing.
+
+After this change, the API is more coherent:
+
+Layer	Role
+core_area_comparison	Owns broad user-facing Core Area direction
+matchup_breakdown.core_area_summaries[].leader	Now mirrors the broad visible direction
+display_strength	Gives frontend better language than always saying “Edge”
+display_summary	Backend-owned sentence for the Core Area card
+headline_driver_leader	Preserves the old driver-level read for diagnostics
+driver_alignment	Explains whether headline drivers aligned, conflicted, or were thin/neutral
+
+This keeps the API honest while making the frontend easier to understand.
+
+Frontend Finding After Deployment
+
+The deployed API now includes the new Core Area summary fields.
+
+However, the frontend still visually shows:
+
+Disruption and Turnovers
+BUF Edge
+BUF 58% / ATL 42%
+
+For 20251013_BUF@ATL, the backend now says:
+
+display_strength: lean
+display_summary: BUF has a broad lean in Disruption and Turnovers. Headline-driver support is thin or close to even.
+
+So the frontend is not blocked by backend/API anymore.
+
+The next frontend issue is that CoreAreaAdvantage.tsx appears to still render from the older/simple core_area_comparison fields and likely hardcodes non-neutral leaders as Edge.
+
+Recommended Frontend Update
+
+Update CoreAreaAdvantage.tsx so Core Area cards can use matchup_breakdown.core_area_summaries as the display/caption source when available.
+
+Recommended behavior:
+
+Continue using core_area_comparison for the score bars and broad percentages.
+Match each card to matchup_breakdown.core_area_summaries[] by Core Area name.
+Use backend-owned fields when available:
+display_strength
+display_summary
+driver_alignment
+leader_source
+Keep existing fallback behavior if the new fields are missing.
+Suggested Display Mapping
+
+Use display_strength for the visible label:
+
+display_strength	Suggested frontend label
+near_even	Near Even
+lean	Lean
+edge	Edge
+strong_edge	Strong Edge
+
+Example:
+
+Disruption and Turnovers
+
+BUF Lean
+
+BUF has a broad lean in Disruption and Turnovers. Headline-driver support is thin or close to even.
+
+BUF 58%
+ATL 42%
+12 metrics
+Important Product Guardrails
+
+Do not add a new section.
+
+This should enrich the existing Core Area Advantage tiles, not create another surface.
+
+Avoid exposing backend terms directly:
+
+Avoid:
+
+driver_alignment
+headline_driver_leader
+leader_source
+broad_score_gap
+
+Use their meaning instead:
+
+“Headline support is thin”
+“Drivers generally support this read”
+“Drivers are mixed”
+“Broad lean”
+“Strong broad edge”
+Definition of Done
+
+Frontend work is done when:
+
+20251013_BUF@ATL shows BUF Lean for Disruption and Turnovers, not BUF Edge
+Core Area Advantage uses display_summary when available
+Existing percentage bars still render from core_area_comparison
+No new badges/pills are added
+Backend jargon remains hidden
+The page feels more coherent without becoming more cluttered
+Updated Frontend Priority
+
+This should now be the next safest frontend candidate:
+
+Core Area Advantage → consume matchup_breakdown.core_area_summaries display fields
+
+This follows the same product pattern as prior frontend improvements:
+
+Previous translation	New parallel
+category_summaries explained Game Profile	core_area_summaries should explain Core Area Advantage
+drivers became Key Inputs	driver_alignment becomes plain-language support context
+backend jargon stayed hidden	backend diagnostic fields stay hidden
+no new section added	existing Core Area cards get smarter
+
+Recommended next version:
+
+v1.7.12 or v1.7.13 — Core Area Advantage display-summary integration
+
+Tiny gut check: this is a good frontend task because it does **not** add more visual clutter. It makes an existing section smarter, which is exactly the right move here.
