@@ -325,6 +325,7 @@ def build_language_support(
     metric: Optional[str],
     two_way_context: Optional[str],
     two_way_edge_score: Optional[float] = None,
+    claim_strength_bucket: Optional[str] = None,
     claim_strength_language_signal: Optional[str] = None,
     claim_strength_context: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -355,6 +356,7 @@ def build_language_support(
         "metric": metric,
         "two_way_context": two_way_context,
         "two_way_edge_score": two_way_edge_score,
+        "claim_strength_bucket": claim_strength_bucket,
         "claim_strength_language_signal": claim_strength_language_signal,
         "claim_strength_context": claim_strength_context,
     }
