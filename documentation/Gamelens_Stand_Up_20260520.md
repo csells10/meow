@@ -338,3 +338,24 @@ Smoke-tested:
 20251009_PHI@NYG
 20251013_BUF@ATL
 Created notes + deep-dive documentation
+
+Finalized it into the API then ran the 'devil's advocate' test to collect responses of the API and asked CHATGPT to poke holes and find areas that didn't make sense and would make it difficult for a user to understand.
+
+## Team Comparison Metadata Alignment Cleanup
+
+Completed the first cleanup item from the Devil’s Advocate API smoke test.
+
+The issue was that `team_comparison` rows were missing `category` and `core_area`, which caused claim-strength metadata to fall back to `unclassified_edge`. This made Team Comparison less aligned with Metric Highlights and Category Summaries, even when they were describing the same metric.
+
+Updated `services/game_service.py` so visible Team Comparison rows now include `category` and `core_area`.
+
+Also updated `agg/gamelens_training/build_claim_training_examples.py` so future claim-training rows preserve the same Team Comparison metadata instead of dropping it.
+
+Validation completed:
+- `services/game_service.py` compiled successfully
+- `agg/gamelens_training/build_claim_training_examples.py` compiled successfully
+- Local `/game` spot checks confirmed Team Comparison rows now include category/core_area
+- Re-ran the same 30-game API smoke sample
+- `team_comparison_unclassified_claim_strength` warning dropped from 30 to 0
+
+Result: Team Comparison now speaks the same metadata language as Metric Highlights, Category Summaries, and claim-language support.

@@ -157,6 +157,9 @@ def build_team_comparison(
     - Exact equal values return neutral instead of defaulting to home/away.
     - Near-even percentile gaps also return neutral for scoring/model purposes.
     - technical_better preserves which side was numerically better for display/debug.
+    - category/core_area are included so downstream claim-language support can
+      classify Team Comparison rows consistently with Metric Highlights and
+      Category Summaries.
     - Dynamic metric selection should be handled later through rankings,
       category summaries, or Core Area summaries.
     """
@@ -168,30 +171,40 @@ def build_team_comparison(
             "Scoring Production::points_per_play",
             "points_per_play",
             "Points per Play",
+            "Scoring Production",
+            "Scoring Efficiency",
             "higher",
         ),
         (
             "Scoring Suppression::points_allowed_per_play",
             "points_allowed_per_play",
             "Points Allowed per Play",
+            "Scoring Suppression",
+            "Defensive Control",
             "lower",
         ),
         (
             "Drive Conversion::third_down_pct",
             "third_down_pct",
             "3rd Down %",
+            "Drive Conversion",
+            "Scoring Efficiency",
             "higher",
         ),
         (
             "Red Zone Finish::red_zone_efficiency",
             "red_zone_efficiency",
             "Red Zone TD %",
+            "Red Zone Finish",
+            "Scoring Efficiency",
             "higher",
         ),
         (
             "Turnovers::turnover_margin_per_game",
             "turnover_margin_per_game",
             "Turnover Margin / Game",
+            "Turnovers",
+            "Disruption and Turnovers",
             "higher",
         ),
     ]
@@ -320,7 +333,7 @@ def build_team_comparison(
 
     comparison = []
 
-    for key, metric_name, label, direction in METRICS:
+    for key, metric_name, label, category, core_area, direction in METRICS:
         away_val = metric_value(away_metrics, key)
         home_val = metric_value(home_metrics, key)
 
@@ -338,6 +351,8 @@ def build_team_comparison(
         comparison.append({
             "label": label,
             "metric": metric_name,
+            "category": category,
+            "core_area": core_area,
             "away": fmt(away_val),
             "home": fmt(home_val),
             "better": comparison_result["better"],

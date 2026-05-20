@@ -826,12 +826,14 @@ def extract_metric_highlight_claims(payload: Dict[str, Any], context: Dict[str, 
 
 def extract_team_comparison_claims(payload: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
     rows = []
+
     for idx, item in enumerate(payload.get("team_comparison") or [], start=1):
         better = item.get("better")
         if better not in {"away", "home"}:
             continue
 
         label = item.get("label")
+
         row = base_row(
             context=context,
             claimed_side=better,
@@ -842,25 +844,35 @@ def extract_team_comparison_claims(payload: Dict[str, Any], context: Dict[str, A
             claim_name=label,
             claim_text=None,
             group_name=label,
-            core_area=None,
-            category=None,
+            core_area=item.get("core_area"),
+            category=item.get("category"),
             metric=item.get("metric"),
             metric_label=label,
         )
+
         row["summary_label"] = item.get("comparison_strength")
         row["pregame_percentile_gap"] = as_float(item.get("percentile_gap"))
-        row["pregame_abs_percentile_gap"] = abs(row["pregame_percentile_gap"]) if row["pregame_percentile_gap"] is not None else None
+        row["pregame_abs_percentile_gap"] = (
+            abs(row["pregame_percentile_gap"])
+            if row["pregame_percentile_gap"] is not None
+            else None
+        )
         row["pregame_rank_gap"] = as_int(item.get("rank_gap"))
+
         raw_gap = as_float(item.get("raw_gap"))
         row["pregame_raw_gap"] = raw_gap
         row["pregame_abs_raw_gap"] = abs(raw_gap) if raw_gap is not None else None
+
         row["claimed_team_value"] = as_float(item.get(better))
         opp = opposite_side(better)
         row["opponent_team_value"] = as_float(item.get(opp)) if opp else None
+
         row["elevated_candidate_flag"] = infer_elevated_candidate(row)
         row["strong_language_allowed_flag"] = infer_strong_language_allowed(row)
         row["source_field_path"] = f"team_comparison[{idx - 1}]"
+
         rows.append(row)
+
     return rows
 
 
