@@ -1171,6 +1171,238 @@ def build_group_summary(
         "cautions": cautions,
     }
 
+def _core_area_display_strength(away_score, home_score, leader: str) -> str:
+    """
+    Convert broad Core Area score gap into user-facing display strength.
+
+    This uses core_area_comparison, not headline-driver summary scores.
+    """
+    if leader not in {"away", "home"}:
+        return "near_even"
+
+    away_num = _safe_float(away_score)
+    home_num = _safe_float(home_score)
+
+    if away_num is None or home_num is None:
+        return "near_even"
+
+    gap = abs(away_num - home_num)
+
+    if gap < 0.08:
+        return "near_even"
+    if gap < 0.18:
+        return "lean"
+    if gap < 0.30:
+        return "edge"
+
+    return "strong_edge"
+
+
+def _core_area_summary_label_from_display_strength(display_strength: str) -> str:
+    """
+    Keep summary_label compatible with the existing API language buckets.
+    """
+    if display_strength == "near_even":
+        return "near_even"
+    if display_strength == "lean":
+        return "slight_advantage"
+    if display_strength == "edge":
+        return "advantage"
+    if display_strength == "strong_edge":
+        return "clear_advantage"
+
+    return "advantage"
+
+
+def _core_area_driver_alignment(
+    *,
+    display_leader: str,
+    headline_driver_leader: str,
+    headline_driver_summary_label: str,
+) -> str:
+    """
+    Describe whether headline-driver summaries support the broad Core Area read.
+
+    This is diagnostic/context only. It should not become a second visible leader.
+    """
+    if not headline_driver_leader:
+        return "no_headline_drivers"
+
+    if display_leader not in {"away", "home"}:
+        if headline_driver_leader in {"away", "home"}:
+            return "broad_neutral_driver_directional"
+        return "aligned_neutral"
+
+    if headline_driver_leader == display_leader:
+        return "aligned"
+
+    if headline_driver_leader == "neutral":
+        if headline_driver_summary_label == "mixed":
+            return "mixed"
+        return "thin_or_neutral"
+
+    return "conflicting"
+
+
+def _core_area_display_summary(
+    *,
+    core_area: str,
+    display_leader: str,
+    display_leader_team: str,
+    display_strength: str,
+    driver_alignment: str,
+) -> str:
+    """
+    Build the user-facing Core Area summary.
+
+    The visible direction comes from core_area_comparison.
+    Headline-driver disagreement is described as context, not as a competing verdict.
+    """
+    if display_strength == "near_even" or display_leader not in {"away", "home"}:
+        base = f"{core_area} looks close to even overall."
+    elif display_strength == "lean":
+        base = f"{display_leader_team} has a broad lean in {core_area}."
+    elif display_strength == "edge":
+        base = f"{display_leader_team} has a broad edge in {core_area}."
+    elif display_strength == "strong_edge":
+        base = f"{display_leader_team} has a strong broad edge in {core_area}."
+    else:
+        base = f"{display_leader_team} has a broad read in {core_area}."
+
+    if driver_alignment == "aligned":
+        return f"{base} Headline drivers generally support that read."
+
+    if driver_alignment in {"thin_or_neutral", "no_headline_drivers", "aligned_neutral"}:
+        return f"{base} Headline-driver support is thin or close to even."
+
+    if driver_alignment == "mixed":
+        return f"{base} Headline drivers are mixed, so treat this as a nuanced read."
+
+    if driver_alignment == "conflicting":
+        return f"{base} Headline drivers point differently, so treat this as a nuanced read."
+
+    if driver_alignment == "broad_neutral_driver_directional":
+        return (
+            f"{base} A few headline drivers point one way, but the broad Core Area read "
+            "does not create a clean visible direction."
+        )
+
+    return base
+
+
+def align_core_area_summaries_to_core_area_comparison(
+    *,
+    matchup_breakdown: dict,
+    core_area_comparison: list,
+    header: dict,
+) -> dict:
+    """
+    Align user-facing Core Area summaries to core_area_comparison.
+
+    Product rule:
+    - core_area_comparison owns the visible Core Area leader.
+    - core_area_summaries explain headline-driver support quality.
+    - headline-driver leader is preserved as diagnostic metadata, not as a second
+      visible directional verdict.
+    """
+    breakdown = dict(matchup_breakdown or {})
+
+    if not breakdown.get("available"):
+        return breakdown
+
+    comparison_by_core_area = {
+        row.get("core_area"): row
+        for row in core_area_comparison or []
+        if row.get("core_area")
+    }
+
+    aligned_summaries = []
+
+    for summary in breakdown.get("core_area_summaries") or []:
+        core_area = summary.get("name")
+        broad_row = comparison_by_core_area.get(core_area)
+
+        if not broad_row:
+            aligned_summaries.append(summary)
+            continue
+
+        display_leader = broad_row.get("leader") or "neutral"
+        display_leader_team = (
+            _team_label(display_leader, header)
+            if display_leader in {"away", "home"}
+            else None
+        )
+
+        broad_away_score = broad_row.get("away_score")
+        broad_home_score = broad_row.get("home_score")
+
+        away_num = _safe_float(broad_away_score)
+        home_num = _safe_float(broad_home_score)
+        broad_score_gap = (
+            round(abs(away_num - home_num), 3)
+            if away_num is not None and home_num is not None
+            else None
+        )
+
+        display_strength = _core_area_display_strength(
+            away_score=broad_away_score,
+            home_score=broad_home_score,
+            leader=display_leader,
+        )
+
+        headline_driver_leader = summary.get("leader")
+        headline_driver_summary_label = summary.get("summary_label")
+
+        driver_alignment = _core_area_driver_alignment(
+            display_leader=display_leader,
+            headline_driver_leader=headline_driver_leader,
+            headline_driver_summary_label=headline_driver_summary_label,
+        )
+
+        display_summary = _core_area_display_summary(
+            core_area=core_area,
+            display_leader=display_leader,
+            display_leader_team=display_leader_team,
+            display_strength=display_strength,
+            driver_alignment=driver_alignment,
+        )
+
+        updated_summary = dict(summary)
+
+        updated_summary.update({
+            # User-facing direction now comes from core_area_comparison.
+            "leader": display_leader,
+            "leader_team": display_leader_team,
+            "leader_source": "core_area_comparison",
+
+            # User-facing display language.
+            "display_strength": display_strength,
+            "display_summary": display_summary,
+            "summary_label": _core_area_summary_label_from_display_strength(
+                display_strength
+            ),
+            "summary": display_summary,
+
+            # Broad Core Area diagnostic metadata.
+            "broad_away_score": broad_away_score,
+            "broad_home_score": broad_home_score,
+            "broad_score_gap": broad_score_gap,
+
+            # Preserve prior headline-driver result as diagnostic context.
+            "headline_driver_leader": headline_driver_leader,
+            "headline_driver_leader_team": summary.get("leader_team"),
+            "headline_driver_summary_label": headline_driver_summary_label,
+            "headline_driver_summary": summary.get("summary"),
+            "headline_driver_away_score": summary.get("away_score"),
+            "headline_driver_home_score": summary.get("home_score"),
+            "driver_alignment": driver_alignment,
+        })
+
+        aligned_summaries.append(updated_summary)
+
+    breakdown["core_area_summaries"] = aligned_summaries
+
+    return breakdown
 
 def build_matchup_breakdown(
     away_rankings: dict = None,
@@ -2058,6 +2290,12 @@ def get_game_details(game_id: str) -> dict:
     matchup_breakdown = build_matchup_breakdown(
         away_rankings=away_rankings if ranking_context.get("available") else {},
         home_rankings=home_rankings if ranking_context.get("available") else {},
+        header=header,
+    )
+    
+    matchup_breakdown = align_core_area_summaries_to_core_area_comparison(
+        matchup_breakdown=matchup_breakdown,
+        core_area_comparison=core_area_comparison,
         header=header,
     )
 

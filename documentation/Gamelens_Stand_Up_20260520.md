@@ -444,3 +444,34 @@ Validation completed:
 - `model_trust_tooltip_even_area_mismatch` dropped from `6 → 0`
 
 Result: Model Trust tooltip language now matches the visible Team Comparison counts without changing scoring or model logic.
+
+--final step in the clean up done (this is my note before my commit)--
+
+## Core Area Direction Consistency Cleanup
+
+Completed the final Devil’s Advocate API cleanup item.
+
+The issue was that `core_area_comparison` and `matchup_breakdown.core_area_summaries` could expose different visible leaders for the same Core Area. That made the `/game` response feel like it had competing directional reads.
+
+Updated `services/game_service.py` so `core_area_comparison` is now the source of truth for user-facing Core Area direction. `core_area_summaries` now align their visible `leader` and `leader_team` to that broad Core Area read, while preserving the previous headline-driver result as diagnostic metadata.
+
+New diagnostic fields include:
+
+- `leader_source`
+- `display_strength`
+- `display_summary`
+- `broad_score_gap`
+- `headline_driver_leader`
+- `headline_driver_summary`
+- `driver_alignment`
+
+Validation completed:
+
+- `services/game_service.py` compiled successfully
+- Local API spot checks confirmed Core Area summary leaders now match `core_area_comparison`
+- `20251013_BUF@ATL` now shows BUF as the displayed Disruption and Turnovers leader while explaining headline-driver support was thin/neutral
+- Re-ran the same 30-game smoke sample
+- `core_area_layer_leader_mismatch` dropped from `32 → 0`
+- Latest smoke sample returned `warning_counts: {}`
+
+Result: the `/game` response now has one coherent user-facing Core Area direction while still preserving driver nuance for explanation/debugging.
