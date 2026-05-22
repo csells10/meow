@@ -1,7 +1,9 @@
 """
 Update GameLens claim training examples with Level 3 engineered feature scores.
 
-V7 keeps scoped offense_finish_score, requires Defensive Control for defensive_suppression_score, adds two_way_context, and adds claim_strength_context.
+Adds clean_hierarchy_context_v1 metadata while preserving the existing
+offense_finish_score, defensive_suppression_score, two_way_edge_score,
+and two_way_context behavior.
 
 Recommended repo location:
     agg/gamelens_training/update_claim_training_features.py
@@ -14,14 +16,12 @@ Purpose:
     Level 3 begins adding pregame-only engineered features that can later help
     predict claim quality and calibrate language.
 
-This worker computes:
+This worker computes / attaches:
+    clean_hierarchy_context_v1 registry-backed hierarchy metadata
     offense_finish_score
     defensive_suppression_score
+    two_way_edge_score
     two_way_context
-    claim_strength_score
-    claim_strength_bucket
-    claim_strength_context
-    claim_strength_language_signal
 
 Football idea:
     Can the claimed team both move the ball and finish drives?
@@ -62,12 +62,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from analytics.metric_registry import get_metric_meta  # type: ignore
+
 
 PROJECT_ID = "nfl-stream-406420"
 DATASET_ID = "Analytics"
 TRAINING_TABLE = "gamelens_claim_training_examples"
 DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_feature_update_runs")
-DEFAULT_FORMULA_VERSION = "offense_finish_v2__defensive_suppression_v3__two_way_context_v1__claim_strength_context_v1"
+DEFAULT_FORMULA_VERSION = "clean_hierarchy_context_v1__offense_finish_v2__defensive_suppression_v3__two_way_context_v1"
 
 REQUIRED_CORE_AREAS = ("Offensive Output", "Scoring Efficiency", "Defensive Control")
 
@@ -119,52 +121,6 @@ DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS = (
 )
 
 
-# V7 feature:
-# claim_strength_context asks whether a pregame claim had enough matchup
-# separation to deserve stronger, softer, or caution-only language.
-#
-# Football/product idea:
-# - A "real edge" in trusted areas like Passing Game, Rushing Game, or
-#   Scoring Suppression can support stronger claim language.
-# - A "real edge" in volatile/noisy areas like Turnovers should stay
-#   caution-only.
-# - Thin or near-even edges should soften language.
-#
-# Important boundary:
-# This is not winner prediction, not matchup_lean confidence, and not a pick
-# override. It is only claim-language support context.
-CLAIM_STRENGTH_REAL_EDGE_MIN = 30.0
-CLAIM_STRENGTH_USABLE_EDGE_MIN = 15.0
-CLAIM_STRENGTH_THIN_EDGE_MIN = 7.0
-
-TRUSTED_CLAIM_STRENGTH_CATEGORIES = {
-    "Passing Game",
-    "Rushing Game",
-    "Scoring Suppression",
-}
-
-TRUSTED_CLAIM_STRENGTH_CORE_AREAS = {
-    "Defensive Control",
-}
-
-WATCH_CLAIM_STRENGTH_CATEGORIES = {
-    "Drive Conversion",
-    "Offensive Rhythm",
-}
-
-CAUTION_CLAIM_STRENGTH_CATEGORIES = {
-    "Turnovers",
-    "Red Zone Finish",
-    "Scoring Production",
-    "Pressure",
-    "Turnover Risk",
-}
-
-CAUTION_CLAIM_STRENGTH_CORE_AREAS = {
-    "Disruption and Turnovers",
-}
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -180,6 +136,117 @@ def as_float(value: Any) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def clean_string(value: Any) -> Optional[str]:
+    """Normalize blank hierarchy fields to None without changing labels."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def build_clean_hierarchy_context(row: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Attach canonical registry-backed hierarchy metadata to a claim row.
+
+    This is metadata only. It does not change any Level 3 score formula,
+    validation label, winner logic, matchup lean, confidence, Model Trust,
+    Level 4 rule, or frontend behavior.
+    """
+    metric = clean_string(row.get("metric"))
+    original_core_area = clean_string(row.get("core_area"))
+    original_category = clean_string(row.get("category"))
+
+    if metric:
+        try:
+            meta = get_metric_meta(metric)
+        except KeyError:
+            return {
+                "registry_core_area": None,
+                "registry_category": None,
+                "registry_metric_label": None,
+                "registry_signal_strength": None,
+                "registry_ranking_usage": None,
+                "clean_hierarchy_path": f"unregistered_metric > {metric}",
+                "clean_hierarchy_status": "metric_not_in_registry",
+                "clean_hierarchy_path_flag": False,
+                "missing_hierarchy_parent_flag": True,
+            }
+
+        registry_core_area = clean_string(meta.get("core_area"))
+        registry_category = clean_string(meta.get("category"))
+        registry_metric_label = clean_string(meta.get("label"))
+        registry_signal_strength = clean_string(meta.get("signal_strength"))
+        registry_ranking_usage = clean_string(meta.get("ranking_usage"))
+        missing_parent = not original_core_area or not original_category
+
+        return {
+            "registry_core_area": registry_core_area,
+            "registry_category": registry_category,
+            "registry_metric_label": registry_metric_label,
+            "registry_signal_strength": registry_signal_strength,
+            "registry_ranking_usage": registry_ranking_usage,
+            "clean_hierarchy_path": f"{registry_core_area} > {registry_category} > {metric}",
+            "clean_hierarchy_status": (
+                "registry_metric_parent_recovered"
+                if missing_parent
+                else "registry_metric_clean"
+            ),
+            "clean_hierarchy_path_flag": True,
+            "missing_hierarchy_parent_flag": missing_parent,
+        }
+
+    if original_core_area and original_category:
+        return {
+            "registry_core_area": None,
+            "registry_category": None,
+            "registry_metric_label": None,
+            "registry_signal_strength": None,
+            "registry_ranking_usage": None,
+            "clean_hierarchy_path": f"{original_core_area} > {original_category}",
+            "clean_hierarchy_status": "row_metadata_category",
+            "clean_hierarchy_path_flag": True,
+            "missing_hierarchy_parent_flag": False,
+        }
+
+    if original_core_area:
+        return {
+            "registry_core_area": None,
+            "registry_category": None,
+            "registry_metric_label": None,
+            "registry_signal_strength": None,
+            "registry_ranking_usage": None,
+            "clean_hierarchy_path": original_core_area,
+            "clean_hierarchy_status": "row_metadata_core_area",
+            "clean_hierarchy_path_flag": True,
+            "missing_hierarchy_parent_flag": False,
+        }
+
+    if original_category:
+        return {
+            "registry_core_area": None,
+            "registry_category": None,
+            "registry_metric_label": None,
+            "registry_signal_strength": None,
+            "registry_ranking_usage": None,
+            "clean_hierarchy_path": f"missing_core_area > {original_category}",
+            "clean_hierarchy_status": "row_metadata_missing_core_area",
+            "clean_hierarchy_path_flag": False,
+            "missing_hierarchy_parent_flag": True,
+        }
+
+    return {
+        "registry_core_area": None,
+        "registry_category": None,
+        "registry_metric_label": None,
+        "registry_signal_strength": None,
+        "registry_ranking_usage": None,
+        "clean_hierarchy_path": None,
+        "clean_hierarchy_status": "no_hierarchy_context",
+        "clean_hierarchy_path_flag": False,
+        "missing_hierarchy_parent_flag": True,
+    }
 
 
 def clamp(value: float, low: float = -1.0, high: float = 1.0) -> float:
@@ -209,11 +276,15 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "core_area",
         "category",
         "metric",
-        "claim_strength_score",
-        "claim_strength_bucket",
-        "claim_strength_context",
-        "claim_strength_language_signal",
-        "claim_strength_notes",
+        "registry_core_area",
+        "registry_category",
+        "registry_metric_label",
+        "registry_signal_strength",
+        "registry_ranking_usage",
+        "clean_hierarchy_path",
+        "clean_hierarchy_status",
+        "clean_hierarchy_path_flag",
+        "missing_hierarchy_parent_flag",
         "offense_finish_score",
         "offense_finish_relevance_reason",
         "away_offense_finish_score",
@@ -625,146 +696,6 @@ def strip_prior_level3_notes(notes: Optional[str]) -> str:
 
 
 
-
-def calculate_claim_strength_bucket(abs_percentile_gap: Optional[float]) -> str:
-    """
-    Bucket pregame separation using the same thresholds we tested in SQL.
-
-    Buckets:
-    - real_edge: meaningful separation
-    - usable_edge: some separation, but not enough for strongest language
-    - thin_edge: skinny edge; language should be softened
-    - near_even: not enough separation
-    - missing: no percentile-gap evidence available for this claim row
-    """
-    if abs_percentile_gap is None:
-        return "missing"
-
-    if abs_percentile_gap >= CLAIM_STRENGTH_REAL_EDGE_MIN:
-        return "real_edge"
-
-    if abs_percentile_gap >= CLAIM_STRENGTH_USABLE_EDGE_MIN:
-        return "usable_edge"
-
-    if abs_percentile_gap >= CLAIM_STRENGTH_THIN_EDGE_MIN:
-        return "thin_edge"
-
-    return "near_even"
-
-
-def calculate_claim_strength_context(row: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Build claim-strength language context for one pregame claim row.
-
-    This feature answers a product/football question:
-        Is this edge real enough, and in a football area trustworthy enough,
-        to let GameLens speak more clearly?
-
-    It intentionally does not change winner logic or confidence.
-    It produces structured metadata for Level 4 language calibration.
-    """
-    abs_percentile_gap = as_float(row.get("pregame_abs_percentile_gap"))
-    bucket = calculate_claim_strength_bucket(abs_percentile_gap)
-    score = None if abs_percentile_gap is None else round(clamp(abs_percentile_gap / 100.0, 0.0, 1.0), 4)
-
-    claim_type = row.get("claim_type")
-    claim_layer = row.get("claim_layer")
-    core_area = row.get("core_area")
-    category = row.get("category")
-
-    # Rows without percentile gap evidence cannot receive a boost from this feature.
-    if bucket == "missing":
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "missing_gap_context",
-            "claim_strength_language_signal": "no_boost",
-            "claim_strength_notes": (
-                "claim_strength_context not available because pregame_abs_percentile_gap is missing."
-            ),
-        }
-
-    # Small edges should not talk loudly, regardless of football area.
-    if bucket == "near_even":
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "near_even_gap",
-            "claim_strength_language_signal": "soften",
-            "claim_strength_notes": "Near-even pregame gap; use softer language.",
-        }
-
-    if bucket == "thin_edge":
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "thin_gap",
-            "claim_strength_language_signal": "soften",
-            "claim_strength_notes": "Thin pregame gap; avoid strong edge language.",
-        }
-
-    # Volatile/noisy areas should stay caution-only even when the gap is large.
-    if category in CAUTION_CLAIM_STRENGTH_CATEGORIES or core_area in CAUTION_CLAIM_STRENGTH_CORE_AREAS:
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "caution_area_edge",
-            "claim_strength_language_signal": "caution_only",
-            "claim_strength_notes": (
-                "Pregame gap exists, but this football area is volatile/noisy; "
-                "treat as a swing factor rather than a strong edge."
-            ),
-        }
-
-    # Trusted areas earned the first-pass language support in SQL testing.
-    if category in TRUSTED_CLAIM_STRENGTH_CATEGORIES or (
-        category is None and core_area in TRUSTED_CLAIM_STRENGTH_CORE_AREAS
-    ):
-        if bucket == "real_edge":
-            return {
-                "claim_strength_score": score,
-                "claim_strength_bucket": bucket,
-                "claim_strength_context": "trusted_real_edge",
-                "claim_strength_language_signal": "boost_candidate",
-                "claim_strength_notes": (
-                    "Real pregame separation in a trusted football area; candidate for clearer claim language."
-                ),
-            }
-
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "trusted_measured_edge",
-            "claim_strength_language_signal": "measured",
-            "claim_strength_notes": (
-                "Pregame separation exists in a trusted football area, but not enough for strongest language."
-            ),
-        }
-
-    # Watch areas may be useful, but should be measured until Level 4 confirms.
-    if category in WATCH_CLAIM_STRENGTH_CATEGORIES:
-        return {
-            "claim_strength_score": score,
-            "claim_strength_bucket": bucket,
-            "claim_strength_context": "watch_area_edge",
-            "claim_strength_language_signal": "measured",
-            "claim_strength_notes": (
-                "Pregame separation exists in a watch area; keep language measured until further calibration."
-            ),
-        }
-
-    # Default: useful as context, but do not boost yet.
-    return {
-        "claim_strength_score": score,
-        "claim_strength_bucket": bucket,
-        "claim_strength_context": "unclassified_edge",
-        "claim_strength_language_signal": "normal",
-        "claim_strength_notes": (
-            f"Pregame gap bucket={bucket}, but claim surface is not yet allowlisted for stronger language "
-            f"(claim_type={claim_type}, claim_layer={claim_layer}, core_area={core_area}, category={category})."
-        ),
-    }
-
 def calculate_two_way_edge_score(
     *,
     offense_finish_score: Optional[float],
@@ -840,16 +771,7 @@ def build_feature_updates(
         game_id = str(row.get("game_id") or "")
         claimed_side = row.get("claimed_side")
         game_edges = core_edges.get(game_id, {})
-
-        # -------------------------
-        # Claim strength context feature
-        # -------------------------
-        claim_strength = calculate_claim_strength_context(row)
-        claim_strength_note = (
-            " | Level 3 v7: claim_strength_context computed from pregame percentile-gap "
-            "separation and trusted/caution football area grouping; intended for claim-language "
-            "calibration only, not winner prediction."
-        )
+        hierarchy_context = build_clean_hierarchy_context(row)
 
         # -------------------------
         # Offense finish feature
@@ -1000,7 +922,7 @@ def build_feature_updates(
             "and defensive_suppression_score; intended as reasoning support, not a standalone prediction score."
         )
 
-        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + claim_strength_note + offense_note + defensive_note + two_way_note
+        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + offense_note + defensive_note + two_way_note
 
         updates.append({
             "run_id": row.get("run_id"),
@@ -1015,11 +937,15 @@ def build_feature_updates(
             "category": row.get("category"),
             "metric": row.get("metric"),
 
-            "claim_strength_score": claim_strength["claim_strength_score"],
-            "claim_strength_bucket": claim_strength["claim_strength_bucket"],
-            "claim_strength_context": claim_strength["claim_strength_context"],
-            "claim_strength_language_signal": claim_strength["claim_strength_language_signal"],
-            "claim_strength_notes": claim_strength["claim_strength_notes"],
+            "registry_core_area": hierarchy_context["registry_core_area"],
+            "registry_category": hierarchy_context["registry_category"],
+            "registry_metric_label": hierarchy_context["registry_metric_label"],
+            "registry_signal_strength": hierarchy_context["registry_signal_strength"],
+            "registry_ranking_usage": hierarchy_context["registry_ranking_usage"],
+            "clean_hierarchy_path": hierarchy_context["clean_hierarchy_path"],
+            "clean_hierarchy_status": hierarchy_context["clean_hierarchy_status"],
+            "clean_hierarchy_path_flag": hierarchy_context["clean_hierarchy_path_flag"],
+            "missing_hierarchy_parent_flag": hierarchy_context["missing_hierarchy_parent_flag"],
 
             "offense_finish_score": offense_score,
             "offense_finish_relevance_reason": offense_relevance_reason,
@@ -1055,11 +981,15 @@ def feature_update_schema(bigquery: Any) -> List[Any]:
     return [
         bigquery.SchemaField("run_id", "STRING"),
         bigquery.SchemaField("claim_key", "STRING"),
-        bigquery.SchemaField("claim_strength_score", "FLOAT"),
-        bigquery.SchemaField("claim_strength_bucket", "STRING"),
-        bigquery.SchemaField("claim_strength_context", "STRING"),
-        bigquery.SchemaField("claim_strength_language_signal", "STRING"),
-        bigquery.SchemaField("claim_strength_notes", "STRING"),
+        bigquery.SchemaField("registry_core_area", "STRING"),
+        bigquery.SchemaField("registry_category", "STRING"),
+        bigquery.SchemaField("registry_metric_label", "STRING"),
+        bigquery.SchemaField("registry_signal_strength", "STRING"),
+        bigquery.SchemaField("registry_ranking_usage", "STRING"),
+        bigquery.SchemaField("clean_hierarchy_path", "STRING"),
+        bigquery.SchemaField("clean_hierarchy_status", "STRING"),
+        bigquery.SchemaField("clean_hierarchy_path_flag", "BOOL"),
+        bigquery.SchemaField("missing_hierarchy_parent_flag", "BOOL"),
         bigquery.SchemaField("offense_finish_score", "FLOAT"),
         bigquery.SchemaField("defensive_suppression_score", "FLOAT"),
         bigquery.SchemaField("two_way_edge_score", "FLOAT"),
@@ -1068,6 +998,32 @@ def feature_update_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("feature_notes", "STRING"),
         bigquery.SchemaField("updated_at", "TIMESTAMP"),
     ]
+
+
+def ensure_target_feature_columns(
+    *,
+    client: Any,
+    target_table: str,
+) -> None:
+    """Ensure additive Level 3 output columns exist before MERGE."""
+    columns = [
+        ("registry_core_area", "STRING"),
+        ("registry_category", "STRING"),
+        ("registry_metric_label", "STRING"),
+        ("registry_signal_strength", "STRING"),
+        ("registry_ranking_usage", "STRING"),
+        ("clean_hierarchy_path", "STRING"),
+        ("clean_hierarchy_status", "STRING"),
+        ("clean_hierarchy_path_flag", "BOOL"),
+        ("missing_hierarchy_parent_flag", "BOOL"),
+    ]
+
+    for column_name, column_type in columns:
+        alter_sql = f"""
+            ALTER TABLE `{target_table}`
+            ADD COLUMN IF NOT EXISTS {column_name} {column_type}
+        """
+        client.query(alter_sql).result()
 
 
 def update_bigquery_rows(
@@ -1091,11 +1047,15 @@ def update_bigquery_rows(
         {
             "run_id": row["run_id"],
             "claim_key": row["claim_key"],
-            "claim_strength_score": row["claim_strength_score"],
-            "claim_strength_bucket": row["claim_strength_bucket"],
-            "claim_strength_context": row["claim_strength_context"],
-            "claim_strength_language_signal": row["claim_strength_language_signal"],
-            "claim_strength_notes": row["claim_strength_notes"],
+            "registry_core_area": row["registry_core_area"],
+            "registry_category": row["registry_category"],
+            "registry_metric_label": row["registry_metric_label"],
+            "registry_signal_strength": row["registry_signal_strength"],
+            "registry_ranking_usage": row["registry_ranking_usage"],
+            "clean_hierarchy_path": row["clean_hierarchy_path"],
+            "clean_hierarchy_status": row["clean_hierarchy_status"],
+            "clean_hierarchy_path_flag": row["clean_hierarchy_path_flag"],
+            "missing_hierarchy_parent_flag": row["missing_hierarchy_parent_flag"],
             "offense_finish_score": row["offense_finish_score"],
             "defensive_suppression_score": row["defensive_suppression_score"],
             "two_way_edge_score": row["two_way_edge_score"],
@@ -1106,6 +1066,8 @@ def update_bigquery_rows(
         }
         for row in update_rows
     ]
+
+    ensure_target_feature_columns(client=client, target_table=target_table)
 
     job_config = bigquery.LoadJobConfig(
         schema=feature_update_schema(bigquery),
@@ -1121,11 +1083,15 @@ def update_bigquery_rows(
         ON T.run_id = S.run_id
            AND T.claim_key = S.claim_key
         WHEN MATCHED THEN UPDATE SET
-            claim_strength_score = S.claim_strength_score,
-            claim_strength_bucket = S.claim_strength_bucket,
-            claim_strength_context = S.claim_strength_context,
-            claim_strength_language_signal = S.claim_strength_language_signal,
-            claim_strength_notes = S.claim_strength_notes,
+            registry_core_area = S.registry_core_area,
+            registry_category = S.registry_category,
+            registry_metric_label = S.registry_metric_label,
+            registry_signal_strength = S.registry_signal_strength,
+            registry_ranking_usage = S.registry_ranking_usage,
+            clean_hierarchy_path = S.clean_hierarchy_path,
+            clean_hierarchy_status = S.clean_hierarchy_status,
+            clean_hierarchy_path_flag = S.clean_hierarchy_path_flag,
+            missing_hierarchy_parent_flag = S.missing_hierarchy_parent_flag,
             offense_finish_score = S.offense_finish_score,
             defensive_suppression_score = S.defensive_suppression_score,
             two_way_edge_score = S.two_way_edge_score,
@@ -1171,24 +1137,11 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     two_way_context_counts: Dict[str, int] = {}
     two_way_non_null_scores = []
 
-    claim_strength_bucket_counts: Dict[str, int] = {}
-    claim_strength_context_counts: Dict[str, int] = {}
-    claim_strength_language_signal_counts: Dict[str, int] = {}
-    claim_strength_non_null_scores = []
+    clean_hierarchy_status_counts: Dict[str, int] = {}
+    clean_hierarchy_path_flag_counts: Dict[str, int] = {}
+    missing_hierarchy_parent_flag_counts: Dict[str, int] = {}
 
     for row in update_rows:
-        claim_strength_bucket = row.get("claim_strength_bucket") or "NULL"
-        claim_strength_bucket_counts[claim_strength_bucket] = claim_strength_bucket_counts.get(claim_strength_bucket, 0) + 1
-
-        claim_strength_context = row.get("claim_strength_context") or "NULL"
-        claim_strength_context_counts[claim_strength_context] = claim_strength_context_counts.get(claim_strength_context, 0) + 1
-
-        claim_strength_signal = row.get("claim_strength_language_signal") or "NULL"
-        claim_strength_language_signal_counts[claim_strength_signal] = claim_strength_language_signal_counts.get(claim_strength_signal, 0) + 1
-
-        if row.get("claim_strength_score") is not None:
-            claim_strength_non_null_scores.append(row["claim_strength_score"])
-
         offense_bucket = bucket_score(row.get("offense_finish_score"))
         offense_bucket_counts[offense_bucket] = offense_bucket_counts.get(offense_bucket, 0) + 1
 
@@ -1215,6 +1168,15 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         if row.get("two_way_edge_score") is not None:
             two_way_non_null_scores.append(row["two_way_edge_score"])
 
+        clean_status = row.get("clean_hierarchy_status") or "NULL"
+        clean_hierarchy_status_counts[clean_status] = clean_hierarchy_status_counts.get(clean_status, 0) + 1
+
+        clean_path_flag = "true" if row.get("clean_hierarchy_path_flag") is True else "false"
+        clean_hierarchy_path_flag_counts[clean_path_flag] = clean_hierarchy_path_flag_counts.get(clean_path_flag, 0) + 1
+
+        missing_parent_flag = "true" if row.get("missing_hierarchy_parent_flag") is True else "false"
+        missing_hierarchy_parent_flag_counts[missing_parent_flag] = missing_hierarchy_parent_flag_counts.get(missing_parent_flag, 0) + 1
+
     offense_relevant_rows = [r for r in update_rows if r.get("offense_finish_relevance_reason")]
     offense_relevant_missing = [
         r for r in offense_relevant_rows
@@ -1231,14 +1193,9 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "formula_version": DEFAULT_FORMULA_VERSION,
         "rows_updated": len(update_rows),
 
-        "rows_with_claim_strength_score": len(claim_strength_non_null_scores),
-        "rows_missing_claim_strength_score": len(update_rows) - len(claim_strength_non_null_scores),
-        "min_claim_strength_score": min(claim_strength_non_null_scores) if claim_strength_non_null_scores else None,
-        "max_claim_strength_score": max(claim_strength_non_null_scores) if claim_strength_non_null_scores else None,
-        "avg_claim_strength_score": round(sum(claim_strength_non_null_scores) / len(claim_strength_non_null_scores), 4) if claim_strength_non_null_scores else None,
-        "claim_strength_bucket_distribution": dict(sorted(claim_strength_bucket_counts.items())),
-        "claim_strength_context_distribution": dict(sorted(claim_strength_context_counts.items())),
-        "claim_strength_language_signal_distribution": dict(sorted(claim_strength_language_signal_counts.items())),
+        "clean_hierarchy_status_distribution": dict(sorted(clean_hierarchy_status_counts.items())),
+        "clean_hierarchy_path_flag_distribution": dict(sorted(clean_hierarchy_path_flag_counts.items())),
+        "missing_hierarchy_parent_flag_distribution": dict(sorted(missing_hierarchy_parent_flag_counts.items())),
 
         "rows_relevant_for_offense_finish": len(offense_relevant_rows),
         "rows_not_relevant_for_offense_finish": len(update_rows) - len(offense_relevant_rows),
@@ -1276,7 +1233,7 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores. Adds two_way_context and claim_strength_context.")
+    parser = argparse.ArgumentParser(description="Update GameLens claim training examples with Level 3 engineered feature scores and clean hierarchy context.")
     parser.add_argument("--run-id", required=True, help="run_id in Analytics.gamelens_claim_training_examples.")
     parser.add_argument("--project-id", default=PROJECT_ID)
     parser.add_argument("--training-table", default=f"{PROJECT_ID}.{DATASET_ID}.{TRAINING_TABLE}")
@@ -1319,8 +1276,9 @@ def main() -> int:
     print("\nFeature build complete")
     print("----------------------")
     print(f"Feature rows built: {len(update_rows)}")
-    print(f"Rows with claim_strength_score: {summary['rows_with_claim_strength_score']}")
-    print(f"Rows missing claim_strength_score: {summary['rows_missing_claim_strength_score']}")
+    print(f"Clean hierarchy status distribution: {summary['clean_hierarchy_status_distribution']}")
+    print(f"Clean hierarchy path flag distribution: {summary['clean_hierarchy_path_flag_distribution']}")
+    print(f"Missing hierarchy parent flag distribution: {summary['missing_hierarchy_parent_flag_distribution']}")
     print(f"Rows with offense_finish_score: {summary['rows_with_offense_finish_score']}")
     print(f"Rows missing offense_finish_score: {summary['rows_missing_offense_finish_score']}")
     print(f"Rows with defensive_suppression_score: {summary['rows_with_defensive_suppression_score']}")

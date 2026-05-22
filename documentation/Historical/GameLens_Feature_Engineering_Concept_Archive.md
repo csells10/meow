@@ -1152,3 +1152,339 @@ And honestly, this is the right path:
 > Build better football claims first.  
 > Calibrate language second.  
 > Predict outcomes third.
+
+
+
+Summary so far — Feature Testing Day 🏈🧪
+
+We did exactly what your GameLens notes say to do: test feature ideas in SQL before coding anything. The goal stayed clean:
+
+Does this pregame feature help related claims validate more often?
+
+Not:
+
+Does this feature pick winners?
+
+That matters because GameLens is trying to become a matchup intelligence / claim truth tool, not a forced pick machine.
+
+1. We tested rushing_control_score
+First pass
+
+The first rushing SQL looked broken because every row landed in:
+
+rushing_unavailable
+
+That happened because the bucket rule required:
+
+score_weight_available >= 0.60
+
+But most rows only had:
+
+yards_per_rush + control_resistance = 0.55 available weight
+
+So the feature was blocked before it could actually separate into buckets.
+
+After the fix
+
+Once we lowered the availability gate, the buckets started working.
+
+Best finding
+
+For narrow rushing claims, rushing_supportive looked useful:
+
+narrow rushing supportive:
+547 rows
+324 validated
+~59.2% validation
+
+Compared to:
+
+narrow rushing mixed:
+238 rows
+98 validated
+~41.2% validation
+
+That is a real signal.
+
+Rushing conclusion
+
+Good candidate, but only narrowly.
+
+Keep testing as:
+rushing_efficiency_support_score
+
+or:
+
+rush_claim_support_score
+Use only for:
+yards_per_rush
+Rushing Game
+narrow rushing claims
+Do not use yet for:
+winner confidence
+matchup_lean confidence
+Model Trust
+broad drive-control warnings
+automatic confidence caps
+
+The drive-control side was messy. rushing_conflict did not behave reliably like a warning bucket.
+
+2. We tested passing_efficiency_support_score
+
+This one was more interesting.
+
+Coverage check
+
+The coverage result showed this was mostly a yards_per_pass test, not a full passing bundle yet.
+
+The important coverage result:
+
+larger_240 yards_per_pass / Passing Game / Offensive Output:
+174 rows
+103 validated
+~59.2% validation
+
+And the broader yards_per_pass rows in the larger sample were also solid.
+
+Bucket test
+
+This one produced a cleaner ladder.
+
+Broad offensive claims
+passing_conflict:   ~37.3%
+passing_mixed:      ~48.9%
+passing_supportive: ~58.8%
+
+That is exactly the kind of shape we want:
+
+conflict < mixed < supportive
+Narrow passing claims
+passing_mixed:      ~44.7%
+passing_supportive: ~58.6%
+
+Also good.
+
+Best finding
+
+The strongest combo was:
+
+two_way_context = supportive
++
+passing_support_bucket = passing_supportive
+
+That validated around:
+
+~64%+ for narrow passing claims
+~69% for broad offensive claims
+
+That is a better signal than the rushing test.
+
+Passing conclusion
+
+This is currently the stronger candidate.
+
+Better name:
+passing_efficiency_claim_support_v0
+
+or, more honestly:
+
+yards_per_pass_support_score
+Use for:
+yards_per_pass
+Passing Game
+narrow passing claims
+broad offensive claims only when two_way_context is supportive
+Do not use for:
+winner prediction
+automatic matchup confidence
+Model Trust
+passing volume claims
+Current feature ranking
+Feature	Status	Best Use	Confidence
+passing_efficiency_claim_support_v0	Strongest candidate so far	Claim-language support	🟢 Good
+rush_claim_support_score	Worth keeping	Narrow rushing claim support	🟡 Promising but scoped
+rushing_control_score as broad feature	Not ready	Too messy outside rushing claims	🔴 Hold
+rushing_conflict as confidence cap	Not ready	Did not behave cleanly	🔴 Hold
+Big takeaway
+
+Today we proved the workflow works:
+
+Define a football idea.
+Build a temporary SQL feature.
+Bucket it.
+Compare validation rates.
+Decide whether it deserves code.
+
+And the answer so far is:
+
+Passing efficiency support looks like the better next feature. Rushing support is useful, but only in a narrow claim-support role.
+
+That is a very productive little lab day. 🧠🏈
+
+1. drive_sustainability_support_score
+
+This is my top next test.
+
+Question
+
+When a team has pregame drive-sustainability support, do drive/control/offensive claims validate more often?
+
+Possible inputs
+1st_down_rate
+third_down_pct
+total_drives
+time_of_possession
+total_plays
+points_per_play
+Why I like it
+
+This sits between rushing and passing. It asks:
+
+Can the team stay on schedule and keep drives alive?
+
+That matters for:
+
+Drive Conversion
+Offensive Rhythm
+Offensive Output
+Scoring Efficiency
+rushing/passing support context
+Best use if it works
+claim support
+offensive stability signal
+confidence restraint helper
+
+Not winner confidence.
+
+2. scoring_conversion_support_score
+Question
+
+When a team has pregame scoring-conversion support, do scoring-related claims validate more often?
+
+Possible inputs
+points_per_play
+td_rate
+red_zone_efficiency
+passing_tds_rushing_tds_sum
+1st_down_rate
+Caution
+
+red_zone_efficiency has already looked unstable in earlier QA, so I would not let it drive the score alone.
+
+Better version:
+
+points_per_play is the anchor
+td_rate is support
+red_zone_efficiency is watch/caution only
+Best use
+Scoring Efficiency claim support
+finish-drive language
+stronger/softer scoring copy
+3. explosive_offense_warning
+
+This one is not a support score. It is a warning flag.
+
+Question
+
+Are there teams with explosive offensive upside that make a model lean more fragile?
+
+Possible inputs
+yards_per_play
+yards_per_pass
+points_per_play
+passing_tds
+yards_per_rush
+Why this matters
+
+This ties directly to your high-confidence miss lessons: sometimes a team can lose the “broad profile” but still have enough explosiveness to wreck the read.
+
+Best use
+upside warning
+confidence cap reason
+high-confidence failure-risk reason
+
+Example future language:
+
+Confidence held down because the opponent carries explosive offensive upside despite weaker broad profile.
+
+This is a very GameLens feature.
+
+4. defensive_resistance_support_score
+Question
+
+When a team has pregame defensive resistance support, do defensive claims validate more often?
+
+Possible inputs
+points_allowed_per_play
+points_allowed_per_yard
+defensive_success_rate
+yards_allowed
+points_allowed
+Why test it
+
+You already have defensive_suppression_score, but this could be a cleaner follow-up focused specifically on:
+
+Defensive Control
+Scoring Suppression
+Defensive Efficiency
+Best use
+defensive claim support
+defensive confidence restraint
+better “Defensive Control” language
+5. turnover_volatility_warning
+Question
+
+Do turnover-heavy profiles create more claim instability?
+
+Possible inputs
+turnover_margin_per_game
+interceptions_thrown
+defensive_interceptions
+fumbles_lost
+fumbles_recovered
+sack_to_turnover_ratio
+Important
+
+This should not be a boost feature.
+
+Turnovers are noisy. This should be tested as:
+
+volatility warning
+confidence cap reason
+do-not-overstate flag
+Best use
+“This matchup has turnover volatility, so confidence should stay measured.”
+6. pressure_disruption_warning
+Question
+
+Does pressure/disruption support explain volatility, upsets, or fragile claims?
+
+Possible inputs
+pressure_rate
+sacks
+sacks_taken
+sack_to_turnover_ratio
+interceptions_thrown
+Best use
+disruption upside
+chaos warning
+confidence cap
+not automatic support
+
+This could help explain games where the broader model was right-ish, but pressure flipped possessions or created short fields.
+
+My recommended order
+Priority	Feature	Why
+1	drive_sustainability_support_score	Most likely to be clean and useful
+2	scoring_conversion_support_score	Directly improves scoring language
+3	explosive_offense_warning	Helps with high-confidence miss risk
+4	defensive_resistance_support_score	Good defensive-language refinement
+5	turnover_volatility_warning	Useful, but noisy
+6	pressure_disruption_warning	Useful, but probably chaotic
+My pick for the next SQL lab
+
+Start with:
+
+drive_sustainability_support_score
+
+It is the best “next brick” because it can connect passing, rushing, scoring, and offensive output without immediately becoming a noisy chaos feature. Nice middle lane. 🧱🏈
