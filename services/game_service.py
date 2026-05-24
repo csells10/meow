@@ -7,9 +7,11 @@ from queries.game_queries import (
 )
 from services.model_trust_service import build_model_trust
 from services.core_area_analysis import build_core_area_comparison
-from services.claim_language_features import build_runtime_two_way_context_by_side
+from services.claim_language_features import (
+    build_runtime_offensive_efficiency_support_by_side,
+    build_runtime_two_way_context_by_side,
+)
 from services.claim_language_response import apply_claim_language_support_to_response_sections
-
 from utils.logging_setup import log_event
 from google.cloud import bigquery
 from datetime import datetime, timezone
@@ -157,9 +159,6 @@ def build_team_comparison(
     - Exact equal values return neutral instead of defaulting to home/away.
     - Near-even percentile gaps also return neutral for scoring/model purposes.
     - technical_better preserves which side was numerically better for display/debug.
-    - category/core_area are included so downstream claim-language support can
-      classify Team Comparison rows consistently with Metric Highlights and
-      Category Summaries.
     - Dynamic metric selection should be handled later through rankings,
       category summaries, or Core Area summaries.
     """
@@ -171,40 +170,30 @@ def build_team_comparison(
             "Scoring Production::points_per_play",
             "points_per_play",
             "Points per Play",
-            "Scoring Production",
-            "Scoring Efficiency",
             "higher",
         ),
         (
             "Scoring Suppression::points_allowed_per_play",
             "points_allowed_per_play",
             "Points Allowed per Play",
-            "Scoring Suppression",
-            "Defensive Control",
             "lower",
         ),
         (
             "Drive Conversion::third_down_pct",
             "third_down_pct",
             "3rd Down %",
-            "Drive Conversion",
-            "Scoring Efficiency",
             "higher",
         ),
         (
             "Red Zone Finish::red_zone_efficiency",
             "red_zone_efficiency",
             "Red Zone TD %",
-            "Red Zone Finish",
-            "Scoring Efficiency",
             "higher",
         ),
         (
             "Turnovers::turnover_margin_per_game",
             "turnover_margin_per_game",
             "Turnover Margin / Game",
-            "Turnovers",
-            "Disruption and Turnovers",
             "higher",
         ),
     ]
@@ -333,7 +322,7 @@ def build_team_comparison(
 
     comparison = []
 
-    for key, metric_name, label, category, core_area, direction in METRICS:
+    for key, metric_name, label, direction in METRICS:
         away_val = metric_value(away_metrics, key)
         home_val = metric_value(home_metrics, key)
 
@@ -351,8 +340,6 @@ def build_team_comparison(
         comparison.append({
             "label": label,
             "metric": metric_name,
-            "category": category,
-            "core_area": core_area,
             "away": fmt(away_val),
             "home": fmt(home_val),
             "better": comparison_result["better"],
@@ -1171,6 +1158,191 @@ def build_group_summary(
         "cautions": cautions,
     }
 
+
+def build_matchup_breakdown(
+    away_rankings: dict = None,
+    home_rankings: dict = None,
+    header: dict = None,
+    max_metric_highlights: int = 8,
+    max_context_notes: int = 12,
+) -> dict:
+    """
+    Build ranking-based matchup summaries.
+
+    Output levels:
+    - metric_highlights
+    - category_summaries
+    - core_area_summaries
+    - context_notes
+
+    This is descriptive. It should not force winner/confidence decisions.
+
+    Important:
+    - Only headline-eligible metrics drive metric/category/core-area summaries.
+    - Supporting/context/workload metrics are kept in context_notes.
+    """
+
+    away_rankings = away_rankings or {}
+    home_rankings = home_rankings or {}
+    header = header or {}
+
+    common_metrics = sorted(set(away_rankings.keys()) & set(home_rankings.keys()))
+
+    if not common_metrics:
+        return {
+            "available": False,
+            "reason": "ranking_context_unavailable",
+            "metric_highlights": [],
+            "category_summaries": [],
+            "core_area_summaries": [],
+            "context_notes": [],
+            "freshness": {},
+            "summary_counts": {
+                "common_metric_count": 0,
+                "headline_metric_count": 0,
+                "context_note_count": 0,
+            },
+        }
+
+    headline_rows = []
+    context_notes = []
+
+    max_lag = 0
+    as_of_dates = set()
+    source_data_dates = set()
+    window_types = set()
+
+    for metric in common_metrics:
+        away_row = away_rankings.get(metric) or {}
+        home_row = home_rankings.get(metric) or {}
+
+        ranking_usage = away_row.get("ranking_usage") or home_row.get("ranking_usage")
+        ranking_kind = away_row.get("ranking_kind") or home_row.get("ranking_kind")
+        data_quality_status = (
+            away_row.get("data_quality_status")
+            or home_row.get("data_quality_status")
+        )
+
+        if data_quality_status == "exclude" or ranking_usage == "exclude":
+            continue
+
+        for row in [away_row, home_row]:
+            if row.get("as_of_date"):
+                as_of_dates.add(str(row.get("as_of_date")))
+            if row.get("source_data_date"):
+                source_data_dates.add(str(row.get("source_data_date")))
+            if row.get("window_type"):
+                window_types.add(str(row.get("window_type")))
+
+            lag = _safe_int(row.get("data_lag_days"))
+            if lag is not None:
+                max_lag = max(max_lag, lag)
+
+        comparison = compare_ranking_metric(
+            metric_name=metric,
+            away_row=away_row,
+            home_row=home_row,
+            header=header,
+        )
+
+        if comparison.get("headline_eligible"):
+            headline_rows.append(comparison)
+            continue
+
+        if ranking_usage == "context_only" or ranking_kind == "context":
+            reason = "context_only_metric"
+        elif data_quality_status != "good":
+            reason = f"data_quality_{data_quality_status or 'unknown'}"
+        elif comparison.get("confidence_eligible") is not True:
+            reason = "not_confidence_eligible"
+        elif comparison.get("signal_strength") != "strong":
+            reason = "not_strong_signal"
+        elif comparison.get("edge_language_allowed") is not True:
+            reason = "edge_language_not_allowed"
+        else:
+            reason = "not_headline_eligible"
+
+        context_notes.append(
+            build_non_headline_context_note(
+                comparison=comparison,
+                reason=reason,
+            )
+        )
+
+    metric_highlights = sorted(
+        headline_rows,
+        key=lambda row: (
+            0 if row.get("summary_label") == "near_even" else 1,
+            row.get("percentile_gap") or 0,
+        ),
+        reverse=True,
+    )[:max_metric_highlights]
+
+    by_category = {}
+    by_core_area = {}
+
+    for row in headline_rows:
+        category = row.get("category")
+        core_area = row.get("core_area")
+
+        if category:
+            by_category.setdefault(category, []).append(row)
+
+        if core_area:
+            by_core_area.setdefault(core_area, []).append(row)
+
+    category_summaries = [
+        build_group_summary(
+            group_name=category,
+            rows=rows,
+            group_type="category",
+            header=header,
+        )
+        for category, rows in sorted(by_category.items())
+    ]
+
+    core_area_summaries = [
+        build_group_summary(
+            group_name=core_area,
+            rows=rows,
+            group_type="core_area",
+            header=header,
+        )
+        for core_area, rows in sorted(by_core_area.items())
+    ]
+
+    sorted_context_notes = sorted(
+        context_notes,
+        key=lambda row: row.get("percentile_gap") or 0,
+        reverse=True,
+    )
+
+    return {
+        "available": True,
+        "metric_highlights": metric_highlights,
+        "category_summaries": category_summaries,
+        "core_area_summaries": core_area_summaries,
+        "context_notes": sorted_context_notes[:max_context_notes],
+        "freshness": {
+            "as_of_dates": sorted(as_of_dates),
+            "source_data_dates": sorted(source_data_dates),
+            "window_types": sorted(window_types),
+            "max_data_lag_days": max_lag,
+            "data_lag_note": (
+                "Data lag is freshness context only; it is not an automatic confidence penalty."
+            ),
+        },
+        "summary_counts": {
+            "common_metric_count": len(common_metrics),
+            "headline_metric_count": len(headline_rows),
+            "context_note_count": len(context_notes),
+            "category_summary_count": len(category_summaries),
+            "core_area_summary_count": len(core_area_summaries),
+        },
+    }
+
+
+
 def _core_area_display_strength(away_score, home_score, leader: str) -> str:
     """
     Convert broad Core Area score gap into user-facing display strength.
@@ -1403,189 +1575,6 @@ def align_core_area_summaries_to_core_area_comparison(
     breakdown["core_area_summaries"] = aligned_summaries
 
     return breakdown
-
-def build_matchup_breakdown(
-    away_rankings: dict = None,
-    home_rankings: dict = None,
-    header: dict = None,
-    max_metric_highlights: int = 8,
-    max_context_notes: int = 12,
-) -> dict:
-    """
-    Build ranking-based matchup summaries.
-
-    Output levels:
-    - metric_highlights
-    - category_summaries
-    - core_area_summaries
-    - context_notes
-
-    This is descriptive. It should not force winner/confidence decisions.
-
-    Important:
-    - Only headline-eligible metrics drive metric/category/core-area summaries.
-    - Supporting/context/workload metrics are kept in context_notes.
-    """
-
-    away_rankings = away_rankings or {}
-    home_rankings = home_rankings or {}
-    header = header or {}
-
-    common_metrics = sorted(set(away_rankings.keys()) & set(home_rankings.keys()))
-
-    if not common_metrics:
-        return {
-            "available": False,
-            "reason": "ranking_context_unavailable",
-            "metric_highlights": [],
-            "category_summaries": [],
-            "core_area_summaries": [],
-            "context_notes": [],
-            "freshness": {},
-            "summary_counts": {
-                "common_metric_count": 0,
-                "headline_metric_count": 0,
-                "context_note_count": 0,
-            },
-        }
-
-    headline_rows = []
-    context_notes = []
-
-    max_lag = 0
-    as_of_dates = set()
-    source_data_dates = set()
-    window_types = set()
-
-    for metric in common_metrics:
-        away_row = away_rankings.get(metric) or {}
-        home_row = home_rankings.get(metric) or {}
-
-        ranking_usage = away_row.get("ranking_usage") or home_row.get("ranking_usage")
-        ranking_kind = away_row.get("ranking_kind") or home_row.get("ranking_kind")
-        data_quality_status = (
-            away_row.get("data_quality_status")
-            or home_row.get("data_quality_status")
-        )
-
-        if data_quality_status == "exclude" or ranking_usage == "exclude":
-            continue
-
-        for row in [away_row, home_row]:
-            if row.get("as_of_date"):
-                as_of_dates.add(str(row.get("as_of_date")))
-            if row.get("source_data_date"):
-                source_data_dates.add(str(row.get("source_data_date")))
-            if row.get("window_type"):
-                window_types.add(str(row.get("window_type")))
-
-            lag = _safe_int(row.get("data_lag_days"))
-            if lag is not None:
-                max_lag = max(max_lag, lag)
-
-        comparison = compare_ranking_metric(
-            metric_name=metric,
-            away_row=away_row,
-            home_row=home_row,
-            header=header,
-        )
-
-        if comparison.get("headline_eligible"):
-            headline_rows.append(comparison)
-            continue
-
-        if ranking_usage == "context_only" or ranking_kind == "context":
-            reason = "context_only_metric"
-        elif data_quality_status != "good":
-            reason = f"data_quality_{data_quality_status or 'unknown'}"
-        elif comparison.get("confidence_eligible") is not True:
-            reason = "not_confidence_eligible"
-        elif comparison.get("signal_strength") != "strong":
-            reason = "not_strong_signal"
-        elif comparison.get("edge_language_allowed") is not True:
-            reason = "edge_language_not_allowed"
-        else:
-            reason = "not_headline_eligible"
-
-        context_notes.append(
-            build_non_headline_context_note(
-                comparison=comparison,
-                reason=reason,
-            )
-        )
-
-    metric_highlights = sorted(
-        headline_rows,
-        key=lambda row: (
-            0 if row.get("summary_label") == "near_even" else 1,
-            row.get("percentile_gap") or 0,
-        ),
-        reverse=True,
-    )[:max_metric_highlights]
-
-    by_category = {}
-    by_core_area = {}
-
-    for row in headline_rows:
-        category = row.get("category")
-        core_area = row.get("core_area")
-
-        if category:
-            by_category.setdefault(category, []).append(row)
-
-        if core_area:
-            by_core_area.setdefault(core_area, []).append(row)
-
-    category_summaries = [
-        build_group_summary(
-            group_name=category,
-            rows=rows,
-            group_type="category",
-            header=header,
-        )
-        for category, rows in sorted(by_category.items())
-    ]
-
-    core_area_summaries = [
-        build_group_summary(
-            group_name=core_area,
-            rows=rows,
-            group_type="core_area",
-            header=header,
-        )
-        for core_area, rows in sorted(by_core_area.items())
-    ]
-
-    sorted_context_notes = sorted(
-        context_notes,
-        key=lambda row: row.get("percentile_gap") or 0,
-        reverse=True,
-    )
-
-    return {
-        "available": True,
-        "metric_highlights": metric_highlights,
-        "category_summaries": category_summaries,
-        "core_area_summaries": core_area_summaries,
-        "context_notes": sorted_context_notes[:max_context_notes],
-        "freshness": {
-            "as_of_dates": sorted(as_of_dates),
-            "source_data_dates": sorted(source_data_dates),
-            "window_types": sorted(window_types),
-            "max_data_lag_days": max_lag,
-            "data_lag_note": (
-                "Data lag is freshness context only; it is not an automatic confidence penalty."
-            ),
-        },
-        "summary_counts": {
-            "common_metric_count": len(common_metrics),
-            "headline_metric_count": len(headline_rows),
-            "context_note_count": len(context_notes),
-            "category_summary_count": len(category_summaries),
-            "core_area_summary_count": len(core_area_summaries),
-        },
-    }
-
 
 def get_ranking_context_for_game_safe(game_id: str) -> tuple:
     """
@@ -2120,6 +2109,8 @@ def save_model_results(header, matchup_lean, model_outcome, model_trust):
         if detail_errors:
             raise RuntimeError(f"Failed to insert model trust details: {detail_errors}")
 
+
+
 def build_unavailable_game_details_response(reason: str) -> dict:
     """
     Build a stable empty /game response when the requested game cannot be loaded.
@@ -2156,7 +2147,12 @@ def build_unavailable_game_details_response(reason: str) -> dict:
             "available": False,
             "reason": reason,
             "scope": "claim_language_support",
+            "feature_versions": {
+                "two_way_context": "two_way_context_v1",
+                "offensive_efficiency_support": "offensive_efficiency_support_v1",
+            },
             "two_way_context_by_side": {},
+            "offensive_efficiency_support_by_side": {},
         },
         "matchup_breakdown": {
             "available": False,
@@ -2174,6 +2170,9 @@ def build_claim_language_context(
     *,
     core_area_comparison: list,
     team_comparison: list,
+    away_rankings: dict = None,
+    home_rankings: dict = None,
+    matchup_breakdown: dict = None,
 ) -> dict:
     """
     Build runtime claim-language context for /game.
@@ -2190,12 +2189,23 @@ def build_claim_language_context(
         team_comparison=team_comparison,
     )
 
+    offensive_efficiency_support_by_side = build_runtime_offensive_efficiency_support_by_side(
+        away_rankings=away_rankings or {},
+        home_rankings=home_rankings or {},
+        team_comparison=team_comparison,
+        matchup_breakdown=matchup_breakdown or {},
+    )
+
     return {
         "available": True,
         "scope": "claim_language_support",
+        "feature_versions": {
+            "two_way_context": "two_way_context_v1",
+            "offensive_efficiency_support": "offensive_efficiency_support_v1",
+        },
         "two_way_context_by_side": two_way_context_by_side,
+        "offensive_efficiency_support_by_side": offensive_efficiency_support_by_side,
     }
-
 
 # =========================
 # MAIN FUNCTION
@@ -2255,11 +2265,6 @@ def get_game_details(game_id: str) -> dict:
         header=header,
     )
 
-    claim_language_context = build_claim_language_context(
-        core_area_comparison=core_area_comparison,
-        team_comparison=team_comparison,
-    )
-
     game_profile = build_game_profile(
         away_metrics=away_metrics,
         home_metrics=home_metrics,
@@ -2292,11 +2297,19 @@ def get_game_details(game_id: str) -> dict:
         home_rankings=home_rankings if ranking_context.get("available") else {},
         header=header,
     )
-    
+
     matchup_breakdown = align_core_area_summaries_to_core_area_comparison(
         matchup_breakdown=matchup_breakdown,
         core_area_comparison=core_area_comparison,
         header=header,
+    )
+
+    claim_language_context = build_claim_language_context(
+        core_area_comparison=core_area_comparison,
+        team_comparison=team_comparison,
+        away_rankings=away_rankings if ranking_context.get("available") else {},
+        home_rankings=home_rankings if ranking_context.get("available") else {},
+        matchup_breakdown=matchup_breakdown,
     )
 
     # Response-only annotation.

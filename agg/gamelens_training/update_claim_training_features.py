@@ -18,6 +18,7 @@ Purpose:
 
 This worker computes / attaches:
     clean_hierarchy_context_v1 registry-backed hierarchy metadata
+    offensive_efficiency_support_v1 metadata
     offense_finish_score
     defensive_suppression_score
     two_way_edge_score
@@ -69,7 +70,7 @@ PROJECT_ID = "nfl-stream-406420"
 DATASET_ID = "Analytics"
 TRAINING_TABLE = "gamelens_claim_training_examples"
 DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_feature_update_runs")
-DEFAULT_FORMULA_VERSION = "clean_hierarchy_context_v1__offense_finish_v2__defensive_suppression_v3__two_way_context_v1"
+DEFAULT_FORMULA_VERSION = "clean_hierarchy_context_v1__offensive_efficiency_support_v1__offense_finish_v2__defensive_suppression_v3__two_way_context_v1"
 
 REQUIRED_CORE_AREAS = ("Offensive Output", "Scoring Efficiency", "Defensive Control")
 
@@ -119,6 +120,62 @@ DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS = (
     "points_allowed_per_play",
     "points_allowed_per_yard",
 )
+
+
+# V1 metadata feature:
+# offensive_efficiency_support_v1 tests whether repeat-positive offensive
+# efficiency metrics identify claims that deserve stronger claim-language
+# support. This is metadata only; it does not change prediction, confidence,
+# Level 4 rules, or frontend behavior.
+OFFENSIVE_EFFICIENCY_PRIMARY_METRICS = (
+    "points_per_play",
+)
+
+OFFENSIVE_EFFICIENCY_SCOPED_METRICS = (
+    "yards_per_rush",
+)
+
+OFFENSIVE_EFFICIENCY_WATCH_METRICS = (
+    "yards_per_play",
+    "yards_per_pass",
+)
+
+OFFENSIVE_EFFICIENCY_CONTEXT_ONLY_METRICS = {
+    "third_down_pct",
+    "1st_down_rate",
+}
+
+OFFENSIVE_EFFICIENCY_EXCLUDED_METRICS = {
+    "td_rate",
+    "red_zone_efficiency",
+    "turnover_margin_per_game",
+}
+
+OFFENSIVE_EFFICIENCY_SUPPORT_METRICS = (
+    *OFFENSIVE_EFFICIENCY_PRIMARY_METRICS,
+    *OFFENSIVE_EFFICIENCY_SCOPED_METRICS,
+    *OFFENSIVE_EFFICIENCY_WATCH_METRICS,
+)
+
+OFFENSIVE_EFFICIENCY_RELEVANT_CORE_AREAS = {
+    "Offensive Output",
+    "Scoring Efficiency",
+}
+
+OFFENSIVE_EFFICIENCY_RELEVANT_CATEGORIES = {
+    "Passing Game",
+    "Rushing Game",
+    "Offensive Rhythm",
+    "Scoring Production",
+}
+
+OFFENSIVE_EFFICIENCY_CONTEXT_ONLY_CATEGORIES = {
+    "Drive Conversion",
+}
+
+OFFENSIVE_EFFICIENCY_CAUTION_CATEGORIES = {
+    "Red Zone Finish",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +342,11 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "clean_hierarchy_status",
         "clean_hierarchy_path_flag",
         "missing_hierarchy_parent_flag",
+        "offensive_efficiency_support_score",
+        "offensive_efficiency_support_bucket",
+        "offensive_efficiency_support_strength",
+        "offensive_efficiency_support_reason",
+        "offensive_efficiency_support_metrics",
         "offense_finish_score",
         "offense_finish_relevance_reason",
         "away_offense_finish_score",
@@ -580,6 +642,188 @@ def is_offense_finish_relevant(row: Dict[str, Any]) -> bool:
     return offense_finish_relevance_reason(row) is not None
 
 
+def offensive_efficiency_support_relevance_reason(row: Dict[str, Any]) -> Optional[str]:
+    """
+    V1 scoping rule for offensive_efficiency_support_v1.
+
+    This feature is intentionally conservative:
+    - points_per_play is the repeat-positive anchor.
+    - yards_per_rush is allowed only in rushing-scoped rows.
+    - yards_per_play and yards_per_pass are measured/watch support only.
+    - td_rate, red_zone_efficiency, and turnover_margin_per_game are excluded.
+    - third_down_pct and 1st_down_rate remain context-only.
+    """
+    metric = row.get("metric")
+    category = row.get("category")
+    core_area = row.get("core_area")
+
+    if metric in OFFENSIVE_EFFICIENCY_EXCLUDED_METRICS:
+        return f"metric:{metric}:caution_only"
+
+    if metric in OFFENSIVE_EFFICIENCY_CONTEXT_ONLY_METRICS:
+        return f"metric:{metric}:context_only"
+
+    if metric in OFFENSIVE_EFFICIENCY_SUPPORT_METRICS:
+        return f"metric:{metric}"
+
+    if category in OFFENSIVE_EFFICIENCY_CAUTION_CATEGORIES:
+        return f"category:{category}:caution_only"
+
+    if category in OFFENSIVE_EFFICIENCY_CONTEXT_ONLY_CATEGORIES:
+        return f"category:{category}:context_only"
+
+    if category in OFFENSIVE_EFFICIENCY_RELEVANT_CATEGORIES:
+        return f"category:{category}"
+
+    if core_area in OFFENSIVE_EFFICIENCY_RELEVANT_CORE_AREAS:
+        return f"core_area:{core_area}"
+
+    return None
+
+
+def _side_oriented_edge(edge: Optional[float], side: str) -> Optional[float]:
+    """Convert an away-signed edge into the claimed team's perspective."""
+    if edge is None:
+        return None
+    if side == "away":
+        return edge
+    if side == "home":
+        return -edge
+    return None
+
+
+def _is_rushing_scoped_offensive_efficiency_row(row: Dict[str, Any]) -> bool:
+    return (
+        row.get("metric") == "yards_per_rush"
+        or row.get("category") == "Rushing Game"
+    )
+
+
+def calculate_offensive_efficiency_support(
+    *,
+    row: Dict[str, Any],
+    game_metric_edges: Dict[str, float],
+    side: str,
+) -> Dict[str, Any]:
+    """
+    Build offensive_efficiency_support_v1 metadata for one claim row.
+
+    Output contract:
+        offensive_efficiency_support_score FLOAT
+        offensive_efficiency_support_bucket STRING
+        offensive_efficiency_support_strength STRING
+        offensive_efficiency_support_reason STRING
+        offensive_efficiency_support_metrics STRING
+
+    Important boundary:
+        This does not change any existing score, prediction, confidence, Model
+        Trust, Level 4 rule, or frontend behavior. It only attaches metadata so
+        the run can be analyzed after Level 3.
+    """
+    relevance_reason = offensive_efficiency_support_relevance_reason(row)
+
+    if relevance_reason is None:
+        return {
+            "score": None,
+            "bucket": "not_relevant",
+            "strength": "not_applicable",
+            "reason": "offensive_efficiency_support_v1 not relevant to this claim family",
+            "metrics": None,
+        }
+
+    if side not in {"away", "home"}:
+        return {
+            "score": None,
+            "bucket": "invalid_side",
+            "strength": "not_applicable",
+            "reason": "claimed_side missing or invalid",
+            "metrics": None,
+        }
+
+    if relevance_reason.endswith(":caution_only"):
+        return {
+            "score": None,
+            "bucket": "caution_only",
+            "strength": "caution_only",
+            "reason": f"{relevance_reason}; excluded from support scoring by revalidation evidence",
+            "metrics": None,
+        }
+
+    if relevance_reason.endswith(":context_only"):
+        return {
+            "score": None,
+            "bucket": "context_only",
+            "strength": "context_only",
+            "reason": f"{relevance_reason}; retained as context only, not stronger-language support",
+            "metrics": None,
+        }
+
+    oriented_edges = {
+        metric: _side_oriented_edge(game_metric_edges.get(metric), side)
+        for metric in OFFENSIVE_EFFICIENCY_SUPPORT_METRICS
+    }
+
+    points_per_play_edge = oriented_edges.get("points_per_play")
+    if points_per_play_edge is None:
+        return {
+            "score": None,
+            "bucket": "anchor_unavailable",
+            "strength": "unavailable",
+            "reason": f"{relevance_reason}; points_per_play anchor missing",
+            "metrics": None,
+        }
+
+    weighted_parts = [("points_per_play", points_per_play_edge, 0.70)]
+
+    yards_per_play_edge = oriented_edges.get("yards_per_play")
+    if yards_per_play_edge is not None:
+        weighted_parts.append(("yards_per_play", yards_per_play_edge, 0.15))
+
+    yards_per_pass_edge = oriented_edges.get("yards_per_pass")
+    if yards_per_pass_edge is not None:
+        weighted_parts.append(("yards_per_pass", yards_per_pass_edge, 0.05))
+
+    yards_per_rush_edge = oriented_edges.get("yards_per_rush")
+    if yards_per_rush_edge is not None and _is_rushing_scoped_offensive_efficiency_row(row):
+        weighted_parts.append(("yards_per_rush", yards_per_rush_edge, 0.20))
+
+    total_weight = sum(weight for _, _, weight in weighted_parts)
+    score = sum(edge * weight for _, edge, weight in weighted_parts) / total_weight
+    score = round(clamp(score), 4)
+
+    metrics_text = ";".join(
+        f"{metric}:{round(edge, 4)}@{weight}"
+        for metric, edge, weight in weighted_parts
+    )
+
+    if score >= 0.40:
+        bucket = "repeat_positive_strong"
+        strength = "strong_support"
+    elif score >= 0.15:
+        bucket = "repeat_positive_supportive"
+        strength = "measured_support"
+    elif score > -0.15:
+        bucket = "mixed_near_even"
+        strength = "mixed"
+    elif score > -0.40:
+        bucket = "negative_caution"
+        strength = "caution"
+    else:
+        bucket = "opposing_efficiency_signal"
+        strength = "caution"
+
+    return {
+        "score": score,
+        "bucket": bucket,
+        "strength": strength,
+        "reason": (
+            f"{relevance_reason}; score anchored by repeat-positive points_per_play, "
+            "with yards_per_play/yards_per_pass as watch inputs and yards_per_rush only when rushing-scoped"
+        ),
+        "metrics": metrics_text,
+    }
+
+
 def calculate_defensive_suppression_score(
     *,
     defensive_control_edge: Optional[float],
@@ -764,6 +1008,10 @@ def build_feature_updates(
         training_rows,
         metrics=DEFENSIVE_SUPPRESSION_CONFIRMING_METRICS,
     )
+    offensive_efficiency_metric_edges = build_metric_edges(
+        training_rows,
+        metrics=OFFENSIVE_EFFICIENCY_SUPPORT_METRICS,
+    )
     now = utc_now_iso()
     updates: List[Dict[str, Any]] = []
 
@@ -871,6 +1119,15 @@ def build_feature_updates(
             defensive_suppression_score=side_defense_score,
         )
 
+        # -------------------------
+        # Offensive efficiency support metadata
+        # -------------------------
+        offensive_efficiency_support = calculate_offensive_efficiency_support(
+            row=row,
+            game_metric_edges=offensive_efficiency_metric_edges.get(game_id, {}),
+            side=claimed_side,
+        )
+
         defense_relevance_reason = defensive_suppression_relevance_reason(row)
 
         if defense_relevance_reason is None:
@@ -921,8 +1178,18 @@ def build_feature_updates(
             " | Level 3 v6: two_way_context computed from side-level offense_finish_score "
             "and defensive_suppression_score; intended as reasoning support, not a standalone prediction score."
         )
+        offensive_efficiency_note = (
+            " | Level 3 offensive_efficiency_support_v1: metadata-only support score added; "
+            "anchored by points_per_play repeat-positive evidence and does not alter existing formulas or confidence."
+        )
 
-        feature_notes = strip_prior_level3_notes(row.get("feature_notes")) + offense_note + defensive_note + two_way_note
+        feature_notes = (
+            strip_prior_level3_notes(row.get("feature_notes"))
+            + offense_note
+            + defensive_note
+            + two_way_note
+            + offensive_efficiency_note
+        )
 
         updates.append({
             "run_id": row.get("run_id"),
@@ -946,6 +1213,12 @@ def build_feature_updates(
             "clean_hierarchy_status": hierarchy_context["clean_hierarchy_status"],
             "clean_hierarchy_path_flag": hierarchy_context["clean_hierarchy_path_flag"],
             "missing_hierarchy_parent_flag": hierarchy_context["missing_hierarchy_parent_flag"],
+
+            "offensive_efficiency_support_score": offensive_efficiency_support["score"],
+            "offensive_efficiency_support_bucket": offensive_efficiency_support["bucket"],
+            "offensive_efficiency_support_strength": offensive_efficiency_support["strength"],
+            "offensive_efficiency_support_reason": offensive_efficiency_support["reason"],
+            "offensive_efficiency_support_metrics": offensive_efficiency_support["metrics"],
 
             "offense_finish_score": offense_score,
             "offense_finish_relevance_reason": offense_relevance_reason,
@@ -990,6 +1263,11 @@ def feature_update_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("clean_hierarchy_status", "STRING"),
         bigquery.SchemaField("clean_hierarchy_path_flag", "BOOL"),
         bigquery.SchemaField("missing_hierarchy_parent_flag", "BOOL"),
+        bigquery.SchemaField("offensive_efficiency_support_score", "FLOAT"),
+        bigquery.SchemaField("offensive_efficiency_support_bucket", "STRING"),
+        bigquery.SchemaField("offensive_efficiency_support_strength", "STRING"),
+        bigquery.SchemaField("offensive_efficiency_support_reason", "STRING"),
+        bigquery.SchemaField("offensive_efficiency_support_metrics", "STRING"),
         bigquery.SchemaField("offense_finish_score", "FLOAT"),
         bigquery.SchemaField("defensive_suppression_score", "FLOAT"),
         bigquery.SchemaField("two_way_edge_score", "FLOAT"),
@@ -1016,6 +1294,11 @@ def ensure_target_feature_columns(
         ("clean_hierarchy_status", "STRING"),
         ("clean_hierarchy_path_flag", "BOOL"),
         ("missing_hierarchy_parent_flag", "BOOL"),
+        ("offensive_efficiency_support_score", "FLOAT64"),
+        ("offensive_efficiency_support_bucket", "STRING"),
+        ("offensive_efficiency_support_strength", "STRING"),
+        ("offensive_efficiency_support_reason", "STRING"),
+        ("offensive_efficiency_support_metrics", "STRING"),
     ]
 
     for column_name, column_type in columns:
@@ -1056,6 +1339,11 @@ def update_bigquery_rows(
             "clean_hierarchy_status": row["clean_hierarchy_status"],
             "clean_hierarchy_path_flag": row["clean_hierarchy_path_flag"],
             "missing_hierarchy_parent_flag": row["missing_hierarchy_parent_flag"],
+            "offensive_efficiency_support_score": row["offensive_efficiency_support_score"],
+            "offensive_efficiency_support_bucket": row["offensive_efficiency_support_bucket"],
+            "offensive_efficiency_support_strength": row["offensive_efficiency_support_strength"],
+            "offensive_efficiency_support_reason": row["offensive_efficiency_support_reason"],
+            "offensive_efficiency_support_metrics": row["offensive_efficiency_support_metrics"],
             "offense_finish_score": row["offense_finish_score"],
             "defensive_suppression_score": row["defensive_suppression_score"],
             "two_way_edge_score": row["two_way_edge_score"],
@@ -1092,6 +1380,11 @@ def update_bigquery_rows(
             clean_hierarchy_status = S.clean_hierarchy_status,
             clean_hierarchy_path_flag = S.clean_hierarchy_path_flag,
             missing_hierarchy_parent_flag = S.missing_hierarchy_parent_flag,
+            offensive_efficiency_support_score = S.offensive_efficiency_support_score,
+            offensive_efficiency_support_bucket = S.offensive_efficiency_support_bucket,
+            offensive_efficiency_support_strength = S.offensive_efficiency_support_strength,
+            offensive_efficiency_support_reason = S.offensive_efficiency_support_reason,
+            offensive_efficiency_support_metrics = S.offensive_efficiency_support_metrics,
             offense_finish_score = S.offense_finish_score,
             defensive_suppression_score = S.defensive_suppression_score,
             two_way_edge_score = S.two_way_edge_score,
@@ -1137,6 +1430,11 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     two_way_context_counts: Dict[str, int] = {}
     two_way_non_null_scores = []
 
+    offensive_efficiency_bucket_counts: Dict[str, int] = {}
+    offensive_efficiency_strength_counts: Dict[str, int] = {}
+    offensive_efficiency_reason_counts: Dict[str, int] = {}
+    offensive_efficiency_non_null_scores = []
+
     clean_hierarchy_status_counts: Dict[str, int] = {}
     clean_hierarchy_path_flag_counts: Dict[str, int] = {}
     missing_hierarchy_parent_flag_counts: Dict[str, int] = {}
@@ -1167,6 +1465,24 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         if row.get("two_way_edge_score") is not None:
             two_way_non_null_scores.append(row["two_way_edge_score"])
+
+        offensive_efficiency_bucket = row.get("offensive_efficiency_support_bucket") or "NULL"
+        offensive_efficiency_bucket_counts[offensive_efficiency_bucket] = (
+            offensive_efficiency_bucket_counts.get(offensive_efficiency_bucket, 0) + 1
+        )
+
+        offensive_efficiency_strength = row.get("offensive_efficiency_support_strength") or "NULL"
+        offensive_efficiency_strength_counts[offensive_efficiency_strength] = (
+            offensive_efficiency_strength_counts.get(offensive_efficiency_strength, 0) + 1
+        )
+
+        offensive_efficiency_reason = row.get("offensive_efficiency_support_reason") or "NULL"
+        offensive_efficiency_reason_counts[offensive_efficiency_reason] = (
+            offensive_efficiency_reason_counts.get(offensive_efficiency_reason, 0) + 1
+        )
+
+        if row.get("offensive_efficiency_support_score") is not None:
+            offensive_efficiency_non_null_scores.append(row["offensive_efficiency_support_score"])
 
         clean_status = row.get("clean_hierarchy_status") or "NULL"
         clean_hierarchy_status_counts[clean_status] = clean_hierarchy_status_counts.get(clean_status, 0) + 1
@@ -1225,6 +1541,19 @@ def build_summary(update_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "max_two_way_edge_score": max(two_way_non_null_scores) if two_way_non_null_scores else None,
         "avg_two_way_edge_score": round(sum(two_way_non_null_scores) / len(two_way_non_null_scores), 4) if two_way_non_null_scores else None,
         "two_way_context_distribution": dict(sorted(two_way_context_counts.items())),
+
+        "rows_with_offensive_efficiency_support_score": len(offensive_efficiency_non_null_scores),
+        "rows_missing_offensive_efficiency_support_score": len(update_rows) - len(offensive_efficiency_non_null_scores),
+        "min_offensive_efficiency_support_score": min(offensive_efficiency_non_null_scores) if offensive_efficiency_non_null_scores else None,
+        "max_offensive_efficiency_support_score": max(offensive_efficiency_non_null_scores) if offensive_efficiency_non_null_scores else None,
+        "avg_offensive_efficiency_support_score": (
+            round(sum(offensive_efficiency_non_null_scores) / len(offensive_efficiency_non_null_scores), 4)
+            if offensive_efficiency_non_null_scores
+            else None
+        ),
+        "offensive_efficiency_support_bucket_distribution": dict(sorted(offensive_efficiency_bucket_counts.items())),
+        "offensive_efficiency_support_strength_distribution": dict(sorted(offensive_efficiency_strength_counts.items())),
+        "offensive_efficiency_support_reason_distribution": dict(sorted(offensive_efficiency_reason_counts.items())),
     }
 
 
@@ -1285,6 +1614,9 @@ def main() -> int:
     print(f"Rows missing defensive_suppression_score: {summary['rows_missing_defensive_suppression_score']}")
     print(f"Rows with two_way_edge_score: {summary['rows_with_two_way_edge_score']}")
     print(f"Rows missing two_way_edge_score: {summary['rows_missing_two_way_edge_score']}")
+    print(f"Rows with offensive_efficiency_support_score: {summary['rows_with_offensive_efficiency_support_score']}")
+    print(f"Rows missing offensive_efficiency_support_score: {summary['rows_missing_offensive_efficiency_support_score']}")
+    print(f"Offensive efficiency support bucket distribution: {summary['offensive_efficiency_support_bucket_distribution']}")
     print(f"Preview CSV: {output_dir / 'feature_update_preview.csv'}")
     print(f"Summary JSON: {output_dir / 'summary.json'}")
 

@@ -20,14 +20,12 @@ Purpose:
         Level 3:
             update_claim_training_features.py
             -> adds engineered pregame features:
+                clean_hierarchy_context_v1 metadata
+                offensive_efficiency_support_v1 metadata
                 offense_finish_score
                 defensive_suppression_score
                 two_way_edge_score
                 two_way_context
-                claim_strength_score
-                claim_strength_bucket
-                claim_strength_context
-                claim_strength_language_signal
 
     This Level 4 worker reads those rows AFTER Level 3 completes and summarizes
     which claim/metric/surface combinations deserve stronger, softer, blocked,
@@ -107,7 +105,7 @@ TRAINING_TABLE = "gamelens_claim_training_examples"
 OUTPUT_TABLE = "gamelens_claim_language_calibration"
 
 DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_calibration_runs")
-DEFAULT_CALIBRATION_VERSION = "level4_v0_2_claim_strength_language_calibration"
+DEFAULT_CALIBRATION_VERSION = "level4_v0_2_offensive_efficiency_language_calibration"
 
 # These thresholds are not final model rules.
 # They are simple review helpers for deciding whether a pattern deserves more study.
@@ -206,12 +204,12 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "core_area",
         "category",
         "two_way_context",
-        "claim_strength_bucket",
-        "claim_strength_context",
-        "claim_strength_language_signal",
-        "avg_claim_strength_score",
-        "min_claim_strength_score",
-        "max_claim_strength_score",
+        "offensive_efficiency_support_bucket",
+        "offensive_efficiency_support_strength",
+        "offensive_efficiency_support_score_avg",
+        "offensive_efficiency_support_score_min",
+        "offensive_efficiency_support_score_max",
+        "offensive_efficiency_language_signal",
         "row_count",
         "validated_count",
         "validation_rate",
@@ -222,8 +220,6 @@ def write_csv(rows: List[Dict[str, Any]], output_path: Path) -> None:
         "current_rule_status",
         "current_support_level",
         "current_language_boost_allowed",
-        "claim_strength_calibration_recommendation",
-        "claim_strength_language_modifier",
         "recommendation",
         "language_modifier",
         "api_use_allowed_v0_1",
@@ -288,11 +284,11 @@ def load_training_rows(
             defensive_suppression_score,
             two_way_edge_score,
             two_way_context,
-            claim_strength_score,
-            claim_strength_bucket,
-            claim_strength_context,
-            claim_strength_language_signal,
-            claim_strength_notes,
+            offensive_efficiency_support_score,
+            offensive_efficiency_support_bucket,
+            offensive_efficiency_support_strength,
+            offensive_efficiency_support_reason,
+            offensive_efficiency_support_metrics,
             feature_formula_version,
             feature_status,
             feature_notes
@@ -351,9 +347,8 @@ def group_key(row: Dict[str, Any]) -> Tuple[Any, ...]:
         row.get("core_area") or None,
         row.get("category") or None,
         row.get("two_way_context") or "unknown",
-        row.get("claim_strength_bucket") or "unknown",
-        row.get("claim_strength_context") or "unknown",
-        row.get("claim_strength_language_signal") or "unknown",
+        row.get("offensive_efficiency_support_bucket") or "not_available",
+        row.get("offensive_efficiency_support_strength") or "not_available",
     )
 
 
@@ -396,105 +391,6 @@ def build_baselines(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "surface_rates": surface_rates,
         "surface_counts": surface_counts,
     }
-
-
-
-def recommend_claim_strength_action(
-    *,
-    claim_strength_language_signal: str,
-    claim_strength_context: str,
-    claim_strength_bucket: str,
-    row_count: int,
-    validation_rate: Optional[float],
-    surface_baseline_rate: Optional[float],
-) -> Tuple[str, str, str]:
-    """
-    Review helper for the new Level 3 claim_strength_context_v1 fields.
-
-    This does not change runtime behavior. It only labels historical groups so
-    we can decide later whether the new signal deserves API/runtime adoption.
-    """
-    signal = str(claim_strength_language_signal or "unknown")
-    context = str(claim_strength_context or "unknown")
-    bucket = str(claim_strength_bucket or "unknown")
-
-    if row_count < MIN_SAMPLE_ROWS:
-        return (
-            "claim_strength_insufficient_sample",
-            "normal_language",
-            f"Sample below review threshold of {MIN_SAMPLE_ROWS} rows.",
-        )
-
-    if validation_rate is None:
-        return (
-            "claim_strength_insufficient_validation_data",
-            "normal_language",
-            "Validation rate could not be calculated.",
-        )
-
-    lift = None
-    if surface_baseline_rate is not None:
-        lift = validation_rate - surface_baseline_rate
-
-    if signal == "boost_candidate":
-        if lift is not None and lift >= MEANINGFUL_LIFT and validation_rate >= WATCH_REVIEW_RATE:
-            return (
-                "claim_strength_boost_candidate_supported",
-                "review_for_stronger_language",
-                "Claim-strength signal beat the surface baseline; review for runtime language support.",
-            )
-        return (
-            "claim_strength_boost_candidate_needs_review",
-            "measured_language_for_now",
-            "Boost candidate exists, but validation/lift did not clear review thresholds yet.",
-        )
-
-    if signal == "measured":
-        if lift is not None and lift >= 0 and validation_rate >= WATCH_REVIEW_RATE:
-            return (
-                "claim_strength_measured_supported",
-                "measured_support_language",
-                "Measured signal looks useful, but should not jump to strong language.",
-            )
-        return (
-            "claim_strength_measured_keep_normal",
-            "normal_language",
-            "Measured signal did not clearly beat its surface baseline.",
-        )
-
-    if signal == "caution_only":
-        return (
-            "claim_strength_caution_only",
-            "caution_language",
-            "Signal is intentionally caution-only because the football area is volatile or historically noisy.",
-        )
-
-    if signal == "soften":
-        return (
-            "claim_strength_soften",
-            "soften_language",
-            "Thin or near-even edge should soften user-facing language.",
-        )
-
-    if signal == "no_boost":
-        return (
-            "claim_strength_no_boost",
-            "normal_language",
-            "Missing claim-strength context; do not boost language from this feature.",
-        )
-
-    if signal == "normal":
-        return (
-            "claim_strength_normal",
-            "normal_language",
-            "Claim-strength feature does not request a language change.",
-        )
-
-    return (
-        "claim_strength_unknown_signal",
-        "normal_language",
-        f"Unknown claim_strength_language_signal={signal}; context={context}; bucket={bucket}.",
-    )
 
 
 def recommend_language_action(
@@ -605,6 +501,95 @@ def recommend_language_action(
     )
 
 
+
+
+def numeric_summary(values: List[Optional[float]]) -> Dict[str, Optional[float]]:
+    clean_values = [float(value) for value in values if value is not None]
+    if not clean_values:
+        return {"avg": None, "min": None, "max": None}
+
+    return {
+        "avg": round(sum(clean_values) / len(clean_values), 4),
+        "min": round(min(clean_values), 4),
+        "max": round(max(clean_values), 4),
+    }
+
+
+def first_non_empty(values: List[Any]) -> Optional[str]:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def offensive_efficiency_language_signal(
+    *,
+    bucket: str,
+    strength: str,
+    row_count: int,
+    validation_rate: Optional[float],
+    surface_baseline_rate: Optional[float],
+) -> Tuple[str, str]:
+    """
+    Metadata-only Level 4 signal for offensive_efficiency_support_v1.
+
+    This does not override the current runtime registry or two_way_context rule.
+    It simply marks whether the new feature deserves review/exposure.
+    """
+    if bucket in {"caution_only", "negative_caution", "opposing_efficiency_signal"}:
+        return (
+            "caution_metadata",
+            "Feature bucket is caution-oriented; do not use for stronger language.",
+        )
+
+    if bucket in {"context_only", "not_relevant", "anchor_unavailable", "not_available"}:
+        return (
+            "normal_metadata",
+            "Feature bucket is context-only, unavailable, or outside feature scope.",
+        )
+
+    if row_count < MIN_SAMPLE_ROWS:
+        return (
+            "insufficient_sample",
+            f"Sample below review threshold of {MIN_SAMPLE_ROWS} rows.",
+        )
+
+    if validation_rate is None:
+        return (
+            "insufficient_validation_data",
+            "Validation rate could not be calculated.",
+        )
+
+    lift = None
+    if surface_baseline_rate is not None:
+        lift = validation_rate - surface_baseline_rate
+
+    if strength == "strong_support" and validation_rate >= STRONG_REVIEW_RATE and (lift is None or lift >= 0):
+        return (
+            "strong_support_metadata",
+            "Strong offensive-efficiency support; expose for Level 4 review but do not auto-boost yet.",
+        )
+
+    if strength == "measured_support" and validation_rate >= WATCH_REVIEW_RATE and (lift is None or lift >= 0):
+        return (
+            "measured_support_metadata",
+            "Measured offensive-efficiency support; expose for Level 4 review with cautious wording.",
+        )
+
+    if strength == "mixed":
+        return (
+            "mixed_metadata",
+            "Mixed offensive-efficiency support; no broad boost, but metric-specific pockets may deserve review.",
+        )
+
+    return (
+        "normal_metadata",
+        "No offensive-efficiency language signal beyond normal metadata exposure.",
+    )
+
 def summarize_groups(
     *,
     rows: List[Dict[str, Any]],
@@ -631,9 +616,8 @@ def summarize_groups(
             core_area,
             category,
             two_way_context,
-            claim_strength_bucket,
-            claim_strength_context,
-            claim_strength_language_signal,
+            offensive_efficiency_support_bucket,
+            offensive_efficiency_support_strength,
         ) = key
 
         row_count = len(group_rows)
@@ -642,19 +626,6 @@ def summarize_groups(
         bucket_counts = defaultdict(int)
         for row in group_rows:
             bucket_counts[validation_bucket(row)] += 1
-
-        claim_strength_scores = [
-            score
-            for score in (as_float(row.get("claim_strength_score")) for row in group_rows)
-            if score is not None
-        ]
-        avg_claim_strength_score = (
-            sum(claim_strength_scores) / len(claim_strength_scores)
-            if claim_strength_scores
-            else None
-        )
-        min_claim_strength_score = min(claim_strength_scores) if claim_strength_scores else None
-        max_claim_strength_score = max(claim_strength_scores) if claim_strength_scores else None
 
         validation_rate = calculate_rate(validated_count, row_count)
 
@@ -673,6 +644,26 @@ def summarize_groups(
             else None
         )
 
+        offensive_score_summary = numeric_summary([
+            as_float(row.get("offensive_efficiency_support_score"))
+            for row in group_rows
+        ])
+        offensive_reason_sample = first_non_empty([
+            row.get("offensive_efficiency_support_reason")
+            for row in group_rows
+        ])
+        offensive_metrics_sample = first_non_empty([
+            row.get("offensive_efficiency_support_metrics")
+            for row in group_rows
+        ])
+        oe_signal, oe_notes = offensive_efficiency_language_signal(
+            bucket=str(offensive_efficiency_support_bucket),
+            strength=str(offensive_efficiency_support_strength),
+            row_count=row_count,
+            validation_rate=validation_rate,
+            surface_baseline_rate=surface_baseline_rate,
+        )
+
         decision = get_claim_language_decision(
             claim_type=str(claim_type),
             claim_layer=str(claim_layer),
@@ -689,23 +680,6 @@ def summarize_groups(
             decision=decision,
         )
 
-        (
-            claim_strength_calibration_recommendation,
-            claim_strength_language_modifier,
-            claim_strength_notes,
-        ) = recommend_claim_strength_action(
-            claim_strength_language_signal=str(claim_strength_language_signal),
-            claim_strength_context=str(claim_strength_context),
-            claim_strength_bucket=str(claim_strength_bucket),
-            row_count=row_count,
-            validation_rate=validation_rate,
-            surface_baseline_rate=surface_baseline_rate,
-        )
-
-        combined_notes = notes
-        if claim_strength_notes:
-            combined_notes = f"{notes} | Claim strength: {claim_strength_notes}"
-
         output_rows.append({
             "calibration_run_id": calibration_run_id,
             "source_run_id": source_run_id,
@@ -718,12 +692,15 @@ def summarize_groups(
             "core_area": core_area,
             "category": category,
             "two_way_context": two_way_context,
-            "claim_strength_bucket": claim_strength_bucket,
-            "claim_strength_context": claim_strength_context,
-            "claim_strength_language_signal": claim_strength_language_signal,
-            "avg_claim_strength_score": round_rate(avg_claim_strength_score),
-            "min_claim_strength_score": round_rate(min_claim_strength_score),
-            "max_claim_strength_score": round_rate(max_claim_strength_score),
+            "offensive_efficiency_support_bucket": offensive_efficiency_support_bucket,
+            "offensive_efficiency_support_strength": offensive_efficiency_support_strength,
+            "offensive_efficiency_support_score_avg": offensive_score_summary["avg"],
+            "offensive_efficiency_support_score_min": offensive_score_summary["min"],
+            "offensive_efficiency_support_score_max": offensive_score_summary["max"],
+            "offensive_efficiency_support_reason_sample": offensive_reason_sample,
+            "offensive_efficiency_support_metrics": offensive_metrics_sample,
+            "offensive_efficiency_language_signal": oe_signal,
+            "offensive_efficiency_notes": oe_notes,
 
             "row_count": row_count,
             "validated_count": validated_count,
@@ -743,22 +720,19 @@ def summarize_groups(
             "current_rule_status": decision.rule_status,
             "current_rule_reason": decision.reason,
 
-            "claim_strength_calibration_recommendation": claim_strength_calibration_recommendation,
-            "claim_strength_language_modifier": claim_strength_language_modifier,
-
             "recommendation": recommendation,
             "language_modifier": language_modifier,
             "api_use_allowed_v0_1": decision.language_boost_allowed,
+            "api_exposure_allowed_v0_2": True,
 
             "min_sample_rows": MIN_SAMPLE_ROWS,
             "meets_min_sample": row_count >= MIN_SAMPLE_ROWS,
-            "notes": combined_notes,
+            "notes": notes,
             "created_at": created_at,
         })
 
     output_rows.sort(
         key=lambda row: (
-            str(row.get("claim_strength_language_signal")),
             str(row.get("two_way_context")),
             str(row.get("claim_type")),
             str(row.get("claim_layer")),
@@ -780,6 +754,22 @@ def summarize_groups(
         "overall_validated_count": baselines["overall_validated_count"],
         "overall_validation_rate": round_rate(overall_rate),
 
+        "offensive_efficiency_signal_counts": dict(
+            sorted(
+                {
+                    signal: sum(
+                        1
+                        for row in output_rows
+                        if row.get("offensive_efficiency_language_signal") == signal
+                    )
+                    for signal in {
+                        row.get("offensive_efficiency_language_signal")
+                        for row in output_rows
+                    }
+                }.items()
+            )
+        ),
+
         "feature_formula_versions": sorted({
             str(row.get("feature_formula_version") or "unknown_formula")
             for row in rows
@@ -797,22 +787,6 @@ def summarize_groups(
                 {
                     rec: sum(1 for row in output_rows if row["recommendation"] == rec)
                     for rec in {row["recommendation"] for row in output_rows}
-                }.items()
-            )
-        ),
-        "claim_strength_language_signal_counts": dict(
-            sorted(
-                {
-                    signal: sum(1 for row in rows if str(row.get("claim_strength_language_signal") or "unknown") == signal)
-                    for signal in {str(row.get("claim_strength_language_signal") or "unknown") for row in rows}
-                }.items()
-            )
-        ),
-        "claim_strength_calibration_recommendation_counts": dict(
-            sorted(
-                {
-                    rec: sum(1 for row in output_rows if row["claim_strength_calibration_recommendation"] == rec)
-                    for rec in {row["claim_strength_calibration_recommendation"] for row in output_rows}
                 }.items()
             )
         ),
@@ -838,12 +812,15 @@ def output_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("core_area", "STRING", mode="NULLABLE"),
         bigquery.SchemaField("category", "STRING", mode="NULLABLE"),
         bigquery.SchemaField("two_way_context", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("claim_strength_bucket", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("claim_strength_context", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("claim_strength_language_signal", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("avg_claim_strength_score", "FLOAT", mode="NULLABLE"),
-        bigquery.SchemaField("min_claim_strength_score", "FLOAT", mode="NULLABLE"),
-        bigquery.SchemaField("max_claim_strength_score", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_bucket", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_strength", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_score_avg", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_score_min", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_score_max", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_reason_sample", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_support_metrics", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_language_signal", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("offensive_efficiency_notes", "STRING", mode="NULLABLE"),
 
         bigquery.SchemaField("row_count", "INTEGER", mode="NULLABLE"),
         bigquery.SchemaField("validated_count", "INTEGER", mode="NULLABLE"),
@@ -863,12 +840,10 @@ def output_schema(bigquery: Any) -> List[Any]:
         bigquery.SchemaField("current_rule_status", "STRING", mode="NULLABLE"),
         bigquery.SchemaField("current_rule_reason", "STRING", mode="NULLABLE"),
 
-        bigquery.SchemaField("claim_strength_calibration_recommendation", "STRING", mode="NULLABLE"),
-        bigquery.SchemaField("claim_strength_language_modifier", "STRING", mode="NULLABLE"),
-
         bigquery.SchemaField("recommendation", "STRING", mode="NULLABLE"),
         bigquery.SchemaField("language_modifier", "STRING", mode="NULLABLE"),
         bigquery.SchemaField("api_use_allowed_v0_1", "BOOLEAN", mode="NULLABLE"),
+        bigquery.SchemaField("api_exposure_allowed_v0_2", "BOOLEAN", mode="NULLABLE"),
 
         bigquery.SchemaField("min_sample_rows", "INTEGER", mode="NULLABLE"),
         bigquery.SchemaField("meets_min_sample", "BOOLEAN", mode="NULLABLE"),
@@ -888,17 +863,21 @@ def ensure_output_table(
     desired_schema = output_schema(bigquery)
 
     try:
-        existing_table = client.get_table(table_ref)
-        existing_fields = {field.name for field in existing_table.schema}
-        missing_fields = [field for field in desired_schema if field.name not in existing_fields]
+        table = client.get_table(table_ref)
+        existing_names = {field.name for field in table.schema}
+        missing_fields = [
+            field for field in desired_schema
+            if field.name not in existing_names
+        ]
 
         if missing_fields:
-            existing_table.schema = list(existing_table.schema) + missing_fields
-            client.update_table(existing_table, ["schema"])
+            table.schema = list(table.schema) + missing_fields
+            client.update_table(table, ["schema"])
             print(
-                f"Updated BigQuery table schema: {table_ref} "
-                f"added {[field.name for field in missing_fields]}"
+                f"Added {len(missing_fields)} missing columns to {table_ref}: "
+                + ", ".join(field.name for field in missing_fields)
             )
+
         return
     except NotFound:
         pass
@@ -906,12 +885,12 @@ def ensure_output_table(
     table = bigquery.Table(table_ref, schema=desired_schema)
     table.description = (
         "GameLens Level 4 claim-language calibration summary. "
-        "One row per source run + feature formula + claim surface + metric + two_way_context + claim-strength signal."
+        "One row per source run + feature formula + claim surface + metric + two_way_context."
     )
     table.clustering_fields = [
         "source_run_id",
-        "claim_strength_language_signal",
         "two_way_context",
+        "offensive_efficiency_support_strength",
         "claim_type",
         "metric",
     ]
@@ -1136,8 +1115,6 @@ def main() -> int:
     print(f"  Summary rows:  {metadata['summary_row_count']}")
     print(f"  Overall rate:  {metadata['overall_validation_rate']}")
     print(f"  Recommendations: {metadata['recommendation_counts']}")
-    print(f"  Claim-strength signals: {metadata['claim_strength_language_signal_counts']}")
-    print(f"  Claim-strength recommendations: {metadata['claim_strength_calibration_recommendation_counts']}")
 
     if args.write_bigquery:
         write_to_bigquery(

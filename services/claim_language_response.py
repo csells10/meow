@@ -20,6 +20,7 @@ from copy import deepcopy
 from typing import Any, Dict, Optional
 
 from services.claim_language_support_registry import build_language_support
+from services.claim_language_features import build_offensive_efficiency_support_for_claim
 
 
 
@@ -217,6 +218,15 @@ def _build_row_language_support(
         claim_strength_bucket=claim_strength_bucket,
         claim_strength_language_signal=claim_strength_language_signal,
         claim_strength_context=claim_strength_context,
+    )
+
+    # Metadata only: expose offensive_efficiency_support_v1 for QA/API inspection.
+    # Existing Level 4/two_way_context + claim_strength rules still own
+    # language_boost_allowed and visible product behavior.
+    language_support["offensive_efficiency_support"] = build_offensive_efficiency_support_for_claim(
+        claim_language_context=claim_language_context,
+        side=side,
+        metric=metric,
     )
 
     return language_support
