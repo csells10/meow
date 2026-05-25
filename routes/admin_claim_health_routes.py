@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from auth.firebase_auth import require_firebase_auth
+from auth.firebase_auth import require_admin_auth
 from services.admin_claim_health_service import build_claim_health_response
 
 
@@ -8,8 +8,8 @@ admin_claim_health_routes = Blueprint("admin_claim_health_routes", __name__)
 
 
 @admin_claim_health_routes.route("/admin/gamelens/claim-health", methods=["GET"])
-@require_firebase_auth
-def claim_health():
+@require_admin_auth
+def admin_claim_health():
     """
     GET /admin/gamelens/claim-health?run_id=...&season=2025
 

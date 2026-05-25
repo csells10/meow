@@ -324,3 +324,8 @@ Cloud Run deploy failed after the Admin Claim Health backend endpoint was added.
 Local testing initially passed because the local environment was running Python 3.12, which supports that syntax. The fix was to make the admin claim-health service Python 3.9-compatible by replacing the problematic union annotation with `Optional[str]`, then checking for other `| None` hints that could become follow-up startup failures.
 
 The new admin route files were confirmed clean with grep, and `python -c "import app; print('app imported ok')"` now succeeds. Next step is redeploying to confirm Cloud Run starts successfully, then adding the true `require_admin_auth` backend guard before treating the admin dashboard as production-safe.
+
+####
+Added backend admin protection for the Admin Claim Health endpoint. The endpoint previously returned the aggregate claim-health payload without auth during local testing. After adding the admin-only guard, unauthenticated requests now correctly return 401 with “Missing Authorization Bearer token.”
+
+The existing /games protected route still returns 401 without auth, confirming normal auth behavior was not broken. The app health endpoint continues to return 200. Remaining validation after deploy: confirm the frontend dashboard loads for an active admin user and shows a clean admin-required state for non-admin/forbidden access.

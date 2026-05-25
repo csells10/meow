@@ -244,3 +244,35 @@ def require_firebase_auth(route_func):
         return route_func(*args, **kwargs)
 
     return wrapper
+
+def require_admin_auth(route_func):
+    """
+    Decorator for admin-only API routes.
+
+    Requires:
+    - valid Firebase Authorization Bearer token
+    - user exists in allowed_users/{email}
+    - active == true
+    - role == "admin"
+    """
+    @wraps(route_func)
+    def wrapper(*args, **kwargs):
+        # Let CORS preflight requests pass cleanly.
+        if request.method == "OPTIONS":
+            return "", 204
+
+        decoded_token, error_response = verify_firebase_request()
+
+        if error_response:
+            return error_response
+
+        gamelens_user = decoded_token.get("gamelens_user", {})
+        role = str(gamelens_user.get("role") or "").strip().lower()
+
+        if role != "admin":
+            return forbidden_response("Admin access required")
+
+        g.firebase_user = decoded_token
+        return route_func(*args, **kwargs)
+
+    return wrapper
