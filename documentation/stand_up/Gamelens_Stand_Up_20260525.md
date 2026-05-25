@@ -1953,3 +1953,249 @@ The first frontend pass is acceptable if:
 
 ##### 
 troubleshooting frontend
+###
+
+EOD Wrapup
+
+###
+###
+###
+###
+
+# Daily Tracker — Admin Calibration + Claim Health Dashboard
+
+## Date
+
+2026-05-25
+
+## Main goal
+
+Today’s goal was to turn the existing Admin Claim Health work into a more complete Admin Calibration + Claim Health dashboard.
+
+The purpose of this dashboard is to help evaluate two separate things:
+
+1. **Game-level calibration**
+   - When GameLens gave a directional game read, did that read align with the final result?
+
+2. **Claim health**
+   - When GameLens made football claims, did postgame data support those claims?
+
+These two ideas are related, but they are not the same. A model can miss a winner while still making truthful football claims, or hit a winner while having weak claim support.
+
+## Backend work completed
+
+The existing admin endpoint was expanded:
+
+```text
+GET /admin/gamelens/claim-health?run_id=full_2025_reg_post_claim_matrix_pilot&season=2025
+
+The endpoint now returns the expanded scope:
+
+"scope": "admin_calibration_claim_health"
+New top-level API metadata added
+default_tab
+tabs
+formula_notes
+season_phase_groups
+expanded section_metadata
+
+This allows the frontend to be more metadata-driven instead of hardcoding the dashboard structure.
+
+New sections added
+
+The API now includes these new aggregate-only sections:
+
+calibration_over_time
+game_level_calibration
+core_area_alignment_matrix
+pillar_health_matrix
+pillar_weekly_health
+feature_health_matrix
+Existing legacy sections preserved
+
+The old sections were intentionally kept:
+
+core_area_matrix
+category_matrix
+confidence_core_area_matrix
+feature_scorecard
+surface_matrix
+
+surface_matrix was preserved but marked as technical/debug metadata rather than a headline dashboard section.
+
+Backend issue found and fixed
+
+During local testing, the new backend initially hit a BigQuery error:
+
+Aggregations of aggregations are not allowed
+
+This came from the first version of the calibration_over_time query.
+
+The query was fixed by restructuring the aggregation so BigQuery only aggregates raw date values once. After the fix, the endpoint returned successfully with the full new response shape.
+
+Local backend validation
+
+Confirmed locally that the endpoint returned:
+
+scope: admin_calibration_claim_health
+tabs
+formula_notes
+season_phase_groups
+all new sections
+all legacy sections
+
+This confirmed the backend contract was ready for frontend work.
+
+Frontend work completed
+
+Lovable implemented the first frontend pass for the Admin Calibration + Claim Health dashboard.
+
+Files changed
+src/lib/admin-api.ts
+src/pages/AdminClaimHealth.tsx
+Frontend additions
+
+The Admin Claim Health page was expanded into a tabbed dashboard:
+
+Overview
+Game Calibration
+Core Area Alignment
+Pillar Health
+Feature Health
+Technical Debug
+
+The page now uses:
+
+tabs for tab structure
+default_tab for initial tab
+section_metadata for titles/descriptions/chart hints
+formula_notes for dashboard explanation text
+season_phase_groups for season phase descriptions
+sections for data
+New frontend sections added
+Overview coverage cards
+Baseline cards
+“How to read this dashboard” panel
+Calibration Over Time line chart
+Game-Level Calibration matrix
+Core Area Alignment matrix
+Pillar Health matrix
+Pillar Weekly Health table
+Feature Health matrix
+Technical Debug tab for Surface Matrix
+Legacy frontend sections preserved
+
+The older claim-health views were kept inside the new tab structure:
+
+Core Area Health
+Confidence by Core Area
+Category Health
+Offensive Efficiency Feature Scorecard
+Claim Surface Health / Surface Matrix
+Styling guardrails followed
+
+Lovable reported that the frontend preserved existing GameLens styling:
+
+No new fonts
+No new color palette
+No AppShell changes
+No sidebar/header changes
+Existing design tokens reused
+Existing card/table/chart styling reused where possible
+
+This was important because the dashboard should feel like an extension of GameLens, not a separate generic SaaS analytics page.
+
+Frontend build validation
+
+Frontend build passed cleanly.
+
+This confirmed the new dashboard implementation did not introduce TypeScript/build errors.
+
+Deployment/debugging note
+
+After the first frontend build, the dashboard shell rendered but many new sections showed “No data.”
+
+The visible clue was the page showing:
+
+scope: aggregate_claim_health
+
+That meant the frontend was still receiving the old backend response from Cloud Run.
+
+The local backend response was correct, but the deployed backend had not refreshed yet.
+
+The backend changes were then committed/pushed so Google Build / Cloud Run could deploy the new backend revision.
+
+After Google Build completed successfully, the Admin page was hard reloaded.
+
+The dashboard then received the new backend response and the new sections began populating correctly.
+
+Graph issue found and fixed
+
+After the backend deployment, the Calibration Over Time chart rendered, but “Overall Claim Validation” appeared missing.
+
+Cause:
+
+The selected segment currently defaults to:
+
+all_claims_in_period
+
+So:
+
+selected_segment_validation_rate
+
+was identical to:
+
+claim_validation_rate
+
+The two lines were overlapping visually.
+
+Lovable fixed this by adjusting the graph behavior so the Overall Claim Validation line is visible and the duplicate selected-segment line no longer hides it.
+
+Lovable also fixed a spelling typo in the chart title:
+
+Calibrtion Over Time
+
+to:
+
+Calibration Over Time
+Current status
+
+The Admin Calibration + Claim Health dashboard is now working as a first frontend pass.
+
+The backend is live with the new response shape.
+
+The frontend now shows the expanded dashboard data after hard reload.
+
+This is a major checkpoint because GameLens now has an admin-facing calibration dashboard that can show:
+
+whether game-level reads are aligning with outcomes
+whether claim language is validating
+which football pillars are stronger/weaker
+how calibration changes by week
+which engineered features are earning trust
+where technical claim surfaces may need debugging
+What still needs QA / polish later
+
+This dashboard is now functional, but it still needs a review pass.
+
+Visual polish
+Check spacing on all tabs
+Check chart readability
+Check table overflow
+Check mobile/tablet behavior if needed
+Make sure tooltips are readable
+Interpretation polish
+Make sure no-pick games are not visually treated as wrong
+Make sure null values show as —, not 0%
+Make sure claim validation and game pick accuracy remain clearly separated
+Make sure sample sizes are visible near percentages
+Dashboard polish
+Review whether the Overview tab is too dense or just right
+Decide whether the Calibration Over Time chart needs a future grain selector
+Decide whether Feature Health needs sorting/filtering
+Decide whether Pillar Health should eventually expand to metric-level detail
+Rename or visually demote legacy sections if needed
+Possible future backend polish
+Add top-level date_grains if we want a cleaner frontend contract
+Consider making correct_rate null for no-pick-only rows
+Possibly add a separate alias for matchup_lean_matrix if the frontend/product language needs it
