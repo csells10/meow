@@ -6,6 +6,7 @@ from config import API_CALLS
 from routes.games import games_bp
 from routes.game_routes import game_routes
 from routes.admin_claim_health_routes import admin_claim_health_routes
+from routes.user_routes import user_routes
 from utils.logging_setup import setup_logging, log_event
 
 # ------------------------------------------------------------
@@ -30,6 +31,7 @@ CORS(
 app.register_blueprint(games_bp)
 app.register_blueprint(game_routes)
 app.register_blueprint(admin_claim_health_routes)
+app.register_blueprint(user_routes)
 
 # Dictionary used to track how many times each API call has run
 # during a given scheduled execution cycle.

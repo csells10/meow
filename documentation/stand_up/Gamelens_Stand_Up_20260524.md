@@ -329,3 +329,266 @@ The new admin route files were confirmed clean with grep, and `python -c "import
 Added backend admin protection for the Admin Claim Health endpoint. The endpoint previously returned the aggregate claim-health payload without auth during local testing. After adding the admin-only guard, unauthenticated requests now correctly return 401 with “Missing Authorization Bearer token.”
 
 The existing /games protected route still returns 401 without auth, confirming normal auth behavior was not broken. The app health endpoint continues to return 200. Remaining validation after deploy: confirm the frontend dashboard loads for an active admin user and shows a clean admin-required state for non-admin/forbidden access.
+
+######
+After adding backend admin protection, /admin/claim-health showed a blank black page instead of a useful auth/error state. Lovable inspected the frontend integration and confirmed the admin API helper was already attaching the Firebase ID token correctly. The issue was page hardening: the Admin Claim Health page needed safer render/error handling now that the backend can return 401/403.
+
+The page now has explicit loading, unauthorized, forbidden, network-error, generic-error, no-data, and background-refresh states. It also uses an AdminErrorBoundary and safe section-reading helper so missing or unexpected section data cannot blank the page. No backend behavior, API response shape, routing, nav, or drilldown behavior changed.
+
+###
+
+# GameLens Daily Tracker — Admin Claim Health Dashboard + Admin Access
+
+## Date
+2026-05-24 / 2026-05-25 work session
+
+## Main Goal
+
+Continue building the GameLens Admin Claim Health dashboard so claim-validation performance can be reviewed visually at an aggregate level.
+
+The dashboard is intended to answer:
+
+> Are GameLens pregame football claims being supported by postgame data?
+
+This is **not** winner-prediction accuracy, not betting accuracy, and not a public scoreboard.
+
+---
+
+## Work Completed
+
+### 1. Admin Claim Health Frontend MVP
+
+Lovable built the first frontend version of the Admin Claim Health dashboard at:
+
+```text
+/admin/claim-health
+
+The page includes:
+
+Header with run_id, season, generated_at, status, and availability
+Coverage card
+No-claim games card
+Baseline validation rate card
+Claim rows card
+Neutral/mixed card
+Core Area Health bar chart
+Offensive Efficiency Feature Scorecard bar chart
+Category Health table
+Confidence by Core Area table
+Claim Surface Health table
+
+The page uses the existing aggregate API:
+
+GET /admin/gamelens/claim-health?run_id=full_2025_reg_post_claim_matrix_pilot&season=2025
+
+No game-ID drilldown was added.
+
+2. Backend Cloud Run Startup Failure Fixed
+
+A Cloud Run deploy initially failed even though the Docker image built successfully.
+
+The runtime logs showed:
+
+TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
+
+Root cause:
+
+Local environment was Python 3.12
+Cloud Run container was Python 3.9
+Python 3.9 does not support type hints like:
+str | None
+
+Fix:
+
+Replaced the Python 3.10+ union type hint in the admin claim-health service with Python 3.9-compatible typing:
+Optional[str]
+Added future annotation safety to claim-language helper files where needed
+Confirmed:
+python -c "import app; print('app imported ok')"
+
+Build result:
+
+Cloud Build succeeded
+Cloud Run deployed successfully
+New revision served 100% of traffic
+3. Admin Claim Health Endpoint Protected
+
+Added backend admin protection for:
+
+GET /admin/gamelens/claim-health
+
+The endpoint now uses an admin-only auth guard.
+
+Expected behavior:
+
+Request Type	Expected Result
+No token	401
+Signed-in non-admin	403
+Signed-in admin	200
+
+Local tests passed:
+
+curl -i http://127.0.0.1:8080/health
+
+Returned:
+
+200 OK
+{"status":"ok"}
+
+Admin endpoint without token:
+
+curl -i "http://127.0.0.1:8080/admin/gamelens/claim-health?run_id=full_2025_reg_post_claim_matrix_pilot&season=2025"
+
+Returned:
+
+401 UNAUTHORIZED
+{"error":"unauthorized","message":"Missing Authorization Bearer token"}
+
+Existing protected route check:
+
+curl -i http://127.0.0.1:8080/games
+
+Returned:
+
+401 UNAUTHORIZED
+{"error":"unauthorized","message":"Missing Authorization Bearer token"}
+
+This confirmed the admin endpoint is no longer openly accessible and normal protected route behavior was not broken.
+
+4. Frontend Blank Page Fixed
+
+After backend admin auth was added, /admin/claim-health showed a blank black page.
+
+Lovable hardened the frontend page.
+
+Fixes included:
+
+Added an AdminErrorBoundary
+Added explicit loading/error/no-data states
+Added clean 401 message:
+Not signed in. Your session has expired. Please sign in again to view this page.
+Added clean 403 message:
+Admin access required.
+Added network error handling
+Added safer section reads so missing API sections do not crash the page
+Confirmed the admin API helper was already attaching the Firebase Bearer token correctly
+Removed nested <main> issue
+Kept backend behavior and API response shape unchanged
+5. Admin Navigation Work Started
+
+Goal:
+
+Admin users should see an admin tab in the main navigation instead of needing a hidden direct URL.
+
+Desired final navigation:
+
+Games | Matchup Lens | Admin | Settings
+
+Lovable added frontend support for this:
+
+Files changed:
+
+src/lib/admin-api.ts
+src/components/AppShell.tsx
+src/pages/AdminClaimHealth.tsx
+
+Frontend behavior:
+
+Calls a future backend endpoint:
+GET /me
+Expects:
+{
+  "email": "...",
+  "role": "admin",
+  "active": true,
+  "is_admin": true
+}
+Shows the Admin nav tab only when:
+is_admin === true
+Hides the Admin tab while loading, on error, or for non-admin users
+
+Also fixed the Confidence by Core Area table so it pivots flat API rows into unique Core Area rows with High / Medium / Low columns.
+
+6. Backend /me Endpoint Added Locally
+
+Added a lightweight authenticated user info endpoint:
+
+GET /me
+
+Purpose:
+
+Allow the frontend to know whether the signed-in user is an admin.
+
+Expected response:
+
+{
+  "email": "user@example.com",
+  "role": "admin",
+  "active": true,
+  "is_admin": true
+}
+
+Local test without token:
+
+curl -i http://127.0.0.1:8080/me
+
+Returned:
+
+401 UNAUTHORIZED
+{"error":"unauthorized","message":"Missing Authorization Bearer token"}
+
+This confirms:
+
+/me route is registered
+/me is protected by Firebase auth
+The route no longer returns 404
+Current State
+Working
+Admin Claim Health API works
+Admin Claim Health frontend dashboard loads
+Backend Cloud Run startup issue fixed
+Admin endpoint now blocks no-token requests
+Frontend page has proper 401/403/error states
+Frontend has role-aware Admin tab logic ready
+/me endpoint is locally registered and protected
+Still Needs Final Validation
+
+Before considering this complete:
+
+Commit/publish the Lovable frontend patch
+Commit/deploy the backend /me endpoint
+Confirm Cloud Run build succeeds
+Open frontend while signed in as admin
+Confirm Admin tab appears
+Confirm /admin/claim-health loads from the Admin tab
+Confirm non-admin users do not see the Admin tab
+Confirm direct URL still returns proper 401/403 behavior when unauthorized
+Important Product Guardrails
+
+Keep this dashboard framed as:
+
+Admin claim-validation health
+
+Not:
+
+Model accuracy
+Winner prediction
+Betting performance
+Public scoreboard
+
+The dashboard should help evaluate whether GameLens is making truthful pregame football claims, not whether it picked every game winner.
+
+Next Step
+
+Finish the role-aware admin navigation flow:
+
+Commit/publish frontend patch from Lovable
+Commit backend /me endpoint
+Deploy backend
+Confirm Admin tab appears for admin user
+Confirm dashboard loads from nav
+
+After that, this phase is basically done.
+
+
+Tiny but important note: don’t call the admin tab fully done until `/me` is deployed and the tab actually appears for your signed-in admin account.
