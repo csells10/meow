@@ -592,3 +592,275 @@ After that, this phase is basically done.
 
 
 Tiny but important note: don’t call the admin tab fully done until `/me` is deployed and the tab actually appears for your signed-in admin account.
+
+########----#######
+# GameLens Daily Tracker — Admin Claim Health + Admin Tab Complete
+
+## Date
+2026-05-24 / 2026-05-25
+
+## Main Goal
+
+Finish the first usable version of the GameLens Admin Claim Health dashboard and make it accessible through the app navigation for admin users only.
+
+The goal of this dashboard is to help review aggregate claim-validation performance:
+
+> Did GameLens pregame claims get supported by postgame data?
+
+This is not winner accuracy, betting performance, or a public scoreboard.
+
+---
+
+## Final Status
+
+✅ Admin Claim Health API exists  
+✅ Admin Claim Health dashboard exists  
+✅ Cloud Run backend deploy issue fixed  
+✅ Admin endpoint is protected by backend admin auth  
+✅ Frontend no longer renders a blank page on auth/render errors  
+✅ `/me` endpoint added and deployed  
+✅ Admin tab appears in the main navigation for admin users  
+✅ Admin tab routes to `/admin/claim-health`  
+✅ Dashboard loads from the Admin tab  
+
+This phase is now functionally complete.
+
+---
+
+## What Was Built
+
+### 1. Admin Claim Health Dashboard
+
+Frontend route:
+
+```text
+/admin/claim-health
+
+Dashboard sections:
+
+Coverage summary
+No-claim games
+Baseline validation rate
+Claim rows
+Neutral/mixed rate
+Core Area Health chart
+Offensive Efficiency Feature Scorecard chart
+Category Health table
+Confidence by Core Area table
+Claim Surface Health table
+
+The dashboard is aggregate-level only.
+
+No game-ID drilldown was added.
+
+2. Backend Claim Health API
+
+Backend endpoint:
+
+GET /admin/gamelens/claim-health?run_id=full_2025_reg_post_claim_matrix_pilot&season=2025
+
+The API returns:
+
+coverage
+baseline
+section_metadata
+sections.core_area_matrix
+sections.category_matrix
+sections.confidence_core_area_matrix
+sections.feature_scorecard
+sections.surface_matrix
+
+This gives the frontend graph-ready data for aggregate claim-health review.
+
+3. Cloud Run Startup Issue Fixed
+
+A backend deploy initially failed even though the Docker image built successfully.
+
+Root cause:
+
+Local dev was running Python 3.12
+Cloud Run was running Python 3.9
+New backend code used Python 3.10+ style type hints:
+str | None
+
+Cloud Run crashed during app import.
+
+Fix:
+
+Replaced the incompatible union type hint with Python 3.9-compatible typing:
+Optional[str]
+Added annotation safety where needed
+Confirmed app import worked
+Redeployed successfully
+
+Result:
+
+Cloud Build and Cloud Run deploy succeeded, and the new revision served traffic.
+
+4. Admin Security Added
+
+The Admin Claim Health API is now protected by backend admin auth.
+
+Expected behavior:
+
+Request	Result
+No token	401
+Signed-in non-admin	403
+Signed-in admin	200
+
+Local tests confirmed:
+
+/health → 200
+/admin/gamelens/claim-health without token → 401
+/games without token → 401
+
+This confirmed the admin endpoint is no longer open and existing protected routes still behave correctly.
+
+Important reminder:
+
+Frontend tab hiding is UX only.
+Backend require_admin_auth is the real security.
+
+5. Frontend Hardening
+
+After the backend endpoint became protected, the Admin Claim Health page initially rendered as a blank black page.
+
+Lovable hardened the page with:
+
+Explicit loading state
+401 unauthenticated message
+403 admin-required message
+Network error message
+Generic error fallback
+No-data fallback
+Admin error boundary
+Safe section reads
+Confidence table pivot fix
+
+The page now fails visibly instead of silently blanking.
+
+6. /me Endpoint Added
+
+Backend endpoint added:
+
+GET /me
+
+Purpose:
+
+Let the frontend know whether the signed-in user is an admin.
+
+Expected response:
+
+{
+  "email": "user@example.com",
+  "role": "admin",
+  "active": true,
+  "is_admin": true
+}
+
+Local no-token test confirmed:
+
+/me → 401 Missing Authorization Bearer token
+
+This showed the route was registered and protected.
+
+7. Admin Tab Added
+
+Frontend now calls /me and conditionally shows the Admin tab only when:
+
+is_admin === true
+
+Final navigation now includes:
+
+Games | Matchup Lens | Settings | Admin
+
+The Admin tab routes to:
+
+/admin/claim-health
+
+Screenshot validation confirmed the Admin tab appears for the admin account and routes correctly.
+
+Current Interpretation
+
+This was a full-stack admin feature loop:
+
+Built aggregate admin API
+Built frontend dashboard
+Fixed backend deployment compatibility
+Added backend admin security
+Hardened frontend auth/error states
+Added /me user context endpoint
+Added role-aware Admin navigation
+
+The dashboard is now discoverable for admin users without being exposed to normal users.
+
+Product Guardrails Preserved
+
+The dashboard still avoids:
+
+public scoreboard framing
+winner accuracy framing
+betting performance framing
+game-ID drilldown
+overconfident “model success” language
+
+Correct framing remains:
+
+Aggregate claim-validation health
+
+The dashboard helps answer whether GameLens is telling truthful pregame football stories.
+
+Final Validation Completed
+
+Confirmed:
+
+Cloud Run build successful
+Frontend published
+Admin tab appears in main navigation
+Admin tab routes to /admin/claim-health
+Claim Health dashboard loads
+Backend endpoint is protected
+Direct URL behavior remains safe
+Tomorrow’s Starting Point
+
+Possible next work:
+
+Review the Admin Claim Health dashboard visually and clean up any readability issues.
+Validate the Confidence by Core Area table now that pivoting is fixed.
+Decide whether to improve chart labels/tooltips.
+Consider adding lightweight filters:
+season
+run_id
+minimum claim rows
+Begin interpreting the actual results:
+strongest claim areas
+weakest/noisiest areas
+feature scorecard usefulness
+which surfaces deserve stronger or softer language
+Decide whether this dashboard should drive the next Level 4 calibration improvement.
+
+Huge win today. This went from **hidden experimental endpoint** to **secured admin dashboard with real navigation**. That is not small.
+
+##
+## Final Frontend Polish — Feature Scorecard Labels
+
+Before declaring the Admin Claim Health dashboard complete, noticed that the Offensive Efficiency Feature Scorecard chart rendered bars correctly but the left-side bucket labels appeared as tiny dashes/blank labels. This made the chart hard to interpret because the user could see the performance bars but not which feature bucket each bar represented.
+
+Lovable fixed this by updating the frontend chart handling:
+
+- Added `bucket` and `strength` to the admin API row type
+- Added readable bucket labels such as:
+  - `repeat_positive_strong` → `Repeat Positive Strong`
+  - `repeat_positive_supportive` → `Repeat Positive Supportive`
+  - `opposing_efficiency_signal` → `Opposing Efficiency Signal`
+- Added graceful truncation for long Y-axis labels
+- Increased Y-axis width for the Feature Scorecard chart
+- Added percent labels at the end of bars
+- Preserved the raw bucket value in tooltips
+- Reused the defensive label behavior for Core Area Health as well
+
+This was a frontend readability fix only. It did not change backend behavior, API response shape, admin auth, routing, or add drilldown.
+
+####
+
+Admin Claim Health is now functionally complete as an MVP. It is not visually polished yet, but the core loop works: admin users see the Admin tab, the tab routes to /admin/claim-health, the protected API returns real aggregate claim-health data, and the dashboard renders the major sections. Further work should focus on readability, interpretation, and small UX polish rather than new backend scope.
