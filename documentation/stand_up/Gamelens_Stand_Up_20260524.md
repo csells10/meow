@@ -319,3 +319,8 @@ Tested locally with:
 Confirmed the endpoint returns the expected 2025 full-slate pilot values, including 8,067 claim rows, 269 games with claims, 16 games without claims, and the expected validation matrices.
 
 ####
+Cloud Run deploy failed after the Admin Claim Health backend endpoint was added. The Docker image built successfully, but the Cloud Run revision could not start because the container exited during app import. Runtime logs showed the crash came from a Python 3.10+ type hint (`str | None`) being evaluated under Python 3.9 in Cloud Run.
+
+Local testing initially passed because the local environment was running Python 3.12, which supports that syntax. The fix was to make the admin claim-health service Python 3.9-compatible by replacing the problematic union annotation with `Optional[str]`, then checking for other `| None` hints that could become follow-up startup failures.
+
+The new admin route files were confirmed clean with grep, and `python -c "import app; print('app imported ok')"` now succeeds. Next step is redeploying to confirm Cloud Run starts successfully, then adding the true `require_admin_auth` backend guard before treating the admin dashboard as production-safe.

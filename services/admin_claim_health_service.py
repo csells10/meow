@@ -9,8 +9,9 @@ from queries.admin_claim_health_queries import (
     get_feature_scorecard,
     get_surface_matrix,
 )
+from typing import Optional
 
-def _build_coverage_note(coverage: dict) -> str | None:
+def _build_coverage_note(coverage: dict) -> Optional[str]:
     games_without_claims = coverage.get("games_without_claims") or 0
 
     if games_without_claims <= 0:

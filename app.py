@@ -171,5 +171,10 @@ def health():
 
 
 if __name__ == "__main__":
-    # Run locally or in environments that execute the file directly.
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+        debug=debug_mode,
+    )
