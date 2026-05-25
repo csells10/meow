@@ -13,21 +13,20 @@ def admin_claim_health():
     """
     GET /admin/gamelens/claim-health?run_id=...&season=2025
 
-    Aggregate admin endpoint for GameLens claim-health matrices.
+    Aggregate admin endpoint for GameLens calibration + claim-health matrices.
 
-    MVP scope:
-    - coverage
-    - baseline
-    - core area matrix
-    - category matrix
-    - confidence by core area
-    - offensive efficiency feature scorecard
+    Backend-only scope:
+    - tab metadata
+    - formula metadata
+    - aggregate calibration sections
+    - preserved legacy claim-health sections
 
     This endpoint intentionally does not return game-level drilldown rows.
     """
 
     run_id = request.args.get("run_id")
     season = request.args.get("season", "2025")
+    calibration_grain = request.args.get("grain", "week")
 
     if not run_id:
         return jsonify({
@@ -37,7 +36,11 @@ def admin_claim_health():
         }), 400
 
     try:
-        data = build_claim_health_response(run_id=run_id, season=season)
+        data = build_claim_health_response(
+            run_id=run_id,
+            season=season,
+            calibration_grain=calibration_grain,
+        )
         return jsonify(data), 200
 
     except Exception as e:

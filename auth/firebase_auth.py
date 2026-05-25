@@ -254,12 +254,40 @@ def require_admin_auth(route_func):
     - user exists in allowed_users/{email}
     - active == true
     - role == "admin"
+
+    Local dev:
+    - Allows LOCAL_DEV_AUTH_BYPASS=true only on localhost and never on Cloud Run.
     """
     @wraps(route_func)
     def wrapper(*args, **kwargs):
         # Let CORS preflight requests pass cleanly.
         if request.method == "OPTIONS":
             return "", 204
+
+        # Local-only development bypass.
+        # Never enable this in Cloud Run.
+        local_dev_bypass = (
+            os.getenv("LOCAL_DEV_AUTH_BYPASS", "false").lower() == "true"
+            and os.getenv("K_SERVICE") is None
+            and request.remote_addr in {"127.0.0.1", "::1"}
+        )
+
+        if local_dev_bypass:
+            email = normalize_email(
+                os.getenv("LOCAL_DEV_EMAIL", "local-dev@gamelens.local")
+            )
+
+            g.firebase_user = {
+                "email": email,
+                "local_dev": True,
+                "gamelens_user": {
+                    "email": email,
+                    "role": "admin",
+                    "active": True,
+                },
+            }
+
+            return route_func(*args, **kwargs)
 
         decoded_token, error_response = verify_firebase_request()
 
