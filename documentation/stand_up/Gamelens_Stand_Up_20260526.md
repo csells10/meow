@@ -1287,3 +1287,445 @@ This supports the larger goal of turning the Admin dashboard into a reliable pro
 
 
 I’d commit this as a **small correctness fix**, not a feature. Nice clean cleanup. 🧹
+
+###Learning from Admin Dashboard High vs Medium issue:
+
+My current answer
+
+High Confidence should require four kinds of extra evidence:
+
+1. Matchup shape
+Strong Profile or Confirmed Edge
+Meaningful signal gap
+Meaningful core gap
+Team Comparison not merely near-even
+
+This is what High already mostly has.
+
+2. Stable football support
+Offensive Output support
+Passing Game or Rushing Game support
+Defensive Control support
+Scoring Suppression support
+
+This is the “real football pillar” layer.
+
+3. Claim-quality support
+Core Area Comparison headline claims validate historically well
+Metric Highlight headline claims are from trusted metrics
+Game Profile claims are not the main reason
+Supporting claims are not dominated by volatile categories
+
+This is what we are missing.
+
+4. No unresolved warning path
+No opposing efficiency signal
+No negative caution
+No volatile pressure/turnover dependency without stabilizer
+No available_mixed two-way context dominating the read
+No weak-surface dependency
+
+This is the “don’t get cute” layer. 😄
+
+##
+High should require 4 layers
+1. Shape strength
+
+This is what High already has.
+
+Strong Profile
+confirmed_edge
+large signal gap
+large core gap
+strong team comparison edge
+
+But this alone is not enough.
+
+2. Expected claim quality
+
+This is the missing piece.
+
+High should require something like:
+
+expected_claim_validation_rate >= 60–65%
+
+calculated from pregame-known features, such as:
+
+claim type
+claim layer
+core area
+category
+metric
+two_way_context
+offensive_efficiency_support_bucket
+claim_strength bucket
+clean hierarchy status
+
+This should be based on historical validation rates, not postgame validation from the same game.
+
+3. Fragility screen
+
+High should be capped if there are unresolved warning paths:
+
+opposing_efficiency_signal present
+negative_caution present
+available_mixed dominating supportive
+volatile category load too high
+pressure/turnover claims acting as primary support
+game_profile headline acting too loudly
+
+Your Step 2 miss list showed every High miss had caution-only and volatile-category warnings, and several had weak claim validation or opposing/negative caution flags.
+
+4. Outcome durability
+
+High Correct games had much bigger margins:
+
+High Correct avg margin: 18.3
+High Miss avg margin: 4.8
+
+That means High should not just identify a likely winner. It should identify a read likely to survive normal game noise.
+
+Possible future durability features:
+
+recent form
+injury-adjusted opponent path
+divisional/rivalry flag
+explosive offense warning
+rushing/control stability
+late-season/week-17/week-18 context
+
+Not today, but this is where the model probably grows.
+
+##
+
+follow up on High confidence rules:
+My updated High Confidence framework
+High should be rare and pass these gates
+Gate 1 — Shape gate
+profile_strength = Strong Profile
+profile_type = confirmed_edge
+signal_gap >= 7
+core_gap >= 0.25
+
+This is your current “the matchup looks strong” gate.
+
+Gate 2 — Caution-heavy cap
+clean_mix_bucket != caution_heavy_support
+
+This is the first real improvement from today.
+
+Gate 3 — Expected claim quality
+
+This is the important future one:
+
+expected_claim_validation_rate >= 60%
+
+based on pregame claim signatures.
+
+Example inputs:
+
+claim_type
+claim_layer
+registry_core_area
+registry_category
+metric
+two_way_context
+offensive_efficiency_support_bucket
+claim_strength_bucket
+clean_hierarchy_status
+
+This is the thing that can say:
+
+“This profile looks strong, but these exact claim types usually do not validate well.”
+
+Gate 4 — opponent path warning
+
+Cap High if:
+
+opposing_efficiency_signal > 0
+OR negative_caution > 0
+OR volatile categories are primary support
+OR pressure/turnover signals carry too much of the story
+Gate 5 — production later
+
+Eventually add:
+
+injury context
+late-season / Week 18 flag
+divisional/rivalry flag
+recent-form shift
+explosive-offense warning
+rushing/control stability
+
+Not today. But that’s where High probably gets smarter.
+
+###
+
+Updated answer: what should High require?
+
+High should require more than “strong profile” and more than “clean-looking support.”
+
+High should require this:
+Strong matchup shape
++ not caution-heavy
++ high expected claim quality
++ no obvious opponent path
++ severity-aware confidence
+
+The missing piece is:
+
+expected claim quality
+
+Not actual claim validation. We do not know that pregame.
+
+But we can estimate it from historical pregame claim signatures.
+
+What I would change conceptually
+1. Cap caution-heavy High
+
+This is the easiest rule.
+
+If clean_mix_bucket = caution_heavy_support:
+    High Confidence is not allowed
+
+Use wording like:
+
+Strong profile, but confidence kept measured due to volatile support mix.
+
+2. Do not promote based on clean_support alone
+
+This failed.
+
+clean_support ≠ High Confidence
+
+Clean support can stay as a supporting signal, but it cannot be the deciding factor.
+
+3. Add a reasoning-quality tier
+
+For High misses, we need to know whether the model was:
+
+wrong but reasonable
+wrong and unsupported
+
+Possible buckets:
+
+Bucket	Meaning
+Clean outcome miss	wrong winner, claim validation decent
+Bad reasoning miss	wrong winner, claim validation weak
+Severe miss	wrong winner by 17+
+Close variance miss	wrong winner by 1–3
+No decision	tie/push/no graded outcome
+
+This would make the Admin page way smarter.
+
+4. Build expected_claim_quality_v0
+
+This is the next real backend learning feature.
+
+For each pregame claim row, estimate its expected validation from historical rows with the same signature:
+
+claim_type
+claim_layer
+registry_core_area
+registry_category
+metric
+two_way_context
+offensive_efficiency_support_bucket
+claim_strength_bucket
+claim_strength_language_signal
+
+Then roll that up to the game level:
+
+game_expected_claim_quality = weighted average of expected claim quality
+
+Headline claims should probably weigh more than supporting claims.
+
+Then High requires something like:
+
+expected_claim_quality >= 60% or 65%
+
+This is better than counting “stable” and “caution” claims manually.
+
+My current practical High Confidence rule
+
+If I were writing the draft rule today, it would be:
+
+High Confidence Candidate =
+  Strong Profile
+  AND confirmed_edge
+  AND signal/core separation present
+  AND clean_mix_bucket != caution_heavy_support
+  AND expected_claim_quality_v0 >= threshold
+  AND no major opponent-path warning
+
+If it fails those final checks:
+
+Downgrade to Medium Confidence
+
+Not because the matchup is bad, but because the read is not durable enough to shout.
+
+# Admin Dashboard Learning — High vs Medium Confidence
+
+## Main direction
+
+The Admin dashboard should be used as a model-learning and calibration tool, not as a source for hard-coded one-season rules.
+
+The goal is not to build a homemade decision tree or manually gated random forest. The goal is to learn where GameLens is calibrated, where it overstates, and what kinds of failures repeat.
+
+## Core learning
+
+High Confidence currently appears too driven by strong matchup separation. It is not consistently better than Medium Confidence.
+
+Medium Confidence, especially Medium + Strong Profile + Confirmed Edge, appears to be a healthier production default in the 2025 run.
+
+This suggests High Confidence should become rarer and should require durability evidence, not just stronger signal/core/team-comparison separation.
+
+## Claim Validation vs Game Pick Accuracy
+
+Game Pick Accuracy measures whether the model picked the winner.
+
+Claim Validation measures whether the model’s football explanation held up.
+
+These can diverge. A model can pick the winner but explain it weakly, or miss the winner while still making mostly valid football claims.
+
+This means future model review should separate:
+- correct outcome + strong claims
+- correct outcome + weak claims
+- wrong outcome + strong claims
+- wrong outcome + weak claims
+- severe miss + weak claims
+
+This is more useful than simple win/loss grading.
+
+## What the High vs Medium work taught us
+
+High misses were often not missing obvious support. Many still had strong-looking signal gap, core gap, team comparison edge, and supportive two-way context.
+
+That means the model does not simply need “more strength” before assigning High.
+
+It needs better evidence that the strength is durable.
+
+## Important warning
+
+The clean/mixed/caution-heavy support experiment was useful but too blunt.
+
+It showed that caution-heavy profiles are risky, but it did not reliably separate all good High reads from bad High reads.
+
+Therefore:
+- Do not turn clean_mix_bucket into a hard rule yet.
+- Do not promote High just because support looks clean.
+- Do not cap everything from one 2025 pattern.
+- Treat clean/caution mix as a diagnostic signal only.
+
+## Strongest hypothesis from the Admin tab
+
+High Confidence should eventually require an expected claim-quality layer.
+
+This means estimating, before the game, whether the specific claims supporting a read come from historically reliable claim signatures.
+
+Possible inputs:
+- claim_type
+- claim_layer
+- core_area
+- category
+- metric
+- two_way_context
+- offensive_efficiency_support_bucket
+- claim_strength_bucket
+- clean_hierarchy_status
+
+This should be tested as an offline calibration feature first, not immediately wired into production confidence.
+
+## Model improvement themes
+
+### 1. Confidence calibration
+
+High should mean durable confidence, not just strong signal separation.
+
+Medium may remain the default “usable strong read.”
+
+High should become rarer and better justified.
+
+### 2. Claim selection
+
+The model may be producing too similar a claim recipe across strong-profile games.
+
+Improve the model by making claim selection more game-specific and more selective.
+
+### 3. Explanation quality
+
+Track whether a game was:
+- wrong but reasonable
+- wrong and unsupported
+- correct but weakly explained
+- correct and strongly explained
+
+This helps the model learn from misses without overreacting to normal football variance.
+
+### 4. Volatility awareness
+
+Pressure, turnovers, turnover risk, disruption, and scoring-production claims should be monitored carefully.
+
+They are useful context, but they should not automatically help promote a read to High.
+
+### 5. Expected claim quality
+
+The next serious improvement is not another hand-built gate.
+
+The next serious improvement is an expected claim-quality score, ideally tested with holdout or leave-one-game-out logic.
+
+## Guardrail against overfitting
+
+Only promote a change if it passes three tests:
+
+1. It appears in the Admin data.
+2. It makes football/product sense.
+3. It survives validation beyond the exact slice where it was discovered.
+
+Until then, keep it as a diagnostic warning, not a production rule.
+
+## Best current conclusion
+
+The Admin tab tells us GameLens is promising, but High Confidence is not calibrated enough yet.
+
+The next model improvement should focus on making High Confidence more durable and explanation-backed, while preserving Medium Confidence as the safer useful read.
+
+#### Next Work: Expected Claim Quality Calibration
+
+Goal:
+Build an offline calibration experiment that estimates how trustworthy a game’s explanation looked before the game.
+
+Why:
+High Confidence currently reflects strong matchup separation, but not always durable explanation quality. The Admin dashboard showed that High misses can still look strong pregame while producing poor postgame claim validation.
+
+Approach:
+Create a pregame-safe expected claim quality score using historical claim signatures such as:
+- claim_type
+- claim_layer
+- registry_core_area
+- registry_category
+- metric
+- two_way_context
+- offensive_efficiency_support_bucket
+- claim_strength_bucket
+- clean_hierarchy_status
+
+Important:
+This should be tested offline first. Do not wire it into production confidence yet.
+
+Success question:
+Does expected claim quality separate:
+- High correct vs High miss
+- good reasoning miss vs bad reasoning miss
+- Medium strong correct vs High fragile miss
+
+Guardrail:
+Avoid hard-coded one-season gates. Treat the score as a calibration feature to validate, not as a manual rule system.
+
+Do not start by editing game_service.py.
+
+The next backend work should be an offline expected-claim-quality calibration experiment, likely in `agg/gamelens_training/`, either by extending `build_claim_language_calibration.py` or creating a new worker such as `build_expected_claim_quality.py`.
+
+Only after that feature proves useful should `game_service.py` be updated to expose the score as metadata, and only later should it influence runtime confidence.
+
+##
