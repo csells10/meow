@@ -352,7 +352,7 @@ def get_calibration_over_time(
                 gc.not_validated_claims,
                 gc.neutral_mixed_claims,
                 gc.unavailable_claims,
-                LOWER(CAST(gc.model_result AS STRING)) AS model_result
+                LOWER(TRIM(CAST(gc.model_result AS STRING))) AS model_result
             FROM schedule_games sg
             LEFT JOIN game_claims gc
                 ON sg.game_id = gc.game_id
@@ -390,14 +390,12 @@ def get_calibration_over_time(
                 COUNT(DISTINCT game_id) AS games_total,
                 COUNT(DISTINCT IF(claim_rows IS NOT NULL, game_id, NULL)) AS games_with_claims,
                 COUNT(DISTINCT IF(model_result IN ('correct', 'incorrect'), game_id, NULL)) AS games_with_pick,
+                COUNT(DISTINCT IF(model_result IN ('correct', 'incorrect'), game_id, NULL)) AS graded_games,
                 COUNT(DISTINCT IF(model_result = 'correct', game_id, NULL)) AS correct_picks,
                 COUNT(DISTINCT IF(model_result = 'incorrect', game_id, NULL)) AS incorrect_picks,
                 COUNT(DISTINCT IF(model_result = 'no pick', game_id, NULL)) AS no_pick_games,
-                SAFE_DIVIDE(
-                    COUNT(DISTINCT IF(model_result = 'correct', game_id, NULL)),
-                    COUNT(DISTINCT IF(model_result IN ('correct', 'incorrect'), game_id, NULL))
-                ) AS game_pick_correct_rate,
-
+                COUNT(DISTINCT IF(model_result IN ('no decision', 'tie', 'push', 'no_decision'), game_id, NULL)) AS no_decision_games,
+                SAFE_DIVIDE(COUNT(DISTINCT IF(model_result = 'correct', game_id, NULL)),COUNT(DISTINCT IF(model_result IN ('correct', 'incorrect'), game_id, NULL))) AS  game_pick_correct_rate,
                 'all_claims_in_period' AS selected_segment_label,
                 COALESCE(SUM(claim_rows), 0) AS selected_segment_claim_rows,
                 SAFE_DIVIDE(SUM(validated_claims), SUM(eligible_claim_rows)) AS selected_segment_validation_rate,
@@ -426,7 +424,7 @@ def get_game_level_calibration(run_id: str) -> list[dict]:
                 game_id,
                 COALESCE(ANY_VALUE(profile_strength_label), 'missing_profile_strength') AS profile_strength_label,
                 COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence') AS outcome_confidence_label,
-                LOWER(CAST(ANY_VALUE(model_result) AS STRING)) AS model_result,
+                LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
                 ANY_VALUE(final_margin_abs) AS final_margin_abs
             FROM `{CLAIM_TABLE}`
             WHERE run_id = @run_id
@@ -437,12 +435,15 @@ def get_game_level_calibration(run_id: str) -> list[dict]:
             profile_strength_label,
             outcome_confidence_label,
             COUNT(*) AS game_count,
+            COUNTIF(model_result IN ('correct', 'incorrect')) AS graded_game_count,
             COUNTIF(model_result = 'correct') AS correct_count,
             COUNTIF(model_result = 'incorrect') AS incorrect_count,
             COUNTIF(model_result = 'no pick') AS no_pick_count,
-            SAFE_DIVIDE(COUNTIF(model_result = 'correct'), COUNT(*)) AS correct_rate,
-            SAFE_DIVIDE(COUNTIF(model_result = 'incorrect'), COUNT(*)) AS incorrect_rate,
+            COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')) AS no_decision_count,
+            SAFE_DIVIDE(COUNTIF(model_result = 'correct'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS correct_rate,
+            SAFE_DIVIDE(COUNTIF(model_result = 'incorrect'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS incorrect_rate,
             SAFE_DIVIDE(COUNTIF(model_result = 'no pick'), COUNT(*)) AS no_pick_rate,
+            SAFE_DIVIDE(COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')) ,COUNT(*)) AS no_decision_rate,
             AVG(SAFE_CAST(final_margin_abs AS FLOAT64)) AS avg_final_margin_abs,
             COUNTIF(model_result = 'incorrect' AND SAFE_CAST(final_margin_abs AS FLOAT64) <= 3) AS close_miss_count,
             COUNTIF(model_result = 'incorrect' AND SAFE_CAST(final_margin_abs AS FLOAT64) >= 17) AS severe_miss_count
@@ -465,7 +466,7 @@ def get_core_area_alignment_matrix(run_id: str) -> list[dict]:
                 game_id,
                 COALESCE(ANY_VALUE(profile_type), 'missing_profile_type') AS profile_type,
                 COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence') AS outcome_confidence_label,
-                LOWER(CAST(ANY_VALUE(model_result) AS STRING)) AS model_result,
+                LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
                 ANY_VALUE(core_gap) AS core_gap,
                 ANY_VALUE(signal_gap) AS signal_gap,
                 ANY_VALUE(final_margin_abs) AS final_margin_abs
@@ -478,10 +479,12 @@ def get_core_area_alignment_matrix(run_id: str) -> list[dict]:
             profile_type,
             outcome_confidence_label,
             COUNT(*) AS game_count,
-            SAFE_DIVIDE(
-                COUNTIF(model_result = 'correct'),
-                COUNTIF(model_result IN ('correct', 'incorrect'))
-            ) AS correct_rate,
+            COUNTIF(model_result IN ('correct', 'incorrect')) AS graded_game_count,
+            COUNTIF(model_result = 'correct') AS correct_count,
+            COUNTIF(model_result = 'incorrect') AS incorrect_count,
+            COUNTIF(model_result = 'no pick') AS no_pick_count,
+            COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')) AS no_decision_count,
+            SAFE_DIVIDE(COUNTIF(model_result = 'correct'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS correct_rate,
             AVG(SAFE_CAST(core_gap AS FLOAT64)) AS avg_core_gap,
             AVG(SAFE_CAST(signal_gap AS FLOAT64)) AS avg_signal_gap,
             AVG(SAFE_CAST(final_margin_abs AS FLOAT64)) AS avg_final_margin_abs
@@ -563,7 +566,7 @@ def get_pillar_weekly_health(run_id: str, season: str) -> list[dict]:
         game_rows AS (
             SELECT
                 game_id,
-                LOWER(CAST(ANY_VALUE(model_result) AS STRING)) AS model_result,
+                LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
                 ANY_VALUE(outcome_confidence_label) AS outcome_confidence_label
             FROM `{CLAIM_TABLE}`
             WHERE run_id = @run_id
@@ -578,6 +581,8 @@ def get_pillar_weekly_health(run_id: str, season: str) -> list[dict]:
                 COUNT(DISTINCT IF(gr.model_result = 'correct', sg.game_id, NULL)) AS correct_picks,
                 COUNT(DISTINCT IF(gr.model_result = 'incorrect', sg.game_id, NULL)) AS incorrect_picks,
                 COUNT(DISTINCT IF(gr.model_result = 'no pick', sg.game_id, NULL)) AS no_pick_games,
+                COUNT(DISTINCT IF(gr.model_result IN ('no decision', 'tie', 'push', 'no_decision'), sg.game_id, NULL)) AS no_decision_games,
+                COUNT(DISTINCT IF(gr.model_result IN ('correct', 'incorrect'), sg.game_id, NULL)) AS graded_games,
                 AVG(
                     CASE LOWER(COALESCE(gr.outcome_confidence_label, ''))
                         WHEN 'high' THEN 3.0
@@ -645,9 +650,11 @@ def get_pillar_weekly_health(run_id: str, season: str) -> list[dict]:
             gw.game_week,
             gw.games_total,
             gw.games_with_claims,
+            gw.graded_games,
+            gw.no_decision_games,
             COALESCE(cw.claim_rows, 0) AS claim_rows,
             SAFE_DIVIDE(cw.validated_claims, cw.eligible_claim_rows) AS claim_validation_rate,
-            SAFE_DIVIDE(gw.correct_picks, gw.correct_picks + gw.incorrect_picks) AS game_pick_correct_rate,
+            SAFE_DIVIDE(gw.correct_picks, gw.graded_games) AS game_pick_correct_rate,
             SAFE_DIVIDE(gw.no_pick_games, gw.games_with_claims) AS no_pick_rate,
             gw.avg_confidence,
             cr.top_area.core_area AS top_core_area,
