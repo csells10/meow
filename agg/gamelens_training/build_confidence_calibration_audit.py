@@ -2,7 +2,7 @@
 Build GameLens confidence calibration audit summaries.
 
 Recommended repo location:
-    agg/gamelens_training/build_confidence_calibration_audit_v0_1_2_high_retention_simulation.py
+    agg/gamelens_training/build_confidence_calibration_audit_v0_1_3_core_durability_confidence_sim.py
 
 Purpose
 -------
@@ -28,6 +28,8 @@ It DOES:
       Team Comparison strength, profile shape, claim validation, and season phase
     - surface Medium groups that may be acting more like what High should mean
     - produce review-only CSV/JSON outputs
+    - add core_area_durability_band/core_area_durability_sort
+    - simulate audit-only High-to-Medium softening when High lacks Core Area durability
 
 Example BigQuery dry run:
     python -m agg.gamelens_training.build_confidence_calibration_audit_v0_1_2_high_retention_simulation \
@@ -62,9 +64,10 @@ import pandas as pd
 PROJECT_ID = "nfl-stream-406420"
 DATASET_ID = "Analytics"
 TRAINING_TABLE = "gamelens_claim_training_examples"
-DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_confidence_calibration_audit_v0_1_2_runs")
-VERSION = "confidence_calibration_audit_v0_1_2_high_retention_simulation"
+DEFAULT_OUTPUT_ROOT = Path("qa/gamelens_confidence_calibration_audit_v0_1_3_runs")
+VERSION = "confidence_calibration_audit_v0_1_3_core_durability_confidence_sim"
 DEFAULT_CORE_GAP_FLOORS = [0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55]
+DEFAULT_CALIBRATION_CORE_GAP_FLOOR = 0.45
 
 # Fields we would like to use. The BigQuery loader will select only the fields
 # that exist and will add missing desired fields as nulls.
@@ -510,6 +513,53 @@ def phase_group_from_row(row: Dict[str, Any]) -> str:
     return bucket or "unknown"
 
 
+
+
+# ---------------------------------------------------------------------------
+# Core Area durability helper
+# ---------------------------------------------------------------------------
+
+CORE_AREA_DURABILITY_SORT = {
+    "unknown": 0,
+    "weak": 10,
+    "borderline": 20,
+    "durable": 30,
+    "strong_durable": 40,
+    "very_strong": 50,
+}
+
+
+def core_area_durability_band(value: Any) -> str:
+    """Bucket core_gap into review-only durability bands.
+
+    These bands are diagnostic. They do not define a production confidence rule.
+    """
+    gap = as_float(value)
+    if gap is None:
+        return "unknown"
+    if gap < 0.35:
+        return "weak"
+    if gap < 0.40:
+        return "borderline"
+    if gap < 0.45:
+        return "durable"
+    if gap < 0.50:
+        return "strong_durable"
+    return "very_strong"
+
+
+def core_area_durability_sort(value: Any) -> int:
+    return CORE_AREA_DURABILITY_SORT.get(core_area_durability_band(value), 0)
+
+
+def add_core_area_durability_fields(game_df: pd.DataFrame) -> pd.DataFrame:
+    out = game_df.copy()
+    if "core_gap" not in out.columns:
+        out["core_gap"] = None
+    out["core_area_durability_band"] = out["core_gap"].apply(core_area_durability_band)
+    out["core_area_durability_sort"] = out["core_gap"].apply(core_area_durability_sort)
+    return out
+
 def build_game_rows(df: pd.DataFrame, *, exclude_unavailable: bool) -> pd.DataFrame:
     work = df.copy()
     work["_validation_bucket"] = work.apply(lambda r: normalized_text(r.get("validation_result")) or "unknown", axis=1)
@@ -592,11 +642,94 @@ def build_game_rows(df: pd.DataFrame, *, exclude_unavailable: bool) -> pd.DataFr
         row["is_late_or_postseason"] = row["phase_group"] in {"late", "postseason"}
         row["is_strong_profile"] = normalized_text(row.get("profile_strength_label")) == "strong profile"
         row["is_confirmed_edge"] = normalized_text(row.get("profile_type")) == "confirmed_edge"
+        row["core_area_durability_band"] = core_area_durability_band(row.get("core_gap"))
+        row["core_area_durability_sort"] = core_area_durability_sort(row.get("core_gap"))
 
         game_rows.append(row)
 
     return pd.DataFrame(game_rows)
 
+
+
+
+
+def prepare_game_audit_csv_rows(df: pd.DataFrame, *, season: Optional[str], limit: Optional[int]) -> pd.DataFrame:
+    """Prepare a previously generated game_level_confidence_audit.csv.
+
+    This lets us test new audit-only simulations against existing CSV outputs
+    without re-querying BigQuery or rebuilding claim rows. It intentionally
+    derives only pregame-safe or already-present game-level audit fields.
+    """
+    out = df.copy()
+    if season and "season" in out.columns:
+        out = out[out["season"].astype(str) == str(season)].copy()
+    if limit:
+        out = out.head(int(limit)).copy()
+
+    for col in [
+        "game_id", "game_date", "game_week", "season_type", "bucket",
+        "away_team", "home_team", "predicted_team", "actual_winner", "model_result",
+        "outcome_confidence_label", "outcome_confidence_code", "profile_strength_label",
+        "profile_type", "matchup_label", "core_area_split", "final_margin_bucket",
+        "team_comp_away_count", "team_comp_home_count", "team_comp_neutral_count",
+        "team_comp_total_visible", "qa_read_v2", "confidence_cap_reason",
+    ]:
+        if col not in out.columns:
+            out[col] = None
+
+    for col in [
+        "final_margin_abs", "core_gap", "signal_gap", "team_comp_edge_score",
+        "actual_claim_validation_rate", "actual_claim_validation_pct",
+        "claim_rows", "validated_claim_rows", "not_validated_claim_rows",
+        "neutral_or_mixed_claim_rows", "unavailable_claim_rows",
+    ]:
+        if col not in out.columns:
+            out[col] = None
+
+    # Numeric normalization.
+    for col in ["final_margin_abs", "core_gap", "signal_gap", "team_comp_edge_score", "actual_claim_validation_rate"]:
+        out[col] = out[col].apply(as_float)
+
+    if out["actual_claim_validation_rate"].isna().all() and "actual_claim_validation_pct" in out.columns:
+        out["actual_claim_validation_rate"] = out["actual_claim_validation_pct"].apply(lambda v: as_float(v) / 100 if as_float(v) is not None else None)
+
+    out["confidence_group"] = out.apply(
+        lambda r: clean_text(r.get("confidence_group")) or confidence_group(r.get("outcome_confidence_label") or r.get("outcome_confidence_code")),
+        axis=1,
+    )
+    out["model_result_normalized"] = out.apply(
+        lambda r: clean_text(r.get("model_result_normalized")) or normalized_result(r.get("model_result")),
+        axis=1,
+    )
+
+    out["is_correct"] = out["model_result_normalized"] == "correct"
+    out["is_incorrect"] = out["model_result_normalized"] == "incorrect"
+    out["is_no_pick_or_tie"] = out["model_result_normalized"] == "no_pick"
+    out["is_graded"] = out["is_correct"] | out["is_incorrect"]
+    out["final_margin_bucket_normalized"] = out.apply(
+        lambda r: margin_bucket(r.get("final_margin_abs"), r.get("final_margin_bucket")),
+        axis=1,
+    )
+    out["phase_group"] = out.apply(lambda r: phase_group_from_row(r.to_dict()), axis=1)
+    out["is_close_miss"] = out.apply(
+        lambda r: bool(r.get("is_incorrect") and as_float(r.get("final_margin_abs")) is not None and as_float(r.get("final_margin_abs")) <= 8),
+        axis=1,
+    )
+    out["is_severe_miss"] = out.apply(
+        lambda r: bool(r.get("is_incorrect") and as_float(r.get("final_margin_abs")) is not None and as_float(r.get("final_margin_abs")) >= 17),
+        axis=1,
+    )
+    out["is_late_or_postseason"] = out["phase_group"].isin(["late", "postseason"])
+    out["is_strong_profile"] = out["profile_strength_label"].apply(lambda v: normalized_text(v) == "strong profile")
+    out["is_confirmed_edge"] = out["profile_type"].apply(lambda v: normalized_text(v) == "confirmed_edge")
+    out["strong_confirmed_shape_flag"] = out["is_strong_profile"] & out["is_confirmed_edge"]
+    out = add_core_area_durability_fields(out)
+
+    # Keep count fields usable for summarize_games even if CSV source omitted them.
+    for col in ["claim_rows", "validated_claim_rows"]:
+        out[col] = out[col].apply(lambda v: as_int(v) or 0)
+
+    return out
 
 # ---------------------------------------------------------------------------
 # Audit thresholds / flags
@@ -707,22 +840,53 @@ def add_driver_flags(game_df: pd.DataFrame, thresholds: Dict[str, Any]) -> pd.Da
 # ---------------------------------------------------------------------------
 
 def summarize_games(rows: pd.DataFrame, segment_name: str, segment_type: str = "segment") -> Dict[str, Any]:
+    """Summarize a filtered game-level DataFrame.
+
+    Robustness note:
+    Some audit slices can be empty, especially during --limit smoke runs or
+    simulation tests from CSV. This function returns a valid zero-row summary
+    instead of failing when expected columns are missing.
+    """
     games = len(rows)
-    graded = rows[rows["is_graded"]]
-    correct = int(rows["is_correct"].sum()) if games else 0
-    incorrect = int(rows["is_incorrect"].sum()) if games else 0
-    no_pick = int(rows["is_no_pick_or_tie"].sum()) if games else 0
+
+    def bool_series(column: str) -> pd.Series:
+        if column not in rows.columns:
+            return pd.Series(False, index=rows.index, dtype=bool)
+        return rows[column].apply(lambda v: bool(as_bool(v)) if as_bool(v) is not None else bool(v)).fillna(False).astype(bool)
+
+    def numeric_sum(column: str) -> int:
+        if column not in rows.columns or not games:
+            return 0
+        return int(pd.to_numeric(rows[column], errors="coerce").fillna(0).sum())
+
+    def safe_values(column: str) -> Iterable[Any]:
+        if column not in rows.columns:
+            return []
+        return rows[column]
+
+    is_graded = bool_series("is_graded")
+    is_correct = bool_series("is_correct")
+    is_incorrect = bool_series("is_incorrect")
+    is_no_pick_or_tie = bool_series("is_no_pick_or_tie")
+    is_severe_miss = bool_series("is_severe_miss")
+    is_close_miss = bool_series("is_close_miss")
+
+    graded = rows[is_graded] if games else rows.iloc[0:0]
+    correct = int(is_correct.sum()) if games else 0
+    incorrect = int(is_incorrect.sum()) if games else 0
+    no_pick = int(is_no_pick_or_tie.sum()) if games else 0
     graded_games = len(graded)
+
     correct_rate = correct / graded_games if graded_games else None
     correct_ci_low, correct_ci_high = wilson_interval(correct, graded_games) if graded_games else (None, None)
 
-    claim_rows = int(rows["claim_rows"].sum()) if games else 0
-    validated_claim_rows = int(rows["validated_claim_rows"].sum()) if games else 0
+    claim_rows = numeric_sum("claim_rows")
+    validated_claim_rows = numeric_sum("validated_claim_rows")
     claim_validation_rate = validated_claim_rows / claim_rows if claim_rows else None
     claim_ci_low, claim_ci_high = wilson_interval(validated_claim_rows, claim_rows) if claim_rows else (None, None)
 
-    severe_misses = int(rows["is_severe_miss"].sum()) if games else 0
-    close_misses = int(rows["is_close_miss"].sum()) if games else 0
+    severe_misses = int(is_severe_miss.sum()) if games else 0
+    close_misses = int(is_close_miss.sum()) if games else 0
     severe_miss_rate = severe_misses / incorrect if incorrect else None
     close_miss_rate = close_misses / incorrect if incorrect else None
 
@@ -750,22 +914,21 @@ def summarize_games(rows: pd.DataFrame, segment_name: str, segment_type: str = "
         "claim_validation_pct": pct(claim_validation_rate),
         "claim_validation_ci_low": round_rate(claim_ci_low),
         "claim_validation_ci_high": round_rate(claim_ci_high),
-        "avg_game_claim_validation_rate": round_rate(mean_safe(rows.get("actual_claim_validation_rate", []))),
-        "avg_final_margin_abs": round_rate(mean_safe(rows.get("final_margin_abs", []))),
-        "median_final_margin_abs": round_rate(median_safe(rows.get("final_margin_abs", []))),
-        "avg_signal_gap": round_rate(mean_safe(rows.get("signal_gap", []))),
-        "median_signal_gap": round_rate(median_safe(rows.get("signal_gap", []))),
-        "avg_core_gap": round_rate(mean_safe(rows.get("core_gap", []))),
-        "median_core_gap": round_rate(median_safe(rows.get("core_gap", []))),
-        "avg_team_comp_edge_score": round_rate(mean_safe(rows.get("team_comp_edge_score", []))),
-        "median_team_comp_edge_score": round_rate(median_safe(rows.get("team_comp_edge_score", []))),
+        "avg_game_claim_validation_rate": round_rate(mean_safe(safe_values("actual_claim_validation_rate"))),
+        "avg_final_margin_abs": round_rate(mean_safe(safe_values("final_margin_abs"))),
+        "median_final_margin_abs": round_rate(median_safe(safe_values("final_margin_abs"))),
+        "avg_signal_gap": round_rate(mean_safe(safe_values("signal_gap"))),
+        "median_signal_gap": round_rate(median_safe(safe_values("signal_gap"))),
+        "avg_core_gap": round_rate(mean_safe(safe_values("core_gap"))),
+        "median_core_gap": round_rate(median_safe(safe_values("core_gap"))),
+        "avg_team_comp_edge_score": round_rate(mean_safe(safe_values("team_comp_edge_score"))),
+        "median_team_comp_edge_score": round_rate(median_safe(safe_values("team_comp_edge_score"))),
         "severe_misses": severe_misses,
         "close_misses": close_misses,
         "severe_miss_rate_among_incorrect": round_rate(severe_miss_rate),
         "close_miss_rate_among_incorrect": round_rate(close_miss_rate),
         "sample_warning": sample_warning,
     }
-
 
 def build_confidence_calibration_summary(game_df: pd.DataFrame) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
@@ -788,6 +951,21 @@ def build_confidence_calibration_summary(game_df: pd.DataFrame) -> List[Dict[str
         conf, profile_type = keys
         rows.append(summarize_games(group, f"{conf} | {clean_text(profile_type) or 'missing_profile_type'}", "confidence_x_profile_type"))
 
+    if "core_area_durability_band" in game_df.columns:
+        durability_order = CORE_AREA_DURABILITY_SORT
+        for band, group in sorted(
+            game_df.groupby("core_area_durability_band", dropna=False),
+            key=lambda item: durability_order.get(str(item[0]), 999),
+        ):
+            rows.append(summarize_games(group, clean_text(band) or "missing_core_area_durability", "core_area_durability"))
+
+        for keys, group in sorted(
+            game_df.groupby(["confidence_group", "core_area_durability_band"], dropna=False),
+            key=lambda item: (str(item[0][0]), durability_order.get(str(item[0][1]), 999)),
+        ):
+            conf, band = keys
+            rows.append(summarize_games(group, f"{conf} | {clean_text(band) or 'missing_core_area_durability'}", "confidence_x_core_area_durability"))
+
     # Key product comparison group: Strong Profile + confirmed_edge, split by confidence.
     strong_confirmed = game_df[game_df["strong_confirmed_shape_flag"]].copy()
     rows.append(summarize_games(strong_confirmed, "Strong Profile + confirmed_edge", "profile_shape"))
@@ -805,7 +983,7 @@ def build_high_confidence_game_audit(game_df: pd.DataFrame) -> List[Dict[str, An
         "away_team", "home_team", "predicted_team", "actual_winner", "model_result", "model_result_normalized",
         "final_margin_abs", "final_margin_bucket_normalized", "is_correct", "is_incorrect", "is_close_miss", "is_severe_miss",
         "outcome_confidence_label", "profile_strength_label", "profile_type", "matchup_label", "core_area_split",
-        "signal_gap", "core_gap", "team_comp_edge_score", "team_comp_away_count", "team_comp_home_count", "team_comp_neutral_count", "team_comp_total_visible",
+        "signal_gap", "core_gap", "core_area_durability_band", "core_area_durability_sort", "team_comp_edge_score", "team_comp_away_count", "team_comp_home_count", "team_comp_neutral_count", "team_comp_total_visible",
         "claim_rows", "validated_claim_rows", "actual_claim_validation_rate", "actual_claim_validation_pct",
         "huge_signal_gap_flag", "extreme_signal_gap_flag", "big_core_gap_flag", "extreme_core_gap_flag",
         "loud_team_comp_flag", "extreme_team_comp_flag", "weak_claim_validation_flag", "very_weak_claim_validation_flag",
@@ -1143,6 +1321,103 @@ def build_high_retention_simulation(
     return summary_rows, ladder_rows, assignment_rows
 
 
+
+
+# ---------------------------------------------------------------------------
+# Audit-only core-area durability confidence simulation
+# ---------------------------------------------------------------------------
+
+def apply_core_durability_confidence_simulation(
+    game_df: pd.DataFrame,
+    *,
+    core_gap_floor: float,
+) -> pd.DataFrame:
+    """Simulate softening current High Confidence labels when durability is weak.
+
+    Boundary:
+    - This does not change the predicted team or matchup lean.
+    - This does not write to BigQuery or alter /game behavior.
+    - It only tests whether the High label becomes more meaningful if it must
+      be backed by durable Core Area separation.
+    """
+    out = add_core_area_durability_fields(game_df)
+
+    def should_soften(row: pd.Series) -> bool:
+        if row.get("confidence_group") != "High":
+            return False
+        gap = as_float(row.get("core_gap"))
+        return gap is None or gap < core_gap_floor
+
+    soften_mask = out.apply(should_soften, axis=1)
+    out["simulated_confidence_group_v0"] = out["confidence_group"]
+    out.loc[soften_mask, "simulated_confidence_group_v0"] = "Medium"
+    out["confidence_calibration_action_v0"] = "keep_current"
+    out.loc[soften_mask, "confidence_calibration_action_v0"] = "soften_high_to_medium"
+    out["confidence_calibration_reason_v0"] = "no_calibration_change"
+    out.loc[soften_mask, "confidence_calibration_reason_v0"] = "high_signal_but_insufficient_core_area_durability"
+    out["confidence_calibration_core_gap_floor_v0"] = core_gap_floor
+    out["confidence_calibration_feature_v0"] = "core_area_durability_context_v0"
+    out["confidence_calibration_production_use_allowed_v0"] = False
+    return out
+
+
+def build_core_durability_confidence_simulation(
+    game_df: pd.DataFrame,
+    *,
+    core_gap_floor: float,
+) -> Tuple[pd.DataFrame, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    sim_df = apply_core_durability_confidence_simulation(game_df, core_gap_floor=core_gap_floor)
+
+    ladder_rows: List[Dict[str, Any]] = []
+    for conf, group in sim_df.groupby("confidence_group", dropna=False):
+        row = summarize_games(group, f"current_{conf}", "current_confidence_ladder")
+        row.update({
+            "ladder_version": "current",
+            "confidence_group": conf,
+            "core_gap_floor": core_gap_floor,
+            "production_use_allowed": False,
+        })
+        ladder_rows.append(row)
+
+    for conf, group in sim_df.groupby("simulated_confidence_group_v0", dropna=False):
+        row = summarize_games(group, f"simulated_{conf}", "core_durability_simulated_confidence_ladder")
+        row.update({
+            "ladder_version": "simulated_core_area_durability_v0",
+            "confidence_group": conf,
+            "core_gap_floor": core_gap_floor,
+            "production_use_allowed": False,
+        })
+        ladder_rows.append(row)
+
+    action_rows: List[Dict[str, Any]] = []
+    group_cols = ["confidence_calibration_action_v0"]
+    if "season" in sim_df.columns:
+        group_cols = ["season", "confidence_calibration_action_v0"]
+
+    for keys, group in sim_df.groupby(group_cols, dropna=False):
+        if not isinstance(keys, tuple):
+            keys = (None, keys) if "season" in group_cols else (keys,)
+        if "season" in group_cols:
+            season_value, action = keys
+            segment_name = f"{season_value} | {action}"
+        else:
+            season_value = None
+            action = keys[0]
+            segment_name = str(action)
+
+        row = summarize_games(group, segment_name, "core_durability_calibration_action")
+        row.update({
+            "season": season_value,
+            "calibration_action": action,
+            "core_gap_floor": core_gap_floor,
+            "production_use_allowed": False,
+            "decision_input_fields": "confidence_group,core_gap",
+            "calibration_feature": "core_area_durability_context_v0",
+        })
+        action_rows.append(row)
+
+    return sim_df, ladder_rows, action_rows
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1152,6 +1427,7 @@ def build_audit(
     run_id: str,
     season: Optional[str],
     input_csv: Optional[Path],
+    input_game_csv: Optional[Path],
     output_root: Path,
     project_id: str,
     dataset_id: str,
@@ -1159,24 +1435,41 @@ def build_audit(
     limit: Optional[int],
     exclude_unavailable: bool,
     core_gap_floors: List[float],
+    calibration_core_gap_floor: float,
     dry_run: bool,
 ) -> Dict[str, Any]:
-    if input_csv:
-        claim_df, source_meta = load_from_csv(input_csv, run_id, season, limit)
+    if input_game_csv:
+        raw_game_df = pd.read_csv(input_game_csv)
+        game_df = prepare_game_audit_csv_rows(raw_game_df, season=season, limit=limit)
+        claim_df = pd.DataFrame()
+        source_meta = {
+            "source": "game_audit_csv",
+            "input_game_csv": str(input_game_csv),
+            "rows_loaded": int(len(game_df)),
+            "note": "Loaded pre-built game_level_confidence_audit.csv; claim-row outputs are rebuilt from game-level fields only.",
+        }
     else:
-        claim_df, source_meta = load_from_bigquery(
-            run_id=run_id,
-            season=season,
-            project_id=project_id,
-            dataset_id=dataset_id,
-            training_table=training_table,
-            limit=limit,
-        )
+        if input_csv:
+            claim_df, source_meta = load_from_csv(input_csv, run_id, season, limit)
+        else:
+            claim_df, source_meta = load_from_bigquery(
+                run_id=run_id,
+                season=season,
+                project_id=project_id,
+                dataset_id=dataset_id,
+                training_table=training_table,
+                limit=limit,
+            )
 
-    if claim_df.empty:
-        raise RuntimeError("No claim rows loaded. Check run_id/season/input source.")
+        if claim_df.empty:
+            raise RuntimeError("No claim rows loaded. Check run_id/season/input source.")
 
-    game_df = build_game_rows(claim_df, exclude_unavailable=exclude_unavailable)
+        game_df = build_game_rows(claim_df, exclude_unavailable=exclude_unavailable)
+
+    if game_df.empty:
+        raise RuntimeError("No game rows loaded. Check run_id/season/input source.")
+
+    game_df = add_core_area_durability_fields(game_df)
     thresholds = build_thresholds(game_df)
     game_df = add_driver_flags(game_df, thresholds)
 
@@ -1192,6 +1485,10 @@ def build_audit(
         game_df,
         core_gap_floors=core_gap_floors,
     )
+    core_durability_sim_game_df, core_durability_ladder_rows, core_durability_action_rows = build_core_durability_confidence_simulation(
+        game_df,
+        core_gap_floor=calibration_core_gap_floor,
+    )
 
     # Output paths.
     paths = {
@@ -1205,6 +1502,9 @@ def build_audit(
         "high_retention_simulation_summary": output_dir / "high_retention_simulation_summary.csv",
         "simulated_confidence_ladder_summary": output_dir / "simulated_confidence_ladder_summary.csv",
         "high_retention_game_assignments": output_dir / "high_retention_game_assignments.csv",
+        "core_durability_confidence_simulation_games": output_dir / "core_durability_confidence_simulation_games.csv",
+        "core_durability_confidence_ladder_summary": output_dir / "core_durability_confidence_ladder_summary.csv",
+        "core_durability_confidence_action_summary": output_dir / "core_durability_confidence_action_summary.csv",
         "confidence_calibration_thresholds": output_dir / "confidence_calibration_thresholds.json",
         "run_metadata": output_dir / "run_metadata.json",
     }
@@ -1212,11 +1512,11 @@ def build_audit(
     preferred_game_cols = [
         "game_id", "game_date", "game_week", "phase_group", "season_type", "bucket",
         "away_team", "home_team", "predicted_team", "actual_winner", "model_result", "model_result_normalized",
-        "confidence_group", "outcome_confidence_label", "profile_strength_label", "profile_type", "matchup_label",
+        "confidence_group", "simulated_confidence_group_v0", "confidence_calibration_action_v0", "confidence_calibration_reason_v0", "outcome_confidence_label", "profile_strength_label", "profile_type", "matchup_label",
         "is_correct", "is_incorrect", "is_no_pick_or_tie", "is_graded",
         "final_margin_abs", "final_margin_bucket_normalized", "is_close_miss", "is_severe_miss",
         "claim_rows", "validated_claim_rows", "actual_claim_validation_rate", "actual_claim_validation_pct",
-        "signal_gap", "core_gap", "core_area_split", "team_comp_edge_score", "team_comp_away_count", "team_comp_home_count", "team_comp_neutral_count", "team_comp_total_visible",
+        "signal_gap", "core_gap", "core_area_durability_band", "core_area_durability_sort", "core_area_split", "team_comp_edge_score", "team_comp_away_count", "team_comp_home_count", "team_comp_neutral_count", "team_comp_total_visible",
         "huge_signal_gap_flag", "extreme_signal_gap_flag", "big_core_gap_flag", "extreme_core_gap_flag", "loud_team_comp_flag", "extreme_team_comp_flag",
         "weak_claim_validation_flag", "very_weak_claim_validation_flag", "big_core_gap_weak_claims_flag", "huge_signal_gap_weak_claims_flag", "loud_team_comp_weak_claims_flag",
         "is_late_or_postseason", "strong_confirmed_shape_flag", "strong_confirmed_but_poor_result_flag", "audit_failure_tags", "qa_read_v2", "confidence_cap_reason",
@@ -1232,6 +1532,9 @@ def build_audit(
     write_csv(high_retention_rows, paths["high_retention_simulation_summary"])
     write_csv(simulated_ladder_rows, paths["simulated_confidence_ladder_summary"])
     write_csv(high_retention_game_rows, paths["high_retention_game_assignments"])
+    write_csv(core_durability_sim_game_df.to_dict(orient="records"), paths["core_durability_confidence_simulation_games"], preferred=preferred_game_cols)
+    write_csv(core_durability_ladder_rows, paths["core_durability_confidence_ladder_summary"])
+    write_csv(core_durability_action_rows, paths["core_durability_confidence_action_summary"])
     write_json(thresholds, paths["confidence_calibration_thresholds"])
 
     high_count = int((game_df["confidence_group"] == "High").sum())
@@ -1252,9 +1555,12 @@ def build_audit(
             "exclude_unavailable": exclude_unavailable,
             "limit": limit,
             "core_gap_floors": core_gap_floors,
+            "calibration_core_gap_floor": calibration_core_gap_floor,
+            "input_game_csv": str(input_game_csv) if input_game_csv else None,
         },
         "row_counts": {
             "raw_claim_rows_loaded": int(len(claim_df)),
+            "game_audit_rows_loaded": int(len(game_df)) if input_game_csv else None,
             "games_scored": int(len(game_df)),
             "high_confidence_games": high_count,
             "medium_confidence_games": medium_count,
@@ -1268,6 +1574,9 @@ def build_audit(
             "high_retention_simulation_summary_rows": len(high_retention_rows),
             "simulated_confidence_ladder_summary_rows": len(simulated_ladder_rows),
             "high_retention_game_assignments_rows": len(high_retention_game_rows),
+            "core_durability_confidence_simulation_games_rows": int(len(core_durability_sim_game_df)),
+            "core_durability_confidence_ladder_summary_rows": len(core_durability_ladder_rows),
+            "core_durability_confidence_action_summary_rows": len(core_durability_action_rows),
         },
         "thresholds": thresholds,
         "outputs": {k: str(v) for k, v in paths.items()},
@@ -1280,10 +1589,12 @@ def build_audit(
             "do_medium_candidates_look_like_better_high": "Review medium_promotion_candidate_summary.csv and medium_promotion_candidate_games.csv.",
             "would_core_gap_retention_make_high_more_deserving": "Review high_retention_simulation_summary.csv and simulated_confidence_ladder_summary.csv.",
             "which_high_games_move_under_each_core_gap_floor": "Review high_retention_game_assignments.csv.",
+            "would_high_softening_make_high_more_meaningful": "Review core_durability_confidence_ladder_summary.csv.",
+            "which_games_would_soften_from_high_to_medium": "Review core_durability_confidence_simulation_games.csv where confidence_calibration_action_v0 = soften_high_to_medium.",
         },
         "interpretation_guardrail": (
             "This audit is review-only. It identifies candidate failure patterns and Medium promotion populations, "
-            "but it does not define production confidence rules."
+            "but it does not define production confidence rules. Core durability confidence simulation is audit-only."
         ),
     }
     write_json(metadata, paths["run_metadata"])
@@ -1294,7 +1605,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build offline GameLens confidence calibration audit outputs.")
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--season", default="2025")
-    parser.add_argument("--input-csv", type=Path, default=None)
+    parser.add_argument("--input-csv", type=Path, default=None, help="Optional claim-row CSV input instead of BigQuery.")
+    parser.add_argument("--input-game-csv", type=Path, default=None, help="Optional prebuilt game_level_confidence_audit.csv input for CSV-only simulation testing.")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--project-id", default=PROJECT_ID)
     parser.add_argument("--dataset-id", default=DATASET_ID)
@@ -1306,6 +1618,7 @@ def parse_args() -> argparse.Namespace:
         default=",".join(str(x) for x in DEFAULT_CORE_GAP_FLOORS),
         help="Comma-separated core_gap floors to test for retaining current High Confidence games.",
     )
+    parser.add_argument("--calibration-core-gap-floor", type=float, default=DEFAULT_CALIBRATION_CORE_GAP_FLOOR, help="Audit-only floor used to simulate softening current High Confidence to Medium when core_gap is below the floor.")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -1316,6 +1629,7 @@ def main() -> None:
         run_id=args.run_id,
         season=args.season,
         input_csv=args.input_csv,
+        input_game_csv=args.input_game_csv,
         output_root=args.output_root,
         project_id=args.project_id,
         dataset_id=args.dataset_id,
@@ -1323,6 +1637,7 @@ def main() -> None:
         limit=args.limit,
         exclude_unavailable=args.exclude_unavailable,
         core_gap_floors=parse_core_gap_floors(args.core_gap_floors),
+        calibration_core_gap_floor=args.calibration_core_gap_floor,
         dry_run=args.dry_run,
     )
     print(json.dumps({

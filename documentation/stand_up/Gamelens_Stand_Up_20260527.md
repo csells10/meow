@@ -1,4 +1,4 @@
-# GameLens Tomorrow Plan — Admin Learning → Expected Claim Quality
+# GameLens 5/27/2026  Plan — Admin Learning → Expected Claim Quality
 
 ## Main Goal
 
@@ -422,6 +422,24 @@ The goal is to use Admin findings to build safer calibration features, not to ma
 Expected Claim Quality should begin offline, remain metadata-only at first, and only influence runtime confidence if it proves useful across validation.
 
 That’s the direction I trust. We’re not “fixing High” tomorrow. We’re building the measuring stick that tells us how High should be fixed later.
+#####
+#####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #####First step/Direction:
 
@@ -429,6 +447,26 @@ That’s the direction I trust. We’re not “fixing High” tomorrow. We’re 
 -Build an offline dry-run worker that estimates pregame Expected Claim Quality from historical claim signatures, then measures whether that score creates lift against the existing 2025 Admin baselines for claim validation, confidence, profile strength, and Core Area alignment.
 
 Other questions For Profile Strength of Clear Lean why are there no high confidence and for Profile Type I feel like the matrix is missing something but I can't put my finger on it. For Game Calibration it looks and appears like a good matrix where standard distribution appears to be present. Core Area Alighnment just has alot of Low confidence games including its large bucket of No clear edge.  It has me wondering about if this area something seems off and I can't put my finger on it.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+######
+
+
+
+######
 
 tested build expected claim quality but it proved not helpful for helping High Confidence Labels.
 
@@ -980,3 +1018,194 @@ The matchup signal is loud
 and the broad Core Area support is durable enough to trust it.
 
 That is the direction. Not a rule yet — a hypothesis with a promising suspect.
+
+######
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+######
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. What problem are we trying to solve?
+
+We are trying to make GameLens High Confidence more deserving of the label.
+
+The goal is not to create more High labels. The concern is that High Confidence should generally perform better than Medium, or at least close to it inside the same profile family like Strong Profile / Confirmed Edge.
+
+2. What triggered this investigation?
+
+The Admin dashboard showed that Medium Confidence was sometimes performing better than High Confidence, especially in strong-looking matchup buckets.
+
+That raised the core calibration question:
+
+Is High Confidence too loud, or is it missing a durability check?
+
+3. What did Expected Claim Quality test?
+
+Expected Claim Quality tested whether historical claim-signature performance could estimate, before the game, whether GameLens’ explanation would hold up.
+
+It used claim-level signatures like:
+
+claim_type
+claim_layer
+registry_core_area
+registry_category
+metric
+two_way_context
+offensive_efficiency_support_bucket
+claim_strength_bucket
+
+It used leave-one-game-out scoring to avoid overfitting.
+
+4. What did we learn from Expected Claim Quality?
+
+Expected Claim Quality was useful diagnostically, but not reliable enough to directly fix High Confidence.
+
+Inside High Confidence, higher Expected Claim Quality did not consistently mean safer outcomes. The middle-ranked group sometimes performed better than the top-ranked group.
+
+Decision:
+
+Archive Expected Claim Quality as diagnostic-only.
+Do not wire it into /game, confidence, Model Trust, or frontend.
+5. Why did we switch to the Confidence Calibration Audit?
+
+Because Expected Claim Quality was answering a claim-quality question, but the real product question was:
+
+Why are current High Confidence games underperforming, and what separates durable High from fragile High?
+
+So we shifted to a game-level audit focused on fields like:
+
+signal_gap
+core_gap
+core_area_split
+team_comp_edge_score
+profile_type
+profile_strength_label
+model_result
+final_margin_abs
+claim_validation_rate
+6. What did the Confidence Calibration Audit find?
+
+It found that signal_gap is not the fix.
+
+High misses were not quiet. They often had loud signal gaps too. So raising signal_gap thresholds probably would not solve the problem.
+
+It also found that Team Comparison loudness is not the clean fix because it appears in both High hits and High misses.
+
+7. What is the best current suspect?
+
+The best current suspect is:
+
+core_gap
+
+The working theory is:
+
+High Confidence should require not only loud matchup signals, but also enough broad Core Area separation to make the read durable.
+
+This became the “Core Area durability” hypothesis.
+
+8. What did the Core Gap retention simulation show?
+
+The simulation tested multiple floors:
+
+0.25
+0.30
+0.35
+0.40
+0.45
+0.50
+0.55
+
+The useful range seemed to be around:
+
+core_gap >= 0.40 to 0.45
+
+But this is not a production rule yet.
+
+The sampled cross-season data suggested the pattern is promising, but small samples mean we should treat it as a hypothesis, not a fix.
+
+9. What is core_area_durability_band, and should it change the model?
+
+core_area_durability_band is a proposed diagnostic label, not a production rule.
+
+Possible bands:
+
+weak:            core_gap < 0.35
+borderline:      0.35 <= core_gap < 0.40
+durable:         0.40 <= core_gap < 0.45
+strong_durable:  0.45 <= core_gap < 0.50
+very_strong:     core_gap >= 0.50
+
+It should be added to the audit script first so future analysis can group High games more clearly.
+
+It should not yet downgrade High to Medium.
+
+10. What is the next recommended step?
+
+Next step:
+
+Add core_area_durability_band to the Confidence Calibration Audit only.
+Keep it diagnostic-only.
+
+Then, before any production change, build fuller 2023 and 2024 claim-training data into:
+
+nfl-stream-406420.Analytics.gamelens_claim_training_examples
+
+Then rerun the confidence audit on:
+
+full 2023
+full 2024
+full 2025
+combined full 2023–2025
+
+Only if the Core Area durability signal holds across fuller seasons should we consider a backend confidence cap.
+
+One-sentence handoff
+
+GameLens High Confidence appears too dependent on loud signal shape; the best current hypothesis is that High also needs Core Area durability, but this should stay audit-only until fuller cross-season validation supports it.
+
+
+
+
+
+
+
+
+
+
+######
+
+
+
+
+
+
+
+
+
+######
