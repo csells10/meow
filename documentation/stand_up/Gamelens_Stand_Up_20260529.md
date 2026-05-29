@@ -301,3 +301,230 @@ It improves High Confidence quality across 2023–2025 while keeping Medium usab
 But it should stay audit-only until human review confirms the softened and retained groups make football/product sense.
 One-Line Handoff
 We found a promising audit-only confidence calibration feature: High Confidence games with insufficient Core Area durability can be softened to Medium without changing picks. Across 2023–2025, simulated High improved from 65.14% to 76.60%, claim validation improved, severe misses dropped, Medium stayed usable, and Low was unchanged. Next step is BigQuery-source verification plus human review of softened and retained High games before any production/API/frontend work.
+
+Starting work on steps for today:
+
+Human review found that softened High games were not uniformly bad. Correct softened games often won comfortably and had strong postgame claim validation, while incorrect softened games tended to have lower claim validation and smaller margins. This supports using Core Area Durability as a High-confidence softening lens rather than a rejection rule. Retained High misses were mostly close, but BUF@BAL 2024 and DAL@ARI 2023 remain important exceptions for future retained-High miss analysis.
+
+Looking at this analysis a few different ways.
+
+The best extra viewpoints
+
+I’d look at five views:
+
+1. Softened correct games — “Are we being too harsh?”
+
+These are games that would move from High to Medium but were correct. We need to know whether they were obvious Highs, or still reasonable as Medium.
+
+2. Softened incorrect games — “Did the feature catch overconfidence?”
+
+These are the games the feature is supposed to help with.
+
+3. Retained High misses — “What did this feature fail to catch?”
+
+This prevents us from over-celebrating. The BUF@BAL 2024 type of game matters.
+
+4. Margin buckets — “Are we reducing bad misses or just moving close variance?”
+
+A good calibration feature should reduce severe/material pain, not just reshuffle close games.
+
+5. Core-gap threshold sensitivity — “Is 0.45 reasonable, or too cute?”
+
+We do not want fake precision. We should compare 0.40, 0.45, and 0.50 again from the combined file.
+
+Deeper review confirmed that core_area_durability_context_v0 is a useful High-confidence calibration lens, not a rejection rule. The 0.45 threshold remains the best audit balance: it improves retained High accuracy to 76.60% while keeping 47 retained High games. Higher thresholds become too restrictive, while lower thresholds leave High too noisy. Softened correct games often remained strong wins, proving the feature should soften to Medium, not Low. Retained High misses show that Core Area durability does not catch every failure mode, especially games with very strong core_gap but weak postgame claim validation.
+
+Starting to wire in these new updates into admin then /game
+So the corrected plan is
+Step 1: Admin calibrated preview
+Step 2: Verify preview numbers
+Step 3: Add shared calibration helper
+Step 4: Wire /game using helper
+Step 5: Recollect payloads into new run_id
+Step 6: Confirm /game and Admin match on new run_id
+
+Yes — this passed the exact backend sanity check we needed. ✅
+
+What your output confirms
+
+For 2025, current Admin sections still show:
+
+Low: 154
+Medium: 93
+High: 22
+
+The new calibrated preview sections show:
+
+Low: 154
+Medium: 103
+High: 12
+
+And both calibrated tables agree:
+
+calibrated_game_level_calibration: Low 154 / Medium 103 / High 12
+calibrated_core_area_alignment_matrix: Low 154 / Medium 103 / High 12
+
+That means the Admin preview is matching the audit expectation:
+
+10 High games moved to Medium
+High dropped from 22 → 12
+Medium increased from 93 → 103
+Low stayed unchanged
+
+That is exactly what we wanted. 🎯
+
+Important note
+
+This confirms the target is 12 High games for 2025, not 13, at least for this run/configuration.
+
+So our QA target should be:
+
+2025 calibrated Admin preview High = 12
+
+Later, if /game is updated and we recollect payloads into a new run_id, that new run should also show:
+
+/game collected payloads High = 12
+Admin claim-health High = 12
+BigQuery distinct game High = 12
+
+assuming the same rule and same 2025 game set.
+
+Next backend check
+
+Before touching UI, I’d print the exact changed rows from the two calibrated sections:
+
+python - <<'PY'
+import json
+from pathlib import Path
+
+p = Path("claim_health_2025_with_calibrated_preview.json")
+data = json.loads(p.read_text(encoding="utf-8"))
+sections = data["sections"]
+
+def print_rows(section_name, key_fields):
+    print(f"\n=== {section_name} ===")
+    for row in sections[section_name]:
+        bits = [f"{k}={row.get(k)}" for k in key_fields]
+        bits += [
+            f"games={row.get('game_count')}",
+            f"graded={row.get('graded_game_count')}",
+            f"correct={row.get('correct_count')}",
+            f"incorrect={row.get('incorrect_count')}",
+            f"correct_rate={row.get('correct_rate')}",
+            f"avg_margin={row.get('avg_final_margin_abs')}",
+        ]
+        if "avg_core_gap" in row:
+            bits.append(f"avg_core_gap={row.get('avg_core_gap')}")
+        if "avg_signal_gap" in row:
+            bits.append(f"avg_signal_gap={row.get('avg_signal_gap')}")
+        print(" | ".join(bits))
+
+print_rows(
+    "game_level_calibration",
+    ["profile_strength_label", "outcome_confidence_label"],
+)
+
+print_rows(
+    "calibrated_game_level_calibration",
+    ["profile_strength_label", "outcome_confidence_label"],
+)
+
+print_rows(
+    "core_area_alignment_matrix",
+    ["profile_type", "outcome_confidence_label"],
+)
+
+print_rows(
+    "calibrated_core_area_alignment_matrix",
+    ["profile_type", "outcome_confidence_label"],
+)
+PY
+
+We want to confirm the two specific visual changes:
+
+Strong Profile / High: 22 → 12
+Strong Profile / Medium: 21 → 31
+
+confirmed_edge / High: 22 → 12
+confirmed_edge / Medium: 93 → 103
+Then we’re ready for a tiny frontend ask
+
+____________________________#_#_#_#_#_#_#_#_#_#_#_#____
+
+
+Note for today’s work — Admin calibrated confidence preview
+
+Before committing, backend QA passed for the new Admin-only calibrated confidence preview sections.
+
+Added preview sections:
+
+calibrated_game_level_calibration
+calibrated_core_area_alignment_matrix
+
+These do not replace the current Admin sections. They sit beside the existing tables and show what the Admin view would look like if core_area_durability_context_v0 were applied as a confidence softener.
+
+Current rule being previewed:
+
+If outcome_confidence_label = High
+and core_gap < 0.45
+then preview as Medium
+else keep the original confidence label.
+
+Important boundaries:
+
+No /game change yet.
+No production confidence change yet.
+No BigQuery write.
+No existing Admin sections replaced.
+Current baseline remains intact.
+2025 backend check
+
+The calibrated preview matches the audit expectation:
+
+Current:
+Low 154
+Medium 93
+High 22
+
+Calibrated preview:
+Low 154
+Medium 103
+High 12
+
+The key visual change is exactly what we expected:
+
+Strong Profile / High:
+22 games, 57.1% correct
+→ 12 games, 75.0% correct
+
+Strong Profile / Medium:
+21 games, 80.9% correct
+→ 31 games, 66.7% correct
+
+And for Core Area Alignment:
+
+confirmed_edge / High:
+22 games, 57.1% correct
+→ 12 games, 75.0% correct
+
+confirmed_edge / Medium:
+93 games, 64.5% correct
+→ 103 games, 61.8% correct
+
+This confirms the preview behaves as intended: High becomes smaller and cleaner, Medium absorbs the softened games, and Low stays unchanged.
+
+Next step after commit/build
+
+Wait for Google build to pass, then use Lovable only for a small frontend patch:
+
+Display calibrated_game_level_calibration and calibrated_core_area_alignment_matrix if present.
+Use the same existing matrix/table rendering.
+Do not create a new tab or chart type.
+Place each calibrated section directly after its current/original section.
+
+Longer-term QA requirement remains:
+
+If /game eventually applies this calibration, then newly collected /game payloads, rebuilt claim-training rows, and Admin Claim Health 
+
+
+

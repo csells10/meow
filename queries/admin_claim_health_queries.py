@@ -34,6 +34,9 @@ def _season_param(season: str) -> bigquery.ScalarQueryParameter:
 def _grain_param(grain: str) -> bigquery.ScalarQueryParameter:
     return bigquery.ScalarQueryParameter("grain", "STRING", grain)
 
+def _float_param(name: str, value: float) -> bigquery.ScalarQueryParameter:
+    return bigquery.ScalarQueryParameter(name, "FLOAT64", value)
+
 
 # -----------------------------------------------------------------------------
 # Existing / backwards-compatible sections
@@ -458,6 +461,70 @@ def get_game_level_calibration(run_id: str) -> list[dict]:
 
     return _run_query(query, [_run_id_param(run_id)])
 
+def get_calibrated_game_level_calibration(
+    run_id: str,
+    core_gap_floor: float = 0.45,
+) -> list[dict]:
+    """
+    Admin-only preview.
+
+    Same shape as get_game_level_calibration(), but groups by calibrated confidence:
+      High + core_gap < core_gap_floor -> Medium
+
+    Does not change /game, BigQuery, or production labels.
+    """
+    query = f"""
+        WITH games AS (
+            SELECT
+                game_id,
+                COALESCE(ANY_VALUE(profile_strength_label), 'missing_profile_strength') AS profile_strength_label,
+
+                CASE
+                    WHEN COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence') = 'High'
+                     AND SAFE_CAST(ANY_VALUE(core_gap) AS FLOAT64) < @core_gap_floor
+                        THEN 'Medium'
+                    ELSE COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence')
+                END AS outcome_confidence_label,
+
+                LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
+                ANY_VALUE(final_margin_abs) AS final_margin_abs
+            FROM `{CLAIM_TABLE}`
+            WHERE run_id = @run_id
+            GROUP BY game_id
+        )
+
+        SELECT
+            profile_strength_label,
+            outcome_confidence_label,
+            COUNT(*) AS game_count,
+            COUNTIF(model_result IN ('correct', 'incorrect')) AS graded_game_count,
+            COUNTIF(model_result = 'correct') AS correct_count,
+            COUNTIF(model_result = 'incorrect') AS incorrect_count,
+            COUNTIF(model_result = 'no pick') AS no_pick_count,
+            COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')) AS no_decision_count,
+            SAFE_DIVIDE(COUNTIF(model_result = 'correct'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS correct_rate,
+            SAFE_DIVIDE(COUNTIF(model_result = 'incorrect'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS incorrect_rate,
+            SAFE_DIVIDE(COUNTIF(model_result = 'no pick'), COUNT(*)) AS no_pick_rate,
+            SAFE_DIVIDE(COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')), COUNT(*)) AS no_decision_rate,
+            AVG(SAFE_CAST(final_margin_abs AS FLOAT64)) AS avg_final_margin_abs,
+            COUNTIF(model_result = 'incorrect' AND SAFE_CAST(final_margin_abs AS FLOAT64) <= 3) AS close_miss_count,
+            COUNTIF(model_result = 'incorrect' AND SAFE_CAST(final_margin_abs AS FLOAT64) >= 17) AS severe_miss_count
+        FROM games
+        GROUP BY
+            profile_strength_label,
+            outcome_confidence_label
+        ORDER BY
+            profile_strength_label,
+            outcome_confidence_label
+    """
+
+    return _run_query(
+        query,
+        [
+            _run_id_param(run_id),
+            _float_param("core_gap_floor", core_gap_floor),
+        ],
+    )
 
 def get_core_area_alignment_matrix(run_id: str) -> list[dict]:
     query = f"""
@@ -499,6 +566,69 @@ def get_core_area_alignment_matrix(run_id: str) -> list[dict]:
 
     return _run_query(query, [_run_id_param(run_id)])
 
+def get_calibrated_core_area_alignment_matrix(
+    run_id: str,
+    core_gap_floor: float = 0.45,
+) -> list[dict]:
+    """
+    Admin-only preview.
+
+    Same shape as get_core_area_alignment_matrix(), but groups by calibrated confidence:
+      High + core_gap < core_gap_floor -> Medium
+
+    Does not change /game, BigQuery, or production labels.
+    """
+    query = f"""
+        WITH games AS (
+            SELECT
+                game_id,
+                COALESCE(ANY_VALUE(profile_type), 'missing_profile_type') AS profile_type,
+
+                CASE
+                    WHEN COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence') = 'High'
+                     AND SAFE_CAST(ANY_VALUE(core_gap) AS FLOAT64) < @core_gap_floor
+                        THEN 'Medium'
+                    ELSE COALESCE(ANY_VALUE(outcome_confidence_label), 'missing_confidence')
+                END AS outcome_confidence_label,
+
+                LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
+                ANY_VALUE(core_gap) AS core_gap,
+                ANY_VALUE(signal_gap) AS signal_gap,
+                ANY_VALUE(final_margin_abs) AS final_margin_abs
+            FROM `{CLAIM_TABLE}`
+            WHERE run_id = @run_id
+            GROUP BY game_id
+        )
+
+        SELECT
+            profile_type,
+            outcome_confidence_label,
+            COUNT(*) AS game_count,
+            COUNTIF(model_result IN ('correct', 'incorrect')) AS graded_game_count,
+            COUNTIF(model_result = 'correct') AS correct_count,
+            COUNTIF(model_result = 'incorrect') AS incorrect_count,
+            COUNTIF(model_result = 'no pick') AS no_pick_count,
+            COUNTIF(model_result IN ('no decision', 'tie', 'push', 'no_decision')) AS no_decision_count,
+            SAFE_DIVIDE(COUNTIF(model_result = 'correct'), COUNTIF(model_result IN ('correct', 'incorrect'))) AS correct_rate,
+            AVG(SAFE_CAST(core_gap AS FLOAT64)) AS avg_core_gap,
+            AVG(SAFE_CAST(signal_gap AS FLOAT64)) AS avg_signal_gap,
+            AVG(SAFE_CAST(final_margin_abs AS FLOAT64)) AS avg_final_margin_abs
+        FROM games
+        GROUP BY
+            profile_type,
+            outcome_confidence_label
+        ORDER BY
+            profile_type,
+            outcome_confidence_label
+    """
+
+    return _run_query(
+        query,
+        [
+            _run_id_param(run_id),
+            _float_param("core_gap_floor", core_gap_floor),
+        ],
+    )
 
 def get_pillar_health_matrix(run_id: str) -> list[dict]:
     query = f"""

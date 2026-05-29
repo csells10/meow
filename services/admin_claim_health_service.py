@@ -14,6 +14,8 @@ from queries.admin_claim_health_queries import (
     get_feature_health_matrix,
     get_feature_scorecard,
     get_game_level_calibration,
+    get_calibrated_game_level_calibration,
+    get_calibrated_core_area_alignment_matrix,  
     get_pillar_health_matrix,
     get_pillar_weekly_health,
     get_surface_matrix,
@@ -58,6 +60,7 @@ def _build_tabs() -> list[dict]:
             ),
             "sections": [
                 "game_level_calibration",
+                "calibrated_game_level_calibration",
                 "calibration_over_time",
             ],
         },
@@ -70,6 +73,7 @@ def _build_tabs() -> list[dict]:
             ),
             "sections": [
                 "core_area_alignment_matrix",
+                "calibrated_core_area_alignment_matrix",
                 "core_area_matrix",
                 "confidence_core_area_matrix",
             ],
@@ -270,6 +274,32 @@ def _build_section_metadata() -> dict:
             "compatibility": "preserved",
             "section_role": "technical_debug",
         },
+        "calibrated_game_level_calibration": {
+            "title": "Calibrated Game-Level Calibration",
+            "description": (
+                "Admin-only preview of game outcome calibration after applying "
+                "Core Area durability confidence softening. This does not change "
+                "production /game confidence labels."
+            ),
+            "chart_type": "matrix",
+            "primary_metric": "correct_rate",
+            "tab_id": "game_calibration",
+            "metadata_only": True,
+            "production_use_allowed": False,
+        },
+        "calibrated_core_area_alignment_matrix": {
+            "title": "Calibrated Matchup Lean × Core Area Alignment",
+            "description": (
+                "Admin-only preview of matchup profile type by calibrated confidence. "
+                "High Confidence games with insufficient Core Area durability are "
+                "shown as Medium for review."
+            ),
+            "chart_type": "matrix",
+            "primary_metric": "correct_rate",
+            "tab_id": "core_area_alignment",
+            "metadata_only": True,
+            "production_use_allowed": False,
+        },
     }
 
 
@@ -317,7 +347,9 @@ def build_claim_health_response(
                 grain=calibration_grain,
             ),
             "game_level_calibration": get_game_level_calibration(run_id=run_id),
+            "calibrated_game_level_calibration": get_calibrated_game_level_calibration(run_id=run_id),
             "core_area_alignment_matrix": get_core_area_alignment_matrix(run_id=run_id),
+            "calibrated_core_area_alignment_matrix": get_calibrated_core_area_alignment_matrix(run_id=run_id),
             "pillar_health_matrix": get_pillar_health_matrix(run_id=run_id),
             "pillar_weekly_health": get_pillar_weekly_health(run_id=run_id, season=season),
             "feature_health_matrix": get_feature_health_matrix(run_id=run_id),

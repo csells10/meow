@@ -774,3 +774,250 @@ Review retained High misses.
 Then consider Admin/debug visibility.
 
 That is the right next step.
+
+
+
+Suggested Markdown Patch
+
+You can paste this as a new section after Section 18 or after Section 19.
+
+## 19A. Deeper Review Findings After Combined 2023–2025 Export
+
+After the initial v0.1.3 testing, the 2023, 2024, and 2025 BigQuery-source dry-run outputs were combined into one review dataset:
+
+```text
+combined_core_durability_confidence_simulation_games_2023_2025.csv
+
+This allowed the feature to be reviewed across all seasons without mixing yearly outputs manually.
+
+What the deeper review showed
+
+The softened High → Medium group was not simply a group of bad picks.
+
+Instead, it split into two important patterns:
+
+Softened correct games:
+- often had strong final margins
+- often had strong claim validation
+- were still useful matchup leans
+
+Softened incorrect games:
+- had much weaker claim validation
+- often had smaller margins or fragile evidence
+- were better examples of overconfident High labels
+
+This supports the product interpretation:
+
+The feature should soften fragile High labels to Medium.
+It should not reject the lean.
+It should not move these games to Low.
+Why this matters
+
+The feature is not identifying “bad picks.”
+
+It is identifying games where the model’s directional lean may still be useful, but the High Confidence label is too loud because the broader Core Area foundation is not durable enough.
+
+The best wording remains:
+
+Same pick.
+Same matchup lean.
+More honest confidence label.
+
+---
+
+# Add This Section for Threshold Sensitivity
+
+```markdown
+## 19B. Threshold Sensitivity Review
+
+A deeper threshold review tested several possible Core Area durability floors against the original High Confidence game population.
+
+| Core Gap Floor | Retained High Games | Retained High Correct % | Severe Misses | Interpretation |
+|---:|---:|---:|---:|---|
+| 0.35 | 86 | 67.44% | 3 | Too loose; High remains noisy |
+| 0.40 | 66 | 71.21% | 1 | Better, but not as clean |
+| 0.45 | 47 | 76.60% | 1 | Best current audit balance |
+| 0.50 | 38 | 76.32% | 0 | Stricter, but not meaningfully better |
+| 0.55 | 23 | 73.91% | 0 | Too restrictive; sample gets too small |
+
+### Current interpretation
+
+`core_gap < 0.45` remains the best current audit threshold because it creates the healthiest balance:
+
+```text
+High becomes meaningfully stronger.
+Medium absorbs the softened games without collapsing.
+Low remains unchanged.
+
+However, this threshold should still be treated as a research threshold, not a permanent production law.
+
+Do not interpret this as:
+
+0.449 = not High
+0.450 = High
+
+The threshold is useful for audit review, but production use would still require careful rollout and additional validation.
+
+
+---
+
+# Add This Section for Admin Table Impact
+
+```markdown
+## 20A. Expected Admin Table Impact If Applied
+
+If the Core Area durability softening were applied to production confidence labels, the existing Admin calibration tables would change because some current High Confidence games would move into Medium.
+
+The underlying pick, matchup lean, profile type, and model result would not change.
+
+Only the confidence label would change.
+
+### 2025 Game-Level Calibration impact
+
+Current Strong Profile row:
+
+| Profile Strength | Medium | High |
+|---|---:|---:|
+| Strong Profile | 21 games / 81.0% correct | 22 games / 57.1% correct |
+
+Simulated Strong Profile row:
+
+| Profile Strength | Medium | High |
+|---|---:|---:|
+| Strong Profile | 31 games / 66.7% correct | 12 games / 75.0% correct |
+
+### Interpretation
+
+Before simulation, the Admin table showed an awkward pattern:
+
+```text
+Strong Profile / Medium was outperforming Strong Profile / High.
+
+After simulation, the table becomes more intuitive:
+
+Strong Profile / High becomes smaller, stricter, and more accurate.
+Strong Profile / Medium becomes larger and slightly messier.
+
+That is the expected confidence calibration tradeoff.
+
+2025 Matchup Lean × Core Area Alignment impact
+
+Current Confirmed Edge row:
+
+Profile Type	Medium	High
+Confirmed Edge	93 games / 64.5% correct	22 games / 57.1% correct
+
+Simulated Confirmed Edge row:
+
+Profile Type	Medium	High
+Confirmed Edge	103 games / 61.8% correct	12 games / 75.0% correct
+Interpretation
+
+This confirms the feature’s intended behavior:
+
+High count goes down.
+High accuracy goes up.
+Medium count goes up.
+Medium accuracy drops slightly.
+Low is unchanged.
+Overall pick accuracy is unchanged because picks do not change.
+
+This is desirable if the goal is to make confidence labels more honest.
+
+
+---
+
+# Replace the Current Graduation Criteria Status Table
+
+Your current doc still says some items are “Needed.” I’d replace that status table with this:
+
+```markdown
+## 24. Graduation Criteria
+
+Before this becomes production behavior, require:
+
+```text
+1. Simulated High improves correct % across tested seasons.
+2. Simulated High improves claim validation.
+3. Simulated High reduces severe misses.
+4. Simulated Medium does not collapse.
+5. Low stays unchanged.
+6. Human review confirms softened games make product sense.
+7. Human review confirms retained High misses are understood.
+8. BigQuery-source mode passes.
+9. Admin/debug review is available before frontend user-facing rollout.
+
+Current status:
+
+Criterion	Status
+High improves across seasons	Passed
+Claim validation improves	Passed in pooled result
+Severe misses reduce	Passed in pooled result
+Medium remains usable	Passed
+Low unchanged	Passed
+Human review softened games	Reviewed; supports High → Medium, not High → Low
+Human review retained High misses	Reviewed; a few exceptions remain important
+BigQuery-source mode	Passed for completed season checks
+Admin/debug display	Future / recommended before production
+Current graduation conclusion
+
+The feature has earned continued Admin/audit review.
+
+It has not yet earned production confidence-label changes.
+
+
+---
+
+# Replace Final Summary With This
+
+```markdown
+## 26. Final Current-State Summary
+
+`core_area_durability_context_v0` remains a promising audit-supported confidence calibration feature.
+
+Across 2023–2025:
+
+```text
+Current High:   110 games, 65.14% correct
+Simulated High: 47 games, 76.60% correct
+
+High claim validation improved:
+
+57.82% → 62.52%
+
+High severe misses dropped:
+
+4 → 1
+
+Medium stayed usable:
+
+64.86% → 63.31%
+
+Low stayed unchanged:
+
+53.99% → 53.99%
+
+Deeper review added important nuance:
+
+Softened correct games were often still strong leans.
+Softened incorrect games had much weaker claim validation.
+Retained High misses show Core Area durability does not catch every failure mode.
+
+Best current interpretation:
+
+This feature is a High-confidence softening lens, not a rejection rule.
+
+Recommended next step:
+
+Keep audit/Admin-only.
+Do not wire to production yet.
+Use Admin views to show current vs simulated confidence ladders.
+Continue reviewing retained High misses before considering runtime behavior.
+
+---
+
+## My recommendation
+
+Yes, update the feature doc today. The current doc is solid, but it should reflect the new evidence so future-you does not think BigQuery-source verification and human review are still untouched.
+
+I would **not** create a brand-new feature doc. Just update this one. Keep the story continuous.
