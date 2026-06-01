@@ -528,3 +528,933 @@ If /game eventually applies this calibration, then newly collected /game payload
 
 
 
+
+_______________________________________
+
+
+
+Copy/paste this into the next chat
+
+We are working in the GameLens NFL App project. The current task is to move carefully from an Admin-only calibrated confidence preview toward eventually wiring the same confidence calibration into /game, but only after preserving a clear QA contract.
+
+The feature is:
+
+core_area_durability_context_v0
+
+Current rule being tested:
+
+If outcome confidence = High
+and core_gap < 0.45
+then calibrated confidence = Medium
+else keep original confidence
+
+Important: this does not change winner pick, matchup lean direction, profile type, model result, Model Trust, or any underlying metric. It only calibrates confidence loudness.
+
+1. Current milestone status
+
+We have successfully completed:
+
+Audit CSV proof ✅
+BigQuery-source audit proof ✅
+Admin backend preview ✅
+Google build/deploy ✅
+Authenticated deployed API check ✅
+Admin UI visible benchmark ✅
+/game behavior untouched ✅
+
+The deployed Admin Claim Health response now contains two new preview sections:
+
+calibrated_game_level_calibration
+calibrated_core_area_alignment_matrix
+
+These are Admin-only what-if sections. They do not replace the original sections.
+
+The existing/current sections still exist:
+
+game_level_calibration
+core_area_alignment_matrix
+
+The Admin response shape already supports section_metadata, sections, and tabs; the added calibrated sections follow that same structure. The current response has top-level fields like available, baseline, coverage, section_metadata, sections, and tabs.
+
+2. Why this feature exists
+
+The original issue was:
+
+High Confidence was not clearly outperforming Medium Confidence.
+
+In the 2025 Admin view before calibration, the table showed an awkward pattern:
+
+Strong Profile / High:
+22 games, 57.1% correct
+
+Strong Profile / Medium:
+21 games, 80.9% correct
+
+And in Core Area Alignment:
+
+confirmed_edge / High:
+22 games, 57.1% correct
+
+confirmed_edge / Medium:
+93 games, 64.5% correct
+
+That made High Confidence look too loose.
+
+The feature fixes confidence calibration by making High harder to earn when the broader Core Area foundation is not durable enough.
+
+3. Evidence from audit testing
+
+The audit tested the rule across 2023, 2024, and 2025.
+
+Pooled 2023–2025 result
+Current High:
+110 games
+65.14% correct
+
+Simulated High:
+47 games
+76.60% correct
+
+Medium absorbed the softened games without collapsing:
+
+Current Medium:
+276 games
+64.86% correct
+
+Simulated Medium:
+339 games
+63.31% correct
+
+Low stayed unchanged:
+
+Low:
+421 games
+53.99% correct
+
+The deeper threshold test showed core_gap < 0.45 was the best current audit balance: at 0.45, retained High was 47 games at 76.60% correct, while lower floors left High noisier and higher floors got too restrictive.
+
+4. Most important interpretation
+
+This feature is not a rejection rule.
+
+It does not mean:
+
+core_gap < 0.45 = bad pick
+
+It means:
+
+core_gap < 0.45 may still be a useful lean,
+but may not deserve the loudest High Confidence label.
+
+The deeper review proved that softened correct games often still had strong final margins and strong claim validation, while softened incorrect games had much weaker claim validation.
+
+So the product interpretation is:
+
+Same pick.
+Same matchup lean.
+More honest confidence label.
+5. Current Admin implementation
+
+The backend now previews calibrated confidence in Admin.
+
+The local and deployed checks passed.
+
+Verified 2025 counts
+
+Current Admin sections:
+
+Low: 154
+Medium: 93
+High: 22
+
+Calibrated preview sections:
+
+Low: 154
+Medium: 103
+High: 12
+
+This exactly matches the audit expectation.
+
+The detailed Python check showed:
+
+Game-Level Calibration
+
+Current:
+
+Strong Profile / High:
+22 games
+21 graded
+12 correct
+9 incorrect
+57.14% correct
+
+Calibrated preview:
+
+Strong Profile / High:
+12 games
+12 graded
+9 correct
+3 incorrect
+75.00% correct
+
+Current:
+
+Strong Profile / Medium:
+21 games
+21 graded
+17 correct
+4 incorrect
+80.95% correct
+
+Calibrated preview:
+
+Strong Profile / Medium:
+31 games
+30 graded
+20 correct
+10 incorrect
+66.67% correct
+Core Area Alignment
+
+Current:
+
+confirmed_edge / High:
+22 games
+21 graded
+12 correct
+9 incorrect
+57.14% correct
+avg_core_gap 0.4800
+avg_signal_gap 8.7273
+
+Calibrated preview:
+
+confirmed_edge / High:
+12 games
+12 graded
+9 correct
+3 incorrect
+75.00% correct
+avg_core_gap 0.57625
+avg_signal_gap 8.4167
+
+Current:
+
+confirmed_edge / Medium:
+93 games
+93 graded
+60 correct
+33 incorrect
+64.52% correct
+
+Calibrated preview:
+
+confirmed_edge / Medium:
+103 games
+102 graded
+63 correct
+39 incorrect
+61.76% correct
+
+These backend results were confirmed in the uploaded Python output.
+
+6. What was added to Admin
+
+The patch added calibrated preview sections only.
+
+Likely changed files:
+
+queries/admin_claim_health_queries.py
+services/admin_claim_health_service.py
+
+New query functions likely added:
+
+get_calibrated_game_level_calibration
+get_calibrated_core_area_alignment_matrix
+
+These mirror the existing functions:
+
+get_game_level_calibration
+get_core_area_alignment_matrix
+
+The current non-calibrated query functions already group game-level rows by profile_strength_label × outcome_confidence_label and profile_type × outcome_confidence_label.
+
+The calibrated functions use the same output shape but group by:
+
+calibrated outcome_confidence_label
+
+using this CASE logic:
+
+CASE
+  WHEN outcome_confidence_label = 'High'
+   AND core_gap < 0.45
+    THEN 'Medium'
+  ELSE outcome_confidence_label
+END
+
+Important: This is still a preview, not production behavior.
+
+7. Current UI status
+
+The Admin web UI now shows the calibrated tables one above/below the current tables.
+
+The user confirmed:
+
+The calibrated tables are visible.
+They look good.
+They represent the intended benchmark.
+Published to the web.
+
+Lovable credits are low, around:
+
+7 credits remaining
+
+So do not spend Lovable credits on polish unless absolutely needed.
+
+No new tab or chart type was created. The frontend reused existing table/matrix rendering, which was the correct low-credit approach.
+
+8. The user’s key requirement before touching /game
+
+The user needs this final QA guarantee:
+
+If /game eventually applies this calibration, then /game, rebuilt BigQuery claim rows, and Admin Claim Health must all agree on total Low / Medium / High counts for the same run_id.
+
+Specifically:
+
+/game payload confidence counts
+=
+BigQuery claim-training distinct game confidence counts
+=
+Admin Claim Health confidence counts
+
+This matters because otherwise there will be two truths:
+
+/game says one confidence count
+Admin says another confidence count
+
+That is unacceptable.
+
+9. Correct work order from here
+
+The safe order is:
+
+1. Admin calibrated preview — DONE
+2. Confirm UI/API numbers match audit — DONE for 2025
+3. Plan shared confidence calibration helper
+4. Wire /game to use calibrated confidence
+5. Recollect payloads into a NEW run_id
+6. Build claim-training examples from that new payload run
+7. Run validation/features/audit as needed
+8. Verify /game payload counts = BigQuery counts = Admin counts
+
+Do not mutate the old run_id:
+
+full_2025_reg_post_claim_matrix_pilot
+
+That is the old baseline.
+
+Use a new run_id later, something like:
+
+full_2025_reg_post_confidence_calibrated_v1
+
+or:
+
+full_2025_reg_post_core_durability_confidence_v1
+10. Critical architecture recommendation
+
+Do not duplicate the calibration rule in many places forever.
+
+Long-term, create one shared helper that both /game and training extraction can rely on.
+
+Suggested file:
+
+services/confidence_calibration.py
+
+or if project organization prefers:
+
+services/core_area_durability_confidence.py
+
+Suggested helper:
+
+from __future__ import annotations
+
+from typing import Optional, TypedDict
+
+
+CORE_AREA_DURABILITY_CONFIDENCE_VERSION = "core_area_durability_context_v0"
+DEFAULT_CORE_GAP_FLOOR = 0.45
+
+
+class ConfidenceCalibrationResult(TypedDict):
+    raw_confidence_label: Optional[str]
+    calibrated_confidence_label: Optional[str]
+    confidence_calibrated: bool
+    calibration_reason: Optional[str]
+    calibration_feature: str
+    core_gap_floor: float
+    production_use_allowed: bool
+
+
+def apply_core_area_durability_confidence_calibration(
+    *,
+    confidence_label: Optional[str],
+    core_gap: Optional[float],
+    core_gap_floor: float = DEFAULT_CORE_GAP_FLOOR,
+    production_use_allowed: bool = True,
+) -> ConfidenceCalibrationResult:
+    raw_label = confidence_label
+
+    calibrated_label = raw_label
+    calibrated = False
+    reason = None
+
+    if raw_label == "High" and core_gap is not None and core_gap < core_gap_floor:
+        calibrated_label = "Medium"
+        calibrated = True
+        reason = "insufficient_core_area_durability_for_high"
+
+    return {
+        "raw_confidence_label": raw_label,
+        "calibrated_confidence_label": calibrated_label,
+        "confidence_calibrated": calibrated,
+        "calibration_reason": reason,
+        "calibration_feature": CORE_AREA_DURABILITY_CONFIDENCE_VERSION,
+        "core_gap_floor": core_gap_floor,
+        "production_use_allowed": production_use_allowed,
+    }
+
+Potential nuance: production_use_allowed is currently false in Admin preview. When wiring /game, this may become true for /game confidence display, but still keep raw/debug trace available internally.
+
+11. What /game should eventually do
+
+The final desired /game behavior is not to show a new public label.
+
+It should simply show the calibrated confidence.
+
+Example:
+
+Before:
+
+Strong Profile / Confirmed Edge / High Confidence
+
+After:
+
+Strong Profile / Confirmed Edge / Medium Confidence
+
+No need to display:
+
+soften_high_to_medium
+core_area_durability_context_v0
+calibration_action_v0
+
+Those are internal/debug/admin concepts.
+
+The user specifically pushed back on response bloat. The mature product behavior should simply update confidence, not add a bunch of new user-facing labels.
+
+12. Minimal /game response philosophy
+
+Public-facing /game should ideally expose:
+
+{
+  "confidence": "Medium"
+}
+
+or whatever existing field currently carries confidence.
+
+Optionally, for QA/debug only:
+
+{
+  "raw_confidence_label": "High",
+  "calibrated_confidence_label": "Medium",
+  "confidence_calibrated": true,
+  "calibration_reason": "insufficient_core_area_durability_for_high"
+}
+
+But avoid adding this to normal user-facing response unless needed.
+
+Best compromise:
+
+Use calibrated confidence for display.
+Keep raw/calibrated trace only in debug/admin/training metadata if already appropriate.
+13. Need to identify exactly where /game confidence is assembled
+
+Likely files to inspect:
+
+services/game_service.py
+services/model_trust_service.py
+services/claim_language_response.py
+game_routes.py
+
+Important project memory:
+
+The user wants file names included for proposed changes and implementation notes.
+
+Likely target is services/game_service.py, because that assembles the game response. However, do not guess blindly. Search for:
+
+grep -R "outcome_confidence" -n .
+grep -R "confidence_label" -n services routes agg | head -100
+grep -R "profile_strength_label" -n services routes agg | head -100
+grep -R "matchup_lean" -n services routes agg | head -100
+
+Also search for where claim-training examples extract fields:
+
+grep -R "outcome_confidence_label" -n agg/gamelens_training
+grep -R "model_result" -n agg/gamelens_training/build_claim_training_examples.py
+
+The next chat should inspect actual code before giving edit instructions.
+
+14. Important distinction: Admin preview vs final truth
+
+Admin preview currently applies SQL CASE logic against old claim rows.
+
+That is okay for preview.
+
+But once /game is changed, the Admin “official” sections should eventually reflect a newly collected run, not a SQL what-if over the old baseline.
+
+Old run:
+
+full_2025_reg_post_claim_matrix_pilot
+
+should remain current/raw baseline.
+
+New calibrated run later:
+
+full_2025_reg_post_confidence_calibrated_v1
+
+should contain calibrated confidence rows collected from /game.
+
+Then Admin current sections should naturally show the calibrated counts because the stored claim rows were created from calibrated /game payloads.
+
+At that point, the preview sections may be less important or can remain as a diagnostic comparison.
+
+15. QA plan after /game is changed
+
+This is the big contract.
+
+Step A — collect new /game payloads
+
+Use the existing payload collector.
+
+Prior payload command style used:
+
+python qa_collect_gamelens_payloads.py \
+  --seasons 2025 \
+  --games-per-season 400 \
+  --sample-mode even \
+  --run-name full_2025_reg_post_confidence_calibrated_v1 \
+  --timeout-seconds 180
+
+Need confirm exact collector options and whether it calls local backend code or deployed /game. Earlier payloads were collected locally from backend code.
+
+If testing deployed /game, ensure collector target/source is correct. Do not assume.
+
+Step B — count confidence labels directly from collected payloads
+
+Need inspect actual payload JSON shape. But likely write a script like:
+
+import json
+from pathlib import Path
+from collections import Counter
+
+payload_dir = Path("qa/gamelens_payload_runs/full_2025_reg_post_confidence_calibrated_v1/payloads")
+
+counts = Counter()
+missing = []
+
+for p in payload_dir.glob("*.json"):
+    data = json.loads(p.read_text(encoding="utf-8"))
+
+    # TODO: adjust this path to actual /game payload structure.
+    # Possible examples:
+    # confidence = data["matchup_lean"]["confidence"]
+    # confidence = data["matchup_read"]["confidence"]
+    # confidence = data["outcome_confidence_label"]
+    confidence = None
+
+    # Inspect one payload first before finalizing.
+
+    if confidence:
+        counts[confidence] += 1
+    else:
+        missing.append(p.name)
+
+print(counts)
+print("missing:", len(missing))
+
+The exact path must be determined from one new payload.
+
+Step C — build claim training examples into new run_id
+
+Use existing Stage 1 builder:
+
+python -m agg.gamelens_training.build_claim_training_examples \
+  --payload-run qa/gamelens_payload_runs/full_2025_reg_post_confidence_calibrated_v1 \
+  --run-id full_2025_reg_post_confidence_calibrated_v1 \
+  --dry-run
+
+Then write:
+
+python -m agg.gamelens_training.build_claim_training_examples \
+  --payload-run qa/gamelens_payload_runs/full_2025_reg_post_confidence_calibrated_v1 \
+  --run-id full_2025_reg_post_confidence_calibrated_v1 \
+  --write-bigquery \
+  --replace-run
+Step D — run validation
+python -m agg.gamelens_training.update_claim_training_validation \
+  --run-id full_2025_reg_post_confidence_calibrated_v1 \
+  --write-bigquery
+Step E — run features if needed
+python -m agg.gamelens_training.update_claim_training_features \
+  --run-id full_2025_reg_post_confidence_calibrated_v1 \
+  --write-bigquery
+Step F — verify BigQuery distinct game confidence counts
+SELECT
+  outcome_confidence_label,
+  COUNT(DISTINCT game_id) AS games
+FROM `nfl-stream-406420.Analytics.gamelens_claim_training_examples`
+WHERE run_id = 'full_2025_reg_post_confidence_calibrated_v1'
+GROUP BY outcome_confidence_label
+ORDER BY outcome_confidence_label;
+
+Expected, assuming same game set and same calibration:
+
+Low: 154
+Medium: 103
+High: 12
+
+But note: this assumes claim extraction stores the calibrated confidence label.
+
+Step G — verify Admin Claim Health for new run_id
+
+Call:
+
+curl -sS -H "Authorization: Bearer ${TOKEN}" \
+  "https://nfl-games-app-main-362530996210.us-central1.run.app/admin/gamelens/claim-health?run_id=full_2025_reg_post_confidence_calibrated_v1&season=2025" \
+  -o claim_health_2025_confidence_calibrated_v1.json
+
+Then:
+
+import json
+from pathlib import Path
+
+data = json.loads(Path("claim_health_2025_confidence_calibrated_v1.json").read_text())
+
+sections = data["sections"]
+
+def summarize(section_name):
+    out = {}
+    for row in sections[section_name]:
+        label = row["outcome_confidence_label"]
+        out[label] = out.get(label, 0) + int(row["game_count"])
+    return out
+
+print("Admin game_level_calibration:", summarize("game_level_calibration"))
+print("Admin core_area_alignment_matrix:", summarize("core_area_alignment_matrix"))
+
+Expected:
+
+{'Low': 154, 'Medium': 103, 'High': 12}
+Step H — compare all three
+
+Final QA table should be:
+
+Source                         Low   Medium   High
+/game payloads                 154   103      12
+BigQuery claim rows            154   103      12
+Admin game_level_calibration   154   103      12
+Admin core_area_alignment      154   103      12
+
+That is the success condition.
+
+16. SQL QA script for final agreement
+
+Once new run_id exists:
+
+WITH claim_counts AS (
+  SELECT
+    outcome_confidence_label AS confidence,
+    COUNT(DISTINCT game_id) AS games
+  FROM `nfl-stream-406420.Analytics.gamelens_claim_training_examples`
+  WHERE run_id = 'full_2025_reg_post_confidence_calibrated_v1'
+  GROUP BY confidence
+)
+
+SELECT *
+FROM claim_counts
+ORDER BY
+  CASE confidence
+    WHEN 'Low' THEN 1
+    WHEN 'Medium' THEN 2
+    WHEN 'High' THEN 3
+    ELSE 99
+  END;
+
+Optional sanity check by profile type:
+
+WITH games AS (
+  SELECT
+    game_id,
+    ANY_VALUE(profile_type) AS profile_type,
+    ANY_VALUE(profile_strength_label) AS profile_strength_label,
+    ANY_VALUE(outcome_confidence_label) AS confidence,
+    LOWER(TRIM(CAST(ANY_VALUE(model_result) AS STRING))) AS model_result,
+    ANY_VALUE(final_margin_abs) AS final_margin_abs,
+    ANY_VALUE(core_gap) AS core_gap,
+    ANY_VALUE(signal_gap) AS signal_gap
+  FROM `nfl-stream-406420.Analytics.gamelens_claim_training_examples`
+  WHERE run_id = 'full_2025_reg_post_confidence_calibrated_v1'
+  GROUP BY game_id
+)
+
+SELECT
+  profile_type,
+  confidence,
+  COUNT(*) AS games,
+  COUNTIF(model_result IN ('correct', 'incorrect')) AS graded_games,
+  COUNTIF(model_result = 'correct') AS correct_games,
+  COUNTIF(model_result = 'incorrect') AS incorrect_games,
+  SAFE_DIVIDE(
+    COUNTIF(model_result = 'correct'),
+    COUNTIF(model_result IN ('correct', 'incorrect'))
+  ) AS correct_rate,
+  AVG(SAFE_CAST(core_gap AS FLOAT64)) AS avg_core_gap,
+  AVG(SAFE_CAST(signal_gap AS FLOAT64)) AS avg_signal_gap,
+  AVG(SAFE_CAST(final_margin_abs AS FLOAT64)) AS avg_final_margin_abs
+FROM games
+GROUP BY profile_type, confidence
+ORDER BY profile_type, confidence;
+
+Expected for 2025 if calibrated:
+
+confirmed_edge / High:
+12 games, 75.0%
+
+confirmed_edge / Medium:
+103 games, about 61.8%
+17. Potential issue: exact confidence field path in /game
+
+Before coding, inspect one /game response.
+
+Need know whether confidence appears in:
+
+matchup_lean.confidence
+matchup_lean.confidence.label
+matchup_read.confidence
+outcome_confidence_label
+model_trust.outcome_confidence
+
+Do not assume.
+
+Search code and inspect payload.
+
+The frontend/admin terms may not exactly match API terms.
+
+Earlier frontend patches referenced Matchup Lean confidence paths like:
+
+lean.user_facing_confidence?.label?.trim() || lean.confidence || null
+
+Project memory says v1.7.13 worked on Matchup Lean user-facing confidence wiring. That suggests /game may have multiple confidence fields. The next chat must identify the canonical one.
+
+Potential issue:
+
+If /game only changes visible confidence but claim-training extraction pulls a different raw field,
+Admin and /game counts will not match.
+
+So the QA is essential.
+
+18. What not to do
+
+Do not:
+
+- Replace current Admin sections yet
+- Mutate old run_id
+- Change profile_type to conflicting_profile
+- Change winner prediction
+- Change model_result
+- Change Model Trust correctness logic
+- Add a big public “core durability” label
+- Spend Lovable credits on new UI polish
+- Treat 0.45 as permanent football law
+- Add Medium → Low rules yet
+- Add extra guardrails for retained High misses today
+
+Do:
+
+- Use Admin preview as benchmark
+- Use shared helper if possible
+- Keep raw/effective confidence trace for QA
+- Recollect into a new run_id
+- Verify all counts agree
+19. Product wording
+
+If any UI copy is needed later, use plain wording:
+
+Calibrated Confidence Preview
+
+or:
+
+Core Area Durability Confidence Preview
+
+Safe explanation:
+
+Shows how confidence labels would change if High Confidence required stronger Core Area durability.
+
+Avoid:
+
+Bad High games
+Wrong High games
+Rejected picks
+Core Area says the team is weaker
+
+Best product framing:
+
+High Confidence becomes smaller and cleaner.
+Medium absorbs softened games.
+Low is unchanged.
+Overall picks are unchanged.
+20. Current benchmark for 2025
+
+For the old run:
+
+full_2025_reg_post_claim_matrix_pilot
+
+Current/raw Admin:
+
+Low: 154
+Medium: 93
+High: 22
+
+Calibrated preview:
+
+Low: 154
+Medium: 103
+High: 12
+
+This is now visible in the Admin UI.
+
+Future /game work should aim for the same 2025 distribution in the new calibrated run, assuming same games and same rule.
+
+21. Suggested next chat opening prompt
+
+Paste this into the next chat:
+
+We are continuing GameLens core_area_durability_context_v0 work. Admin preview is already done and deployed. It adds calibrated_game_level_calibration and calibrated_core_area_alignment_matrix to Admin Claim Health. For 2025 old run_id full_2025_reg_post_claim_matrix_pilot, current counts are Low 154 / Medium 93 / High 22; calibrated preview counts are Low 154 / Medium 103 / High 12. UI shows these tables. /game is still untouched.
+
+Next task: inspect /game response assembly and determine the safest way to wire the same confidence calibration into /game using a shared helper, while preserving QA traceability. Do not change BigQuery old run_id. Do not change winner picks, profile_type, matchup lean direction, or Model Trust. The final QA requirement is that after we recollect payloads into a new run_id, /game payload confidence counts, BigQuery claim-training confidence counts, and Admin Claim Health confidence counts must all match.
+22. Suggested first commands in next chat
+
+Ask the next chat to inspect code with these:
+
+grep -R "outcome_confidence_label" -n services routes agg | head -100
+grep -R "user_facing_confidence" -n services routes agg | head -100
+grep -R "confidence" -n services/game_service.py services/model_trust_service.py routes game_routes.py | head -200
+grep -R "profile_strength_label" -n services routes agg | head -100
+grep -R "matchup_lean" -n services routes agg | head -100
+
+Then inspect:
+
+services/game_service.py
+routes/game_routes.py or game_routes.py
+agg/gamelens_training/build_claim_training_examples.py
+
+Goal:
+
+Find canonical confidence field in /game.
+Find where claim-training extraction reads confidence.
+Design a shared calibration helper.
+Wire /game and extraction consistently.
+23. Suggested implementation design for next phase
+Phase 1 — helper only
+
+Add:
+
+services/confidence_calibration.py
+
+with:
+
+apply_core_area_durability_confidence_calibration()
+
+Unit/smoke test the helper:
+
+assert High + 0.44 => Medium
+assert High + 0.45 => High
+assert Medium + 0.20 => Medium
+assert Low + 0.60 => Low
+assert High + None => High
+
+Open question: If core_gap is missing, do we keep High or soften? Current Admin SQL keeps High because core_gap < 0.45 is false when NULL. Stay consistent unless there is a reason to change.
+
+Phase 2 — wire /game
+
+Find where final confidence label is assigned.
+
+Change display/effective confidence to calibrated label.
+
+Keep raw label internally if useful.
+
+Potential object:
+
+"confidence_calibration": {
+  "feature": "core_area_durability_context_v0",
+  "raw_confidence_label": "High",
+  "calibrated_confidence_label": "Medium",
+  "confidence_calibrated": true,
+  "reason": "insufficient_core_area_durability_for_high",
+  "core_gap_floor": 0.45
+}
+
+But do not expose this in user-facing UI unless needed. It may be safe in payload for QA, but the user wants to avoid response bloat. Decide carefully.
+
+Phase 3 — claim extraction
+
+Ensure build_claim_training_examples.py uses the same confidence label that /game displays.
+
+If it currently reads outcome_confidence_label from payload, make sure that field is calibrated after /game patch.
+
+If it reads a raw nested field, update extraction to use calibrated/effective field.
+
+Phase 4 — recollect and QA
+
+Collect into new run_id. Build claim examples. SQL check. Admin check.
+
+24. The most likely hidden issue
+
+There may be several confidence representations:
+
+raw outcome confidence
+Matchup Lean confidence
+user_facing_confidence
+profile_strength_label
+model_trust confidence
+claim row outcome_confidence_label
+
+Do not update one and forget the others.
+
+The single most important QA question is:
+
+Which exact field does the frontend show as confidence?
+Which exact field does build_claim_training_examples store as outcome_confidence_label?
+
+Those must align.
+
+25. Done-state definition for /game phase
+
+The /game phase is done only when:
+
+1. /game displays calibrated confidence.
+2. Admin current sections for a new calibrated run show matching confidence counts.
+3. BigQuery distinct game confidence counts match /game payload counts.
+4. Existing Admin preview still works or is clearly documented.
+5. No winner picks changed.
+6. No profile_type changed.
+7. No Model Trust correctness logic changed.
+8. A notes file documents the new run_id and QA evidence.
+26. Today’s final status in one paragraph
+
+Today we completed the Admin benchmark for core_area_durability_context_v0. The deployed Admin Claim Health response now includes calibrated preview versions of Game-Level Calibration and Matchup Lean × Core Area Alignment. The 2025 preview moves 10 current High games into Medium, changing counts from Low 154 / Medium 93 / High 22 to Low 154 / Medium 103 / High 12, matching the audit results. The UI now visibly displays the benchmark. /game remains untouched. The next phase is to wire the same confidence calibration into /game using a shared helper and then recollect payloads into a new run_id so /game, BigQuery claim-training rows, and Admin Claim Health can be verified to agree.
+
+
+__________________________________________________
+
+
+
