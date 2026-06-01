@@ -31,3 +31,18 @@ The login screen also felt disconnected because it used a square icon/tile inste
 
 ### Follow-up
 Old branding assets are currently unreferenced but intentionally kept as backups. Consider deleting them in a later cleanup-only commit after confirming the new branding works well in production.
+
+## Claim Health Baseline Readability Fix
+
+Improved baseline readability on the /admin/claim-health horizontal bar charts.
+
+Changes:
+- Moved the baseline label out of the chart plot area into a header badge.
+- Kept the dashed baseline line inside the chart.
+- Strengthened the dashed baseline line so it reads more clearly against the grid.
+- Added custom bar label logic that nudges percentage labels away from the baseline line when they would visually collide.
+
+Result:
+- Baseline is now visible and readable.
+- Bar values near the baseline are easier to scan.
+- No backend math, API shape, validation rates, or chart calculations changed.
