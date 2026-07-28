@@ -4,7 +4,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional, Union
 
 __all__ = ["BoxscoreValidationResult", "validate_nfl_boxscore"]
 
@@ -77,14 +77,14 @@ class BoxscoreValidationResult:
     accepted: bool
     code: str
     reason: str
-    game_id: str | None = None
+    game_id: Optional[str] = None
     team_ids: tuple[str, ...] = ()
 
 
 def validate_nfl_boxscore(
-    payload: Mapping[str, Any] | None,
+    payload: Optional[Mapping[str, Any]],
     *,
-    expected_game_id: str | None = None,
+    expected_game_id: Optional[str] = None,
 ) -> BoxscoreValidationResult:
     """Return whether a Tank01 NFL box-score payload is safe to parse.
 
@@ -228,7 +228,7 @@ def validate_nfl_boxscore(
 
 def _validate_final_status(
     body: Mapping[str, Any],
-) -> BoxscoreValidationResult | None:
+) -> Optional[BoxscoreValidationResult]:
     status_value = body.get("gameStatus")
     status_code_value = body.get("gameStatusCode")
 
@@ -263,7 +263,7 @@ def _validate_final_status(
 def _validate_scores(
     body: Mapping[str, Any],
     game_id: str,
-) -> BoxscoreValidationResult | None:
+) -> Optional[BoxscoreValidationResult]:
     for field in ("homePts", "awayPts"):
         if field not in body:
             return _reject(
@@ -287,7 +287,7 @@ def _validate_side_stats(
     dst_stats: Mapping[str, Any],
     game_id: str,
     team_ids: list[str],
-) -> BoxscoreValidationResult | None:
+) -> Optional[BoxscoreValidationResult]:
     combined_stats = {**team_stats, **dst_stats}
 
     if not any(field in combined_stats for field in _MEANINGFUL_STAT_FIELDS):
@@ -351,8 +351,8 @@ def _reject(
     code: str,
     reason: str,
     *,
-    game_id: str | None = None,
-    team_ids: list[str] | tuple[str, ...] = (),
+    game_id: Optional[str] = None,
+    team_ids: Union[list[str], tuple[str, ...]] = (),
 ) -> BoxscoreValidationResult:
     return BoxscoreValidationResult(
         accepted=False,
@@ -363,7 +363,7 @@ def _reject(
     )
 
 
-def _first_nonblank(*values: Any) -> str | None:
+def _first_nonblank(*values: Any) -> Optional[str]:
     for value in values:
         if value is None:
             continue
