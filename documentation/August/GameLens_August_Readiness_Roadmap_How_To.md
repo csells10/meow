@@ -1,12 +1,12 @@
 # How to Use the GameLens August Readiness Roadmap
 
-- **Roadmap:** `documentation/GameLens_Backend_August_Readiness_Plan.md`
+- **Roadmap:** `documentation/August/GameLens_Backend_August_Readiness_Roadmap.md`
 - **Repository:** `csells10/meow`
-- **Code source of truth:** Current `meow/main`
+- **Code source of truth:** Current `meow/dev`
 
 This file helps a new ChatGPT conversation resume backend work without relying on memory from an older chat.
 
-Use the attached How-To and August Readiness Plan to continue the GameLens backend work. First inspect the current meow/main branch and recent commits read-only. Reconcile the repository against the roadmap, confirm the current packet, and recommend only the next smallest locally testable step. Preserve lens_tags, Levels 1–4, historical runs, and existing behavior. Do not change code until we agree on the next step. When providing Python changes, give me complete functions rather than scattered line edits.
+Use the attached How-To and August Readiness Plan to continue the GameLens backend work. First inspect the current meow/dev branch and recent commits read-only. Reconcile the repository against the roadmap, confirm the current packet, and recommend only the next smallest locally testable step. Preserve lens_tags, Levels 1–4, historical runs, and existing behavior. Do not change code until we agree on the next step. When providing Python changes, give me complete functions rather than scattered line edits.
 
 The goal is simple:
 
@@ -18,7 +18,7 @@ The goal is simple:
 
 Use this order when information disagrees:
 
-1. Current code on `meow/main`
+1. Current code on `meow/dev`
 2. Passing tests and recorded local/BigQuery evidence
 3. Recent commits
 4. The roadmap's decisions and done criteria
@@ -34,8 +34,8 @@ The progress table is intentionally not authoritative. It saves time when curren
 Before proposing code:
 
 1. Read this guide and the full roadmap.
-2. Open the current `csells10/meow` repository and inspect `main`.
-3. Record the current `main` commit.
+2. Open the current `csells10/meow` repository and inspect `dev`.
+3. Record the current `dev` commit.
 4. Review recent commits that could match roadmap packets.
 5. Compare implemented code and tests with each packet's done criteria.
 6. Reconcile the roadmap progress snapshot.
@@ -54,7 +54,7 @@ git branch --show-current
 git rev-parse HEAD
 git log --oneline --decorate -15
 git fetch origin
-git log --oneline --decorate HEAD..origin/main
+git log --oneline --decorate HEAD..origin/dev
 ```
 
 Fetching updates is safe for comparison. Merging, rebasing, switching branches, or pulling should happen only after the current working tree is understood.
@@ -145,13 +145,13 @@ This protection does not require a new service, table, or scheduler.
 We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
-Branch/source of truth: current meow/main
+Branch/source of truth: current meow/dev
 
 First read these files from the repository:
-- documentation/GameLens_Backend_August_Readiness_Plan.md
-- documentation/GameLens_Backend_August_Readiness_How_To_Use.md
+- documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
+- documentation/August/GameLens_August_Readiness_Roadmap_How_To.md
 
-Begin read-only. Inspect current main, recent commits, existing tests, and the complete functions relevant to the roadmap. Reconcile the roadmap progress snapshot from code and test evidence; do not trust checkboxes or prior chat memory by themselves.
+Begin read-only. Inspect current dev, recent commits, existing tests, and the complete functions relevant to the roadmap. Reconcile the roadmap progress snapshot from code and test evidence; do not trust checkboxes or prior chat memory by themselves.
 
 Tell me:
 1. the latest confirmed completed packet and its evidence;
@@ -191,6 +191,6 @@ If no commit was made, say so. A diagnosis or investigation can be useful withou
 - Do not make Levels 1–4 a prerequisite for `/game`.
 - Do not reuse or replace historical QA `run_id` values.
 - Do not add a workflow engine, run ledger, readiness subsystem, or snapshot platform unless a demonstrated problem requires it.
-- Do not let an old attachment override current `meow/main`.
+- Do not let an old attachment override current `meow/dev`.
 - Do not mark a packet complete without test evidence.
 - Do not keep working through several packets in one oversized change.
