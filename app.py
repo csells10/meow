@@ -5,6 +5,8 @@ import os
 from config import API_CALLS
 from routes.games import games_bp
 from routes.game_routes import game_routes
+from routes.admin_claim_health_routes import admin_claim_health_routes
+from routes.user_routes import user_routes
 from utils.logging_setup import setup_logging, log_event
 
 # ------------------------------------------------------------
@@ -17,12 +19,19 @@ setup_logging()
 app = Flask(__name__)
 
 # Enable CORS
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS"],
+)
 
 # Register route blueprints
 # This keeps app.py thin and allows routes to live in their own modules.
 app.register_blueprint(games_bp)
 app.register_blueprint(game_routes)
+app.register_blueprint(admin_claim_health_routes)
+app.register_blueprint(user_routes)
 
 # Dictionary used to track how many times each API call has run
 # during a given scheduled execution cycle.
@@ -164,5 +173,10 @@ def health():
 
 
 if __name__ == "__main__":
-    # Run locally or in environments that execute the file directly.
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+        debug=debug_mode,
+    )

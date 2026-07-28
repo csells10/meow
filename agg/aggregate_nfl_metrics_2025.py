@@ -72,32 +72,149 @@ def load_game_metrics(client: bigquery.Client, start_date: str, end_date: str, l
     return client.query(base_query, job_config=job_config).to_dataframe()
 
 # ---------------------------------------------
-# Step 3: Config for derived and raw metrics
+# Step 3: Config for derived, raw, and classification metadata
 # ---------------------------------------------
+# This is the single source of truth for display grouping.
+# core_area must remain one of:
+#   - Disruption and Turnovers
+#   - Field Control (Special Teams)
+#   - Offensive Output
+#   - Scoring Efficiency
+#   - Defensive Control
+METRIC_CLASSIFICATION = {
+    "Offensive Output": {
+        "Passing Game": [
+            "passing_yards",
+            "pass_completions",
+            "pass_attempts",
+            "passing_tds",
+            "yards_per_pass",
+        ],
+        "Rushing Game": [
+            "rushing_yards",
+            "rushing_attempts",
+            "rushing_tds",
+            "yards_per_rush",
+        ],
+        "Offensive Rhythm": [
+            "total_yards",
+            "total_plays",
+            "yards_per_play",
+            "first_downs",
+            "1st_down_rate",
+            "total_drives",
+            "time_of_possession",
+            "run_play_pct",
+            "pass_play_pct",
+            "pass_run_ratio",
+            "passing_tds_rushing_tds_sum",
+            "pass_td_share",
+            "rush_td_share",
+            "total_offensive_snaps",
+            "offensive_snap_load",
+        ],
+    },
+    "Scoring Efficiency": {
+        "Scoring Production": [
+            "actual_points",
+            "points_per_play",
+            "td_rate",
+        ],
+        "Red Zone Finish": [
+            "red_zone_tds",
+            "red_zone_attempts",
+            "red_zone_efficiency",
+        ],
+        "Drive Conversion": [
+            "third_down_conversions",
+            "third_down_attempts",
+            "third_down_pct",
+            "fourth_down_conversions",
+            "fourth_down_attempts",
+            "fourth_down_pct",
+        ],
+    },
+    "Defensive Control": {
+        "Yardage Suppression": [
+            "yards_allowed",
+            "opponent_total_plays",
+            "defensive_success_rate",
+            "points_allowed_per_yard",
+        ],
+        "Scoring Suppression": [
+            "points_allowed",
+            "points_allowed_per_play",
+        ],
+        "Defensive Workload": [
+            "total_defensive_snaps",
+            "defensive_snap_load",
+        ],
+    },
+    "Disruption and Turnovers": {
+        "Pressure": [
+            "sacks",
+            "pressure_rate",
+            "sacks_taken",
+            "sack_yards_lost",
+            "sacks_plus_sacks_taken",
+            "sack_to_turnover_ratio",
+        ],
+        "Turnovers": [
+            "defensive_interceptions",
+            "fumbles_recovered",
+            "interceptions_thrown",
+            "fumbles_lost",
+            "turnover_margin",
+        ],
+    },
+    "Field Control (Special Teams)": {
+        "Special Teams Usage": [
+            "total_special_teams_snaps",
+            "special_teams_snap_pct",
+            "total_snaps",
+        ],
+    },
+}
+def build_metric_meta(classification: dict) -> dict:
+    """Flatten core_area -> category -> metrics into metric -> metadata."""
+    meta = {}
+    for core_area, categories in classification.items():
+        for category, metrics in categories.items():
+            for metric in metrics:
+                if metric in meta:
+                    raise ValueError(f"Metric classified more than once: {metric}")
+                meta[metric] = {
+                    "category": category,
+                    "core_area": core_area,
+                }
+    return meta
+
+METRIC_META = build_metric_meta(METRIC_CLASSIFICATION)
+
 DERIVED_METRICS = {
-    "points_per_play": {"numerator": "actual_points", "denominator": "total_plays", "category": "Scoring & Efficiency", "core_area": "scoring_efficiency"},
-    "points_allowed_per_play": {"numerator": "points_allowed", "denominator": "opponent_total_plays", "category": "Scoring & Efficiency", "core_area": "scoring_efficiency"},
-    "td_rate": {"numerator": "passing_tds_rushing_tds_sum", "denominator": "total_plays", "category": "Scoring & Efficiency", "core_area": "scoring_efficiency"},
-    "red_zone_efficiency": {"numerator": "red_zone_tds", "denominator": "red_zone_attempts", "category": "Red Zone & Conversion", "core_area": "scoring_efficiency"},
-    "third_down_pct": {"numerator": "third_down_conversions", "denominator": "third_down_attempts", "category": "Red Zone & Conversion", "core_area": "scoring_efficiency"},
-    "fourth_down_pct": {"numerator": "fourth_down_conversions", "denominator": "fourth_down_attempts", "category": "Red Zone & Conversion", "core_area": "scoring_efficiency"},
-    "run_play_pct": {"numerator": "rushing_attempts", "denominator": "total_plays", "category": "Play Calling & Strategy", "core_area": "offensive_output"},
-    "pass_play_pct": {"numerator": "pass_attempts", "denominator": "total_plays", "category": "Play Calling & Strategy", "core_area": "offensive_output"},
-    "pass_run_ratio": {"numerator": "pass_attempts", "denominator": "rushing_attempts", "category": "Play Calling & Strategy", "core_area": "offensive_output"},
-    "1st_down_rate": {"numerator": "first_downs", "denominator": "total_plays", "category": "Sustained Drives", "core_area": "offensive_output"},
-    "pass_td_share": {"numerator": "passing_tds", "denominator": "passing_tds_rushing_tds_sum", "category": "Sustained Drives", "core_area": "offensive_output"},
-    "rush_td_share": {"numerator": "rushing_tds", "denominator": "passing_tds_rushing_tds_sum", "category": "Sustained Drives", "core_area": "offensive_output"},
-    "offensive_snap_load": {"numerator": "total_offensive_snaps", "denominator": "total_snaps", "category": "Snap Load", "core_area": "offensive_output"},
-    "defensive_snap_load": {"numerator": "total_defensive_snaps", "denominator": "total_snaps", "category": "Snap Load", "core_area": "defensive_control"},
-    "special_teams_snap_pct": {"numerator": "total_special_teams_snaps", "denominator": "total_snaps", "category": "Snap Load", "core_area": "field_control (special teams)"},
-    "sack_to_turnover_ratio": {"numerator": "sacks", "denominator": "defensive_interceptions", "category": "Pressure & Turnovers", "core_area": "disruption_and_turnovers"},
-    "pressure_rate": {"numerator": "sacks_plus_sacks_taken", "denominator": "pass_attempts", "category": "Pressure & Turnovers", "core_area": "disruption_and_turnovers"},
-    "turnover_margin": {"numerator": "turnover_margin", "denominator": None, "category": "Pressure & Turnovers", "core_area": "disruption_and_turnovers"},
-    "defensive_success_rate": {"numerator": "yards_allowed", "denominator": "opponent_total_plays", "category": "Defensive Control", "core_area": "defensive_control", "inverse": True},
-    "points_allowed_per_yard": {"numerator": "points_allowed", "denominator": "yards_allowed", "category": "Defensive Control", "core_area": "defensive_control"},
-    "yards_per_play": {"numerator": "total_yards", "denominator": "total_plays", "category": "Offensive Output", "core_area": "offensive_output"},
-    "yards_per_pass": {"numerator": "passing_yards", "denominator": "pass_attempts", "category": "Offensive Output", "core_area": "offensive_output"},
-    "yards_per_rush": {"numerator": "rushing_yards", "denominator": "rushing_attempts", "category": "Offensive Output", "core_area": "offensive_output"},
+    "points_per_play": {"numerator": "actual_points", "denominator": "total_plays"},
+    "points_allowed_per_play": {"numerator": "points_allowed", "denominator": "opponent_total_plays"},
+    "td_rate": {"numerator": "passing_tds_rushing_tds_sum", "denominator": "total_plays"},
+    "red_zone_efficiency": {"numerator": "red_zone_tds", "denominator": "red_zone_attempts"},
+    "third_down_pct": {"numerator": "third_down_conversions", "denominator": "third_down_attempts"},
+    "fourth_down_pct": {"numerator": "fourth_down_conversions", "denominator": "fourth_down_attempts"},
+    "run_play_pct": {"numerator": "rushing_attempts", "denominator": "total_plays"},
+    "pass_play_pct": {"numerator": "pass_attempts", "denominator": "total_plays"},
+    "pass_run_ratio": {"numerator": "pass_attempts", "denominator": "rushing_attempts"},
+    "1st_down_rate": {"numerator": "first_downs", "denominator": "total_plays"},
+    "pass_td_share": {"numerator": "passing_tds", "denominator": "passing_tds_rushing_tds_sum"},
+    "rush_td_share": {"numerator": "rushing_tds", "denominator": "passing_tds_rushing_tds_sum"},
+    "offensive_snap_load": {"numerator": "total_offensive_snaps", "denominator": "total_snaps"},
+    "defensive_snap_load": {"numerator": "total_defensive_snaps", "denominator": "total_snaps"},
+    "special_teams_snap_pct": {"numerator": "total_special_teams_snaps", "denominator": "total_snaps"},
+    "sack_to_turnover_ratio": {"numerator": "sacks", "denominator": "defensive_interceptions"},
+    "pressure_rate": {"numerator": "sacks_plus_sacks_taken", "denominator": "pass_attempts"},
+    "turnover_margin": {"numerator": "turnover_margin", "denominator": None},
+    "defensive_success_rate": {"numerator": "yards_allowed", "denominator": "opponent_total_plays", "inverse": True},
+    "points_allowed_per_yard": {"numerator": "points_allowed", "denominator": "yards_allowed"},
+    "yards_per_play": {"numerator": "total_yards", "denominator": "total_plays"},
+    "yards_per_pass": {"numerator": "passing_yards", "denominator": "pass_attempts"},
+    "yards_per_rush": {"numerator": "rushing_yards", "denominator": "rushing_attempts"},
 }
 
 RAW_METRICS = list(set([
@@ -106,9 +223,36 @@ RAW_METRICS = list(set([
     "time_of_possession", "third_down_conversions", "third_down_attempts", "fourth_down_conversions", "fourth_down_attempts",
     "total_plays", "total_drives", "red_zone_tds", "red_zone_attempts", "yards_allowed", "opponent_total_plays",
     "rushing_attempts", "pass_completions", "passing_tds", "rushing_tds", "total_offensive_snaps", "total_defensive_snaps",
-    "total_special_teams_snaps", "total_snaps", "turnover_margin", "sacks_taken", "sacks_plus_taken", "sack_yards_lost", "pass_attempts",
+    "total_special_teams_snaps", "total_snaps", "sacks_taken", "sack_yards_lost", "pass_attempts",
     "sacks_plus_sacks_taken", "passing_tds_rushing_tds_sum"
 ]))
+
+def apply_metric_metadata() -> None:
+    """Attach standardized category/core_area metadata to derived metrics."""
+    configured_metrics = set(DERIVED_METRICS.keys()) | set(RAW_METRICS)
+    classified_metrics = set(METRIC_META.keys())
+
+    missing = sorted(configured_metrics - classified_metrics)
+    extra = sorted(classified_metrics - configured_metrics)
+
+    if missing or extra:
+        raise ValueError(
+            "Metric classification mismatch. "
+            f"Missing from METRIC_CLASSIFICATION: {missing}. "
+            f"Classified but not configured for output: {extra}."
+        )
+
+    for metric, meta in DERIVED_METRICS.items():
+        meta.update(METRIC_META[metric])
+
+apply_metric_metadata()
+
+def get_metric_meta(metric: str) -> dict:
+    """Return standardized metadata for a metric, failing loudly if unmapped."""
+    if metric not in METRIC_META:
+        raise KeyError(f"No category/core_area mapping found for metric: {metric}")
+    return METRIC_META[metric]
+
 
 # ---------------------------------------------
 # Step 4: Aggregate incrementally by team/date
@@ -127,8 +271,8 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
 
     log_event("info", f"pivot_table_created | season={season} | shape={pivot.shape} | sample_columns={list(pivot.columns[:10])}")
 
-    # Step 4C: Prepare lookup for category/core_area so we can match it later for raw metrics
-    # ✅ Ensure uniqueness before setting the index
+    # Step 4C: Ensure uniqueness before aggregation.
+    # Category/core_area are now assigned from METRIC_CLASSIFICATION, not inherited from source rows.
     dupes_mask = df.duplicated(subset=["team_id", "data_date", "metric"], keep=False)
     if dupes_mask.any():
         log_event(
@@ -143,10 +287,6 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
         # Drop duplicates, keeping last (or first) consistently
         df = df.drop_duplicates(subset=["team_id", "data_date", "metric"], keep="last")
 
-    flat_lookup = (
-        df.set_index(["team_id", "data_date", "metric"])[["category", "core_area"]]
-        .to_dict(orient="index")
-    )
     results = []
 
     # Step 4D: Group data by team and calculate cumulative sums for each metric over time
@@ -195,8 +335,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
         for i, row in cumsum.iterrows():
             for metric in RAW_METRICS:
                 if metric in row:
-                    key = (row["team_id"], row["data_date"], metric)
-                    meta = flat_lookup.get(key, {"category": "Raw", "core_area": "Raw"})
+                    meta = get_metric_meta(metric)
                     results.append({
                         "season": row["season"],
                         "data_date": row["data_date"],
@@ -223,7 +362,7 @@ def build_incremental_metrics(df: pd.DataFrame, season: str) -> pd.DataFrame:
 # ---------------------------------------------
 # Entry point
 # ---------------------------------------------
-def run_aggregate_for_season(season: str = "2025"):
+def run_aggregate_for_season(season: str = "2025", output_suffix: str = ""):
     setup_logging()
     client = bigquery.Client(project=PROJECT)
 
@@ -239,7 +378,7 @@ def run_aggregate_for_season(season: str = "2025"):
     result_df = build_incremental_metrics(df, season)
     log_event("info", f"metrics_aggregated | season={season} | rows={len(result_df)}")
 
-    OUTPUT_TABLE = f"Analytics.team_metrics_season_{season}"
+    OUTPUT_TABLE = f"Analytics.team_metrics_season_{season}{output_suffix}"
     log_event("info", f"write_to_bq | table={OUTPUT_TABLE}")
 
     bad_rows = result_df[result_df[["season", "data_date", "team_id", "metric", "category", "core_area", "value"]].isnull().any(axis=1)]
