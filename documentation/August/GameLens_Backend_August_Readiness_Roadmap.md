@@ -1,8 +1,9 @@
 # GameLens Backend August Readiness Roadmap
 
-**Last revised:** 2026-07-27
+**Last revised:** 2026-07-28
 **Status:** Canonical working roadmap
-**Code source of truth:** Current `meow/main`
+**Code source of truth:** Current `meow/dev`
+**Current packet:** Packet 1B — Stats acceptance and retry safety (`NEXT`)
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -98,7 +99,7 @@ These are the working assumptions this roadmap protects.
 | Legacy aggregation       | `app.py` still calls the annual 2025 aggregate after Stats reports activity.                                                                                                                           | Replace only this hook after the new metric conductor is tested.                                                         |
 | Facts builder            | `run_build_game_team_metric_facts()` already builds, validates, dry-runs, and writes the season table.                                                                                                 | Reuse it.                                                                                                                |
 | Windowed builder         | `run_build_windowed_metrics()` already builds, validates, dry-runs, and writes the season table.                                                                                                       | Reuse it.                                                                                                                |
-| Rankings builder         | The existing rankings job produces `team_metric_rankings_{season}`.                                                                                                                                    | Reuse it after confirming its current callable entry point on `main`.                                                    |
+| Rankings builder         | The existing rankings job produces `team_metric_rankings_{season}`.                                                                                                                                    | Reuse it after confirming its current callable entry point on `dev`.                                                     |
 | `/game` pregame safety   | Team metrics and rankings are selected strictly before the target game date.                                                                                                                           | Preserve this rule.                                                                                                      |
 | Level 2                  | Validation uses completed-game Facts and merges by `run_id + claim_key`.                                                                                                                               | Reuse it; it is already broadly retry-friendly.                                                                          |
 | Claim Health             | Admin reads claim-training examples for a selected `run_id`.                                                                                                                                           | Keep Claim Health in the learning path, separate from click tracking.                                                    |
@@ -141,7 +142,7 @@ For August, one explicit configured active season (`2026`) is acceptable. Histor
 
 ## 4. Safety contract
 
-1. Start every implementation packet from current `meow/main`.
+1. Start every implementation packet from current `meow/dev`.
 2. Patch `app.py` last and preserve all current routes and authentication behavior.
 3. Reject incomplete source payloads before marking a game loaded.
 4. Do not rely on downstream de-duplication to make source retries safe.
@@ -170,7 +171,7 @@ When we implement a packet:
 * Christian applies the change locally, runs it, examines the result, and commits before the next packet.
 * Each commit should make one new behavior true.
 
-This roadmap specifies behavior and test boundaries. Exact code is chosen only after reading the full current function on `main`.
+This roadmap specifies behavior and test boundaries. Exact code is chosen only after reading the full current function on `dev`.
 
 ---
 
@@ -178,11 +179,15 @@ This roadmap specifies behavior and test boundaries. Exact code is chosen only a
 
 ## Packet 0 — Baseline and branch
 
+**Status:** `COMPLETE`
+
+**Evidence:** Work began from confirmed branch `dev` at baseline commit `77690e3`; the branch and relevant source files were inspected before Packet 1A.
+
 **Goal:** Know the starting point before changing behavior.
 
 Before Packet 1:
 
-* update or compare the local branch with `meow/main`;
+* update or compare the local branch with `meow/dev`;
 * record the current commit;
 * run the closest existing ingestion tests;
 * confirm the current Stats, Scores, config, rankings, and `app.py` function signatures;
@@ -195,6 +200,10 @@ No production or BigQuery change occurs.
 ## Packet 1 — Safe source ingestion
 
 ### Packet 1A — Pure Stats box-score validator
+
+**Status:** `COMPLETE`
+
+**Evidence:** Commit `b95adbc` (`Add NFL box score validation gate`); all 11 focused validator tests passed. The validator remains pure and is not imported by production ingestion.
 
 **Goal:** Decide whether a Tank01 Stats response is safe to parse and load.
 
@@ -235,6 +244,8 @@ Add NFL boxscore payload validator and tests
 ```
 
 ### Packet 1B — Stats acceptance and retry safety
+
+**Status:** `NEXT`
 
 **Goal:** Publish only complete Stats data and keep retries from creating ambiguous duplicates.
 
@@ -425,7 +436,7 @@ Do not create a new readiness service unless this smoke test exposes a recurring
 **Update last:**
 
 ```text
-app.py from current meow/main
+app.py from current meow/dev
 ```
 
 **Required behavior:**
@@ -440,188 +451,193 @@ run Schedule → Stats → Scores
 Keep this practical:
 
 * Use one explicit configured active season for August.
-* Preserve every blueprint, route, auth check, and scheduler entry point on current `main`.
+* Preserve every blueprint, route, auth check, and scheduler entry point on current `dev`.
 * Remove only the old `aggregate_nfl_metrics_2025` hook.
 * Rename Stats variables/logs from inserted rows to processed games.
 * Do not report full success when an ingestion or metric stage failed.
-* A Scores failure is reported, but valid Stats can still feed the metric pipeline.
-* A metric failure keeps already accepted source data and identifies the failed builder.
-* Do not put Levels 1–4 in this scheduler change.
+* A Scores failure should be visible because `/game` final-score data depends on `Scores.scores`; do not silently claim total pipeline success.
+* Keep the existing targeted `load_date` path working after Packet 1 normalizes loader signatures.
 
 **Local tests:**
 
-1. Stats returns zero games → conductor not called.
-2. Stats returns accepted games → conductor called once for 2026.
-3. Stats fails → scheduler does not report full success.
-4. Scores fails after valid Stats → metric behavior and partial failure are both truthful.
-5. Conductor fails → response/log identifies the failed stage.
-6. Targeted `load_date` no longer causes incompatible loader calls.
+1. No accepted Stats games → metric conductor not called and response reports a successful no-op.
+2. Accepted Stats games → conductor called once for 2026.
+3. Stats failure → downstream metric build not reported as successful.
+4. Scores failure → overall result is partial failure or failure, not full success.
+5. Metric-stage failure → failed stage named truthfully.
+6. Targeted `load_date` reaches Schedule, Stats, and Scores consistently.
 7. `/health`, `/games`, `/game`, Admin, user-management, and all other current routes remain registered.
+8. Existing auth behavior remains unchanged.
 
-**Behavior impact:** Activates scheduled Facts → Windowed → Rankings.
-
-**Commit:**
-
-```text
-Wire the GameLens metric pipeline into scheduled ETL
-```
-
-### Track A is complete when
-
-* incomplete Stats and Scores payloads cannot be published as complete;
-* source retries do not create uncontrolled duplicate game rows;
-* Stats reports processed games rather than pretending to report metric rows;
-* Facts, Windowed Metrics, and Rankings run in order for 2026;
-* failures stop only the stages that depend on them;
-* the scheduler returns truthful results;
-* existing routes and `/game` logic remain intact;
-* the old annual 2025 aggregate hook is gone.
-
----
-
-# Track B — Claim learning after Track A
-
-Track B preserves and productionizes the existing learning system. It is not an August `/game` blocker.
-
-## Packet 5 — Game-scoped production Level 1
-
-**Goal:** Build a cumulative, replay-safe season claim history.
-
-### First implementation choice
-
-Use postgame reconstruction from pregame-safe inputs for the first production version:
-
-```text
-data_date < game_date
-→ rebuild the game's /game-style claim set
-→ write Level 1 rows for that game
-```
-
-This is sufficient for the first useful system. Immutable scheduled pregame snapshots can be added later if exact “what this code version displayed” auditability becomes important.
-
-Avoid calling the current final-game `get_game_details()` in a way that silently writes `game_model_outcomes`. Use a pure payload builder or an explicit persistence control.
-
-### Locked write rules
-
-* Production receives its own versioned `run_id`, such as `prod_2026_v1`.
-* Historical QA and calibration `run_id` values remain untouched.
-* Rerunning Game A replaces or merges only Game A.
-* Game B remains unchanged.
-* Whole-run replacement stays available only for intentional historical QA batches.
-
-**Local tests:**
-
-1. Write Game A.
-2. Write Game B.
-3. Rerun Game A.
-4. Prove Game B is unchanged.
-5. Prove Game A is not duplicated.
-6. Prove a historical QA run is untouched.
+**Behavior impact:** This is the production activation commit.
 
 **Commit:**
 
 ```text
-Add game-scoped production Level 1 writes
+Activate GameLens metric rebuilds after accepted stats
 ```
 
 ---
 
-## Packet 6 — Levels 2–3 and Claim Health
+## Packet 5 — Preseason rehearsal and replay proof
 
-**Goal:** Validate and enrich the cumulative production claim run.
+**Goal:** Prove the scheduled path can run, no-op, fail visibly, and replay safely.
+
+Run at least:
+
+* no eligible games;
+* incomplete Stats response;
+* valid completed game;
+* duplicate/retry of the same completed game;
+* score correction;
+* one forced builder failure;
+* targeted `load_date` run.
+
+Record:
+
+* accepted/rejected game counts and reasons;
+* output row counts;
+* which stages ran, skipped, or failed;
+* whether the retry duplicated data;
+* whether `/game` remained usable;
+* whether existing routes and `/game` logic remain intact;
+* whether historical QA tables were unchanged.
+
+**Done when:**
 
 ```text
-Eligible Level 1 claims
-→ Level 2 postgame validation
-→ Level 3 feature enrichment
-→ Claim Health reads the production run
-```
-
-**Rules:**
-
-* Level 2 waits for completed-game Facts.
-* Preserve its `run_id + claim_key` merge behavior.
-* Level 3 does not run when Level 2 fails.
-* Learning failures do not roll back source or metric tables.
-* Reruns do not duplicate claim rows.
-* Claim Health names the selected production run explicitly.
-
-Begin with copied/historical test data, dry runs, row counts, and bucket comparisons before production writes.
-
-**Commit:**
-
-```text
-Orchestrate replay-safe Level 2 and Level 3 learning
+The August path can distinguish:
+no new usable data
+vs
+accepted new data and successful rebuild
+vs
+partial failure
+vs
+failure
 ```
 
 ---
+
+# Track B — claim-learning productionization
+
+This track begins only after the August `/game` path is dependable.
+
+## Level 1 — Production claim generation
+
+**Current truth:** Level 1 exists and generates pregame-safe claim examples. The missing work is cumulative production writing and orchestration.
+
+Create a distinct production `run_id`, for example:
+
+```text
+production_daily_2026_claim_training
+```
+
+Requirements:
+
+* Generate or load pregame-safe `/game` payloads for the selected final games.
+* Preserve historical 2023–2025 QA runs.
+* Merge one game's claims by stable grain such as `run_id + claim_key`, or delete/reinsert only that game within the production `run_id`.
+* Never use whole-run replacement to update one game in a cumulative production run.
+* Persist the production row before Level 2.
+
+## Level 2 — Completed-game validation
+
+**Current truth:** `update_claim_training_validation.py` already reads completed-game Facts, validates claims, and merges by `run_id + claim_key`.
+
+Requirements:
+
+* Run only after completed-game Facts exist.
+* Reuse the existing updater unless a proven gap appears.
+* Treat missing evidence as missing, not as a failed claim.
+
+## Level 3 — Feature enrichment and Claim Health
+
+**Current truth:** Level 3 enriches claim rows and Claim Health reads the selected `run_id`.
+
+Requirements:
+
+* Run after Level 2.
+* Point Claim Health at the production run through explicit configuration or an equally small mechanism.
+* Preserve historical QA and calibration run IDs.
 
 ## Level 4 remains manual and reviewable
 
-For the first production season:
+Level 4 should stay a review step, not an automatic daily policy changer.
+
+What it should do:
+
+* summarize validation by confidence and core area;
+* compare current vs calibrated claim-language treatment;
+* show where high-confidence language is unsupported;
+* preserve review artifacts and sample sizes.
+
+What it should not do:
+
+* change winner confidence;
+* rewrite runtime language automatically;
+* auto-approve a recommendation from a small sample;
+* overwrite prior QA runs.
+
+---
+
+# Track C — later backlog
+
+| Item                             | Why later                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| User click analytics             | Useful product-interest data, but not football truth.                         |
+| Durable game-selection events    | Needs a separate event design and privacy/retention decision.                 |
+| Pipeline run ledger              | Logs and truthful stage summaries are enough for the first August version.    |
+| Admin daily snapshots            | Live Claim Health can remain while production learning stabilizes.            |
+| Dynamic multi-season discovery   | One explicit active season is acceptable for August.                          |
+| `/game` SQL view or table function | Existing query/service separation is adequate unless profiling proves otherwise. |
+| Mandatory pregame snapshot store | Current strict-before-date queries already enforce the key product rule.       |
+
+---
+
+## 6. Minimal observability
+
+Do not begin with a BigQuery run-ledger table.
+
+The first operational version needs structured logs and a small returned summary containing:
 
 ```text
-collect an adequate claim sample
-→ calculate Level 4 summaries
-→ review sample size and stability
-→ intentionally approve any runtime-language change
+season
+schedule status/count
+stats accepted/rejected/skipped counts
+scores accepted/rejected/skipped counts
+facts status/count
+windowed status/count
+rankings status/count
+failed stage
+warnings
 ```
 
-Do not create a daily Level 4 scheduler yet. A handful of new games is not enough evidence to alter language rules, and Level 4 is not required for `/game` availability.
+Every stage should distinguish:
+
+```text
+success
+no-op/skipped
+partial failure
+failure
+```
+
+No alert integration is required for the first August pass. Add one only after the core path runs reliably enough that an alert means something useful.
 
 ---
 
-# Track C — Deferred improvements
+## 7. Evidence to preserve
 
-These are useful ideas, not forgotten work.
+For each packet, record:
 
-| Item                             | Why it waits                                                                |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| Immutable pregame snapshots      | Reconstruction is adequate for the first production learning pass.          |
-| Explicit game-view events        | Product analytics should not delay football data readiness.                 |
-| Model-outcome persistence repair | Real retry/side-effect debt, but separate from the core metric path.        |
-| Pipeline run ledger              | Structured logs and return summaries are enough until stable fields emerge. |
-| Admin daily snapshots            | Live Claim Health can remain while production learning stabilizes.          |
-| `/game` SQL simplification       | Current Python shaping and guardrails already work.                         |
-| Frontend fallback cleanup        | Worth documenting, but not an August backend blocker.                       |
-| Dynamic multi-season scheduling  | One configured 2026 season is enough for the immediate goal.                |
+* the commit hash and message;
+* the exact local test command and result;
+* important row counts;
+* accepted and rejected source counts;
+* retry results;
+* 2026 table schema and build evidence;
+* any deliberate BigQuery write.
 
----
-
-## 6. Commit map
-
-| Order | Commit                                       | Production behavior changes?     |
-| ----: | -------------------------------------------- | -------------------------------- |
-|     0 | Update this roadmap                          | No                               |
-|     1 | Add NFL boxscore payload validator and tests | No                               |
-|     2 | Gate NFL Stats loading and make retries safe | Yes: Stats acceptance            |
-|     3 | Validate and safely retry NFL score loads    | Yes: score acceptance            |
-|     4 | Add GameLens metric pipeline conductor       | No                               |
-|     5 | 2026 operational checkpoint                  | Only deliberate manual data work |
-|     6 | Wire the metric pipeline into scheduled ETL  | Yes: scheduled metric builds     |
-|     7 | Add game-scoped production Level 1 writes    | Later: learning storage          |
-|     8 | Orchestrate replay-safe Levels 2–3           | Later: learning updates          |
-
-There is intentionally no August commit for a run ledger, click analytics, snapshot storage, or automated Level 4 policy.
-
----
-
-## 7. Local testing ladder
-
-Use the same ladder for each packet:
-
-1. Read the full current function/file.
-2. Run syntax and import checks.
-3. Run focused unit tests with no cloud writes.
-4. Run mocked orchestration tests where relevant.
-5. Run an existing builder in dry-run/read-only mode.
-6. Review row counts, samples, and warnings.
-7. Perform one deliberate BigQuery write only after the dry run is understood.
-8. Review `git diff`.
-9. Commit the one proven behavior.
-10. Record the result and stop.
-
-If a result is confusing, diagnose it before adding more code.
+Keep the evidence short. A stand-up entry or compact roadmap status note is enough. Do not bury the result in a new large document.
 
 ---
 
@@ -632,7 +648,7 @@ At the start:
 * read this roadmap;
 * name the current packet;
 * confirm the latest completed commit;
-* compare with current `meow/main`;
+* compare with current `meow/dev`;
 * inspect the complete affected function;
 * state whether the packet is inert or changes production;
 * state the exact local test that proves success.
@@ -667,15 +683,15 @@ At the end:
 
 ## 10. Next action
 
-Begin with Packet 0, then complete Packet 1A only:
+Begin Packet 1B only:
 
 ```text
-Confirm current source functions on meow/main
-→ create the pure Stats validator
-→ add focused tests
+Inspect current Stats ingestion on meow/dev
+→ integrate the proven Packet 1A validator
+→ add focused acceptance and retry-safety tests
 → run locally
 → commit
 → stop
 ```
 
-No `app.py` change. No BigQuery write. No Levels 1–4 change.
+Packet 1B changes scheduled Stats acceptance behavior. No `app.py` change. No Levels 1–4 change.
