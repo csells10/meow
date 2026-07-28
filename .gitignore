@@ -54,3 +54,10 @@ pip-delete-this-directory.txt
 # Retool exports or backups
 *.bak
 *.tmp
+
+# Generated GameLens QA outputs
+qa/api_response_runs/
+qa/upload_bundles/
+qa/*_runs/
+qa/*_export*/
+qa/*.zip
