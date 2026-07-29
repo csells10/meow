@@ -44,27 +44,27 @@ def _install_import_stubs() -> None:
 
 _install_import_stubs()
 
-from services import gamelens_pipeline_orchestrator as orchestrator
+from services import gamelens_metric_pipeline_conductor as conductor
 
 
 def _df(rows: int) -> pd.DataFrame:
     return pd.DataFrame({"value": range(rows)})
 
 
-class GameLensMetricPipelineTests(unittest.TestCase):
+class GameLensMetricPipelineConductorTests(unittest.TestCase):
     def setUp(self):
         self.facts = patch.object(
-            orchestrator,
+            conductor,
             "run_build_game_team_metric_facts",
             return_value=_df(2),
         ).start()
         self.windowed = patch.object(
-            orchestrator,
+            conductor,
             "run_build_windowed_metrics",
             return_value=_df(3),
         ).start()
         self.rankings = patch.object(
-            orchestrator,
+            conductor,
             "run_build_team_metric_rankings",
             return_value=_df(4),
         ).start()
@@ -80,7 +80,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
             lambda **kwargs: call_order.append("rankings") or _df(4)
         )
 
-        summary = orchestrator.run_gamelens_metric_pipeline(
+        summary = conductor.run_gamelens_metric_pipeline(
             season="2025",
             if_exists="replace",
             write=False,
@@ -113,7 +113,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
     def test_facts_exception_skips_later_stages(self):
         self.facts.side_effect = RuntimeError("facts failed")
 
-        summary = orchestrator.run_gamelens_metric_pipeline("2025", write=False)
+        summary = conductor.run_gamelens_metric_pipeline("2025", write=False)
 
         self.assertEqual(summary["status"], "failed")
         self.assertEqual(summary["failed_stage"], "facts")
@@ -128,7 +128,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
     def test_empty_facts_result_stops_pipeline(self):
         self.facts.return_value = pd.DataFrame()
 
-        summary = orchestrator.run_gamelens_metric_pipeline("2025", write=False)
+        summary = conductor.run_gamelens_metric_pipeline("2025", write=False)
 
         self.assertEqual(summary["failed_stage"], "facts")
         self.assertEqual(summary["stages"]["facts"]["status"], "failed")
@@ -138,7 +138,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
     def test_non_dataframe_result_stops_pipeline(self):
         self.facts.return_value = []
 
-        summary = orchestrator.run_gamelens_metric_pipeline("2025", write=False)
+        summary = conductor.run_gamelens_metric_pipeline("2025", write=False)
 
         self.assertEqual(summary["failed_stage"], "facts")
         self.assertEqual(summary["stages"]["facts"]["status"], "failed")
@@ -148,7 +148,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
     def test_windowed_failure_preserves_facts_and_skips_rankings(self):
         self.windowed.side_effect = RuntimeError("windowed failed")
 
-        summary = orchestrator.run_gamelens_metric_pipeline("2025", write=False)
+        summary = conductor.run_gamelens_metric_pipeline("2025", write=False)
 
         self.assertEqual(summary["failed_stage"], "windowed_metrics")
         self.assertEqual(
@@ -164,7 +164,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
     def test_rankings_failure_preserves_completed_stages(self):
         self.rankings.side_effect = RuntimeError("rankings failed")
 
-        summary = orchestrator.run_gamelens_metric_pipeline("2025", write=False)
+        summary = conductor.run_gamelens_metric_pipeline("2025", write=False)
 
         self.assertEqual(summary["failed_stage"], "rankings")
         self.assertEqual(
@@ -179,7 +179,7 @@ class GameLensMetricPipelineTests(unittest.TestCase):
 
     def test_requires_nonblank_explicit_season(self):
         with self.assertRaisesRegex(ValueError, "season is required"):
-            orchestrator.run_gamelens_metric_pipeline(" ", write=False)
+            conductor.run_gamelens_metric_pipeline(" ", write=False)
 
         self.facts.assert_not_called()
         self.windowed.assert_not_called()

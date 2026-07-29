@@ -1,4 +1,4 @@
-"""Run the GameLens season metric builders in their required order."""
+"""Conduct the GameLens metric builders in their required order."""
 
 from __future__ import annotations
 
