@@ -166,6 +166,31 @@ For each implementation step, provide:
 6. Suggested commit message
 7. One next packet only
 
+### Unit tests versus a production API run
+
+The Packet 1A/1B/1C test suite is a development regression suite, not another stage in the scheduled ETL cycle.
+
+Current runtime behavior is:
+
+```text
+Scheduler or manual /test ingestion trigger
+→ Schedule loader
+→ Stats loader
+   → Packet 1A validator runs inside Packet 1B loading/retry behavior
+→ Scores loader
+   → Packet 1C score validation and retry behavior
+```
+
+The safety behavior proven by the tests therefore runs automatically when its loader runs. The 31 `unittest` cases themselves do not run when the API job or the `/test` ingestion route is kicked off.
+
+Run the focused suite explicitly with:
+
+```bash
+python -m unittest discover -s tests/api_calls -p "test_*.py" -v
+```
+
+The current `app.py` and `cloudbuild.yaml` do not invoke that command. Automatic test execution would require a dedicated CI or Cloud Build test step. The route named `/test` is a manual ingestion endpoint; it is not the Python unit-test runner.
+
 ---
 
 ## 6. Lens-tag preservation rule
