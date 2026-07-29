@@ -3,7 +3,7 @@
 **Last revised:** 2026-07-29
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 2 — Metric pipeline conductor (`NEXT`)
+**Current packet:** Packet 3 — 2026 operational checkpoint (`NEXT`)
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -107,7 +107,8 @@ These are the working assumptions this roadmap protects.
 | Legacy aggregation       | `app.py` still calls the annual 2025 aggregate after Stats reports activity.                                                                                                                           | Replace only this hook after the new metric conductor is tested.                                                         |
 | Facts builder            | `run_build_game_team_metric_facts()` already builds, validates, dry-runs, and writes the season table.                                                                                                 | Reuse it.                                                                                                                |
 | Windowed builder         | `run_build_windowed_metrics()` already builds, validates, dry-runs, and writes the season table.                                                                                                       | Reuse it.                                                                                                                |
-| Rankings builder         | The existing rankings job produces `team_metric_rankings_{season}`.                                                                                                                                    | Reuse it after confirming its current callable entry point on `dev`.                                                     |
+| Rankings builder         | `run_build_team_metric_rankings()` builds, validates, dry-runs, and writes `team_metric_rankings_{season}`.                                                                                            | Reuse it.                                                                                                                |
+| Metric conductor         | `run_gamelens_metric_pipeline()` calls Facts → Windowed Metrics → Rankings for one explicit season and reports stage status/counts.                                                                    | Packet 2 is complete and remains inert until `app.py` calls it.                                                          |
 | `/game` pregame safety   | Team metrics and rankings are selected strictly before the target game date.                                                                                                                           | Preserve this rule.                                                                                                      |
 | Level 2                  | Validation uses completed-game Facts and merges by `run_id + claim_key`.                                                                                                                               | Reuse it; it is already broadly retry-friendly.                                                                          |
 | Claim Health             | Admin reads claim-training examples for a selected `run_id`.                                                                                                                                           | Keep Claim Health in the learning path, separate from click tracking.                                                    |
@@ -373,18 +374,42 @@ Validate and safely retry NFL score loads
 
 ## Packet 2 — Metric pipeline conductor
 
-**Status:** `NEXT`
+**Status:** `COMPLETE`
+
+**Evidence:** Implementation commit `e054ee0` (`Add GameLens metric pipeline conductor`); naming clarification commit `4c3e919` (`Clarify GameLens metric conductor naming`). The final files are:
+
+```text
+services/gamelens_metric_pipeline_conductor.py
+tests/services/test_gamelens_metric_pipeline_conductor.py
+```
+
+All seven focused tests passed locally:
+
+```bash
+python -m unittest discover -s tests/services -p "test_gamelens_metric_pipeline_conductor.py" -v
+```
+
+The credentialed historical BigQuery dry run also succeeded:
+
+```bash
+python -c "from services.gamelens_metric_pipeline_conductor import run_gamelens_metric_pipeline; print(run_gamelens_metric_pipeline(season='2025', write=False))"
+```
+
+Recorded result:
+
+```text
+overall status: success
+failed stage: None
+Facts: 36,532 rows
+Windowed Metrics: 138,532 rows
+Rankings: 426,086 rows
+```
+
+Expected warnings were observed and handled without failure: 5,328 rows across eight unregistered metrics were excluded, and 220 duplicate Facts rows were deduplicated with `keep="last"`. The newly calculated Facts count matched the stored Facts count of 36,532.
 
 **Goal:** Call the existing season builders in the only valid order.
 
-**Create:**
-
-```text
-services/gamelens_pipeline_orchestrator.py
-tests/services/test_gamelens_pipeline_orchestrator.py
-```
-
-**Required order:**
+**Implemented order:**
 
 ```text
 Facts
@@ -392,38 +417,26 @@ Facts
 → Rankings
 ```
 
-Confirm the current callable entry point in `build_metric_rankings.py` before implementation.
+The conductor:
 
-The conductor should:
+* requires one explicit nonblank season;
+* reuses `run_build_game_team_metric_facts()`, `run_build_windowed_metrics()`, and `run_build_team_metric_rankings()`;
+* passes `recreate_table=False` to Rankings;
+* does not copy or transform builder SQL, formulas, windows, rankings, or `lens_tags`;
+* stops when a stage raises or returns an empty/non-DataFrame result;
+* marks downstream uncalled stages as skipped;
+* returns a plain summary with season, overall status, failed stage, stage statuses, and row counts;
+* forwards `write=False` to every builder.
 
-* accept one explicit season;
-* call the existing builders without copying their logic;
-* stop when a stage raises or returns an invalid result;
-* return a small plain summary containing the season, stage statuses, and row counts;
-* log the failed stage;
-* contain no Level 1–4 work.
+**Dry-run boundary:** With `write=False`, each builder calculates from its currently stored source table. Newly calculated upstream DataFrames are not passed downstream in memory. No BigQuery table is created, replaced, appended to, recreated, or wiped, though normal query costs can occur.
 
-Do not add a run-ledger table, custom workflow engine, retry queue, or generalized task framework.
-
-**Local tests:**
-
-1. Verify Facts → Windowed → Rankings call order.
-2. Facts failure prevents both later builders.
-3. Windowed failure prevents Rankings.
-4. The returned summary names completed, skipped, and failed stages truthfully.
-5. Existing builders complete a historical 2025 dry run/read-only comparison.
-
-**Behavior impact:** None until `app.py` calls the conductor.
-
-**Commit:**
-
-```text
-Add GameLens metric pipeline conductor
-```
+**Behavior impact:** None. `app.py` does not import or call the conductor, so Packet 2 does not create or activate the daily pipeline.
 
 ---
 
 ## Packet 3 — 2026 operational checkpoint
+
+**Status:** `NEXT`
 
 **Goal:** Prove the existing metric system can support 2026 before scheduling it.
 
@@ -719,16 +732,17 @@ At the end:
 
 ## 10. Next action
 
-Begin Packet 2 only:
+Begin Packet 3 only:
 
 ```text
 Confirm current meow/dev and a clean working tree
-→ inspect the complete current Facts, Windowed Metrics, and Rankings callable entry points
-→ define the smallest plain conductor interface
-→ add focused call-order and stop-on-failure tests
-→ run locally
-→ commit
+→ inspect the existing metric-table setup script and current 2025 schemas
+→ inspect available 2026 schedule and Stats source coverage read-only
+→ define the smallest safe 2026 schema/build checkpoint
+→ verify lens_tags remains REPEATED STRING
+→ run deliberate 2026 builds only after scope and write behavior are approved
+→ record row counts, samples, timing, and any warnings
 → stop
 ```
 
-Packet 2 is inert until `app.py` calls it. Create only the small conductor and its focused tests. Do not change `app.py`, source ingestion, `/game`, lens tags, or Levels 1–4.
+Packet 3 is the operational proof before scheduling. Do not change `app.py`, source ingestion, `/game`, metric formulas, window definitions, ranking logic, lens tags, or Levels 1–4. If 2026 source data is legitimately absent, record that boundary rather than manufacturing readiness evidence.

@@ -20,17 +20,20 @@ This snapshot is a starting point, not a substitute for checking current `meow/d
 
 ```text
 Branch/source of truth: dev
-Last verified implementation commit: 67e2212
-Latest completed packet: Packet 1C — Score validation and retry safety
-Packet 1C implementation: 67e2212
-Verification: 31 focused Packet 1A/1B/1C tests passed; focused loader files compiled
-BigQuery contract: existing Scores.scores and Scores.score_status schemas preserved
-Next packet: Packet 2 — Metric pipeline conductor
+Last verified implementation commit: 4c3e919
+Latest completed packet: Packet 2 — GameLens metric pipeline conductor
+Packet 2 implementation: e054ee0; naming clarification: 4c3e919
+Verification: 7 focused Packet 2 tests passed; credentialed 2025 BigQuery dry run succeeded with write=False
+Dry-run rows: Facts 36,532; Windowed Metrics 138,532; Rankings 426,086
+Protected behavior: no BigQuery tables changed; app.py and production scheduling remain unchanged
+Next packet: Packet 3 — 2026 operational checkpoint
 ```
 
-`67e2212` implements Packet 1C on top of the preserved Packet 1A/1B and current application baseline. It validates final score payloads, batches Tank01 requests by game date, reconciles only the target game's two score rows, confirms storage before marking success, and preserves the live BigQuery schema. `app.py`, `/game`, lens tags, Levels 1–4, and `main` were not changed.
+`e054ee0` added Packet 2's small conductor, and `4c3e919` clarified its scope through the final module name `services/gamelens_metric_pipeline_conductor.py`. The conductor requires an explicit season, calls the existing builders in Facts → Windowed Metrics → Rankings order, stops on invalid or failed stages, and returns truthful stage statuses and row counts. It is inert until `app.py` calls it.
 
-If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packet 1B merely because this snapshot is older than the branch.
+The real 2025 `write=False` run completed successfully with 36,532 Facts rows, 138,532 Windowed Metrics rows, and 426,086 Rankings rows. The expected warnings—5,328 rows across eight unregistered metrics excluded and 220 duplicate Facts rows deduplicated with `keep="last"`—did not fail the run. No BigQuery table was created, replaced, appended to, recreated, or wiped.
+
+If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packet 2 merely because this snapshot is older than the branch.
 
 ---
 
@@ -111,7 +114,7 @@ Before a normal code push:
 For a documentation-only checkpoint that must not invoke Cloud Build, include `[skip ci]` in the commit message:
 
 ```text
-Document Packet 1B completion and advance to Packet 1C [skip ci]
+Document Packet 2 completion and advance to Packet 3 [skip ci]
 ```
 
 This skip marker is an extra safeguard for the documentation checkpoint. It does not replace correcting and verifying the production trigger's branch filter.
@@ -183,13 +186,27 @@ Scheduler or manual /test ingestion trigger
 
 The safety behavior proven by the tests therefore runs automatically when its loader runs. The 31 `unittest` cases themselves do not run when the API job or the `/test` ingestion route is kicked off.
 
-Run the focused suite explicitly with:
+Run the focused source-ingestion suite explicitly with:
 
 ```bash
 python -m unittest discover -s tests/api_calls -p "test_*.py" -v
 ```
 
-The current `app.py` and `cloudbuild.yaml` do not invoke that command. Automatic test execution would require a dedicated CI or Cloud Build test step. The route named `/test` is a manual ingestion endpoint; it is not the Python unit-test runner.
+Run Packet 2's focused conductor suite with:
+
+```bash
+python -m unittest discover -s tests/services -p "test_gamelens_metric_pipeline_conductor.py" -v
+```
+
+The credentialed historical read-only check is:
+
+```bash
+python -c "from services.gamelens_metric_pipeline_conductor import run_gamelens_metric_pipeline; print(run_gamelens_metric_pipeline(season='2025', write=False))"
+```
+
+This command reads and calculates against current stored 2025 inputs. Because `write=False` is forwarded to every builder, it does not create, replace, append to, recreate, or wipe BigQuery tables. Normal BigQuery query costs can still occur.
+
+The current `app.py` and `cloudbuild.yaml` do not invoke these commands. Automatic test execution would require a dedicated CI or Cloud Build test step. The route named `/test` is a manual ingestion endpoint; it is not the Python unit-test runner.
 
 ---
 
@@ -228,10 +245,11 @@ We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
-Last verified implementation: Packet 1C at 67e2212 on 2026-07-29
-Latest verified completed packet: Packet 1C
-Focused verification: 31 Packet 1A/1B/1C tests passed
-Expected next packet: Packet 2 — Metric pipeline conductor
+Last verified implementation: Packet 2 at e054ee0, clarified at 4c3e919, on 2026-07-29
+Latest verified completed packet: Packet 2 — GameLens metric pipeline conductor
+Focused verification: 7 Packet 2 tests passed
+Credentialed verification: 2025 write=False dry run succeeded (Facts 36,532; Windowed 138,532; Rankings 426,086)
+Expected next packet: Packet 3 — 2026 operational checkpoint
 
 First read these files from the repository:
 - documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
@@ -248,9 +266,9 @@ Tell me:
 
 Preserve the roadmap's safety contract, including lens_tags as REPEATED STRING/list[str] from metric_registry.py through Windowed Metrics, Rankings, queries, and /game.
 
-For Packet 2, inspect the complete current callable entry points in build_metric_facts.py, build_windowed_metrics.py, and build_metric_rankings.py before proposing the conductor. Reuse those builders; do not copy their SQL or logic into the conductor.
+For Packet 3, inspect the existing metric-table setup script, current 2025 schemas, available 2026 source data, and the Packet 2 conductor before proposing any write. Separate read-only schema/source checks from deliberate 2026 table creation or replacement.
 
-Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 3, app.py, or Levels 1–4. Once we agree on Packet 2, provide complete replacement functions/files and focused tests rather than scattered line edits.
+Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 4, app.py, or Levels 1–4. First propose the smallest safe Packet 3 checkpoint, including the exact BigQuery reads, any deliberate writes, expected evidence, and stop conditions.
 ```
 
 ---
