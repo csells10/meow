@@ -1,9 +1,9 @@
 # GameLens Backend August Readiness Roadmap
 
-**Last revised:** 2026-07-28
+**Last revised:** 2026-07-29
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 1B — Stats acceptance and retry safety (`NEXT`)
+**Current packet:** Packet 1C — Score validation and retry safety (`NEXT`)
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -245,7 +245,9 @@ Add NFL boxscore payload validator and tests
 
 ### Packet 1B — Stats acceptance and retry safety
 
-**Status:** `NEXT`
+**Status:** `COMPLETE`
+
+**Evidence:** Packet 1B implementation commit `c7e9e98`; the combined Packet 1A/1B focused suite ran 19 tests successfully, and the validator, Stats loader, and both focused test files compiled successfully. Commit `b4ff2fa` then merged the current `main` application baseline into `dev` while preserving the Packet 1A/1B files unchanged. The merge was pushed, and local `dev` and `origin/dev` were confirmed synchronized at `0 0`.
 
 **Goal:** Publish only complete Stats data and keep retries from creating ambiguous duplicates.
 
@@ -299,6 +301,8 @@ Gate NFL stats loading and make retries safe
 ```
 
 ### Packet 1C — Score validation and retry safety
+
+**Status:** `NEXT`
 
 **Goal:** Prevent empty final-score rows and repeated game rows from entering `Scores.scores`.
 
@@ -683,15 +687,16 @@ At the end:
 
 ## 10. Next action
 
-Begin Packet 1B only:
+Begin Packet 1C only:
 
 ```text
-Inspect current Stats ingestion on meow/dev
-→ integrate the proven Packet 1A validator
-→ add focused acceptance and retry-safety tests
+Confirm current meow/dev and a clean working tree
+→ inspect the complete current Scores loader and closest existing tests
+→ choose the smallest score-validation and game-scoped retry approach
+→ add focused score acceptance, correction, and retry-safety tests
 → run locally
 → commit
 → stop
 ```
 
-Packet 1B changes scheduled Stats acceptance behavior. No `app.py` change. No Levels 1–4 change.
+Packet 1C changes scheduled Scores acceptance behavior. Update only the current Scores loader and its focused tests unless inspecting the code proves a tiny helper file is necessary. No `app.py` change. No metric-conductor work. No Levels 1–4 change.

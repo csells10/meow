@@ -6,11 +6,31 @@
 
 This file helps a new ChatGPT conversation resume backend work without relying on memory from an older chat.
 
-Use the attached How-To and August Readiness Plan to continue the GameLens backend work. First inspect the current meow/dev branch and recent commits read-only. Reconcile the repository against the roadmap, confirm the current packet, and recommend only the next smallest locally testable step. Preserve lens_tags, Levels 1–4, historical runs, and existing behavior. Do not change code until we agree on the next step. When providing Python changes, give me complete functions rather than scattered line edits.
+Use the attached How-To and canonical August Readiness Roadmap to continue the GameLens backend work. The older August Readiness Plan is a superseded planning draft and must not override the roadmap. First inspect the current meow/dev branch and recent commits read-only. Reconcile the repository against the roadmap, confirm the current packet, and recommend only the next smallest locally testable step. Preserve lens_tags, Levels 1–4, historical runs, and existing behavior. Do not change code until we agree on the next step. When providing Python changes, give me complete functions rather than scattered line edits.
 
 The goal is simple:
 
 > Inspect current code and commits, determine the first unfinished roadmap packet, complete one locally testable behavior, and stop.
+
+---
+
+## Current verified handoff — 2026-07-29
+
+This snapshot is a starting point, not a substitute for checking current `meow/dev`.
+
+```text
+Branch/source of truth: dev
+Last verified dev commit: b4ff2fa
+Local/remote state after push: dev == origin/dev (0 ahead, 0 behind)
+Latest completed packet: Packet 1B — Stats acceptance and retry safety
+Packet 1B implementation: c7e9e98
+Verification: 19 focused Packet 1A/1B tests passed; focused files compiled
+Next packet: Packet 1C — Score validation and retry safety
+```
+
+`b4ff2fa` merged the current `main` application baseline into `dev`. Read-only comparisons confirmed that the application baseline from `main` and the Packet 1A/1B files from the protected backup both survived unchanged. `main` itself was not moved or rewritten.
+
+If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packet 1B merely because this snapshot is older than the branch.
 
 ---
 
@@ -61,7 +81,44 @@ Fetching updates is safe for comparison. Merging, rebasing, switching branches, 
 
 ---
 
-## 3. How to determine the current packet
+## 3. Git and deployment safety
+
+The working branch for August-readiness packets and roadmap checkpoints is `dev`. Do not apply these updates to `main`.
+
+Before editing or committing:
+
+```bash
+git switch dev
+git fetch origin
+git status --short --branch
+git rev-list --left-right --count origin/dev...HEAD
+```
+
+Proceed only from a clean, understood working tree. If local `dev` is merely behind `origin/dev`, update it with:
+
+```bash
+git pull --ff-only origin dev
+```
+
+A local commit does not deploy anything. A push can invoke an external Google Cloud Build trigger. The checked-in `cloudbuild.yaml` deploys the production service `nfl-games-app-main`, so neither the `dev` branch name nor documentation-only file scope is sufficient protection by itself.
+
+Before a normal code push:
+
+1. Confirm the external Cloud Build production trigger matches `main` only.
+2. Do not push `dev` if that trigger can match `dev`.
+3. After pushing, check build history and confirm no unintended production build started.
+
+For a documentation-only checkpoint that must not invoke Cloud Build, include `[skip ci]` in the commit message:
+
+```text
+Document Packet 1B completion and advance to Packet 1C [skip ci]
+```
+
+This skip marker is an extra safeguard for the documentation checkpoint. It does not replace correcting and verifying the production trigger's branch filter.
+
+---
+
+## 4. How to determine the current packet
 
 Do not mark a packet complete because a commit message sounds similar.
 
@@ -86,7 +143,7 @@ Christian does not need to remember to check off every packet. At a meaningful c
 
 ---
 
-## 4. Working style for code changes
+## 5. Working style for code changes
 
 Christian makes and tests his own local changes. Guidance should therefore be easy to apply and easy to reverse.
 
@@ -111,7 +168,7 @@ For each implementation step, provide:
 
 ---
 
-## 5. Lens-tag preservation rule
+## 6. Lens-tag preservation rule
 
 `lens_tags` is a protected forward-looking data contract.
 
@@ -139,13 +196,17 @@ This protection does not require a new service, table, or scheduler.
 
 ---
 
-## 6. Ready-to-paste opening prompt
+## 7. Ready-to-paste opening prompt
 
 ```text
 We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
+Last verified handoff: dev/origin/dev at b4ff2fa on 2026-07-29
+Latest verified completed packet: Packet 1B (implementation c7e9e98)
+Focused verification: 19 Packet 1A/1B tests passed
+Expected next packet: Packet 1C — Score validation and retry safety
 
 First read these files from the repository:
 - documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
@@ -162,12 +223,14 @@ Tell me:
 
 Preserve the roadmap's safety contract, including lens_tags as REPEATED STRING/list[str] from metric_registry.py through Windowed Metrics, Rankings, queries, and /game.
 
-Do not change code yet. Do not redesign GameLens. Do not jump ahead to app.py or Levels 1–4. Once we agree on the packet, provide complete replacement functions/files and focused tests rather than scattered line edits.
+For Packet 1C, inspect the complete current api_calls/api_call_nfl_scores.py and the closest existing score-loader tests before proposing implementation. Do not infer the current code from the older August Plan.
+
+Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 2, app.py, or Levels 1–4. Once we agree on Packet 1C, provide complete replacement functions/files and focused tests rather than scattered line edits.
 ```
 
 ---
 
-## 7. End-of-session handoff
+## 8. End-of-session handoff
 
 At the end of a useful session, record only:
 
@@ -185,7 +248,7 @@ If no commit was made, say so. A diagnosis or investigation can be useful withou
 
 ---
 
-## 8. What not to do
+## 9. What not to do
 
 - Do not treat frontend game selection as claim-learning evidence.
 - Do not make Levels 1–4 a prerequisite for `/game`.
