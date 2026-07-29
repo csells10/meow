@@ -47,6 +47,14 @@ flowchart TD
     I --> J
 ```
 
+Scheduled source ingestion currently executes linearly:
+
+```text
+Schedule → Stats → Scores
+```
+
+Schedule establishes the shared game identity. Stats and Scores then attach different source facts to those scheduled games.
+
 Required metric build order:
 
 ```text
@@ -104,6 +112,26 @@ These are the working assumptions this roadmap protects.
 | Level 2                  | Validation uses completed-game Facts and merges by `run_id + claim_key`.                                                                                                                               | Reuse it; it is already broadly retry-friendly.                                                                          |
 | Claim Health             | Admin reads claim-training examples for a selected `run_id`.                                                                                                                                           | Keep Claim Health in the learning path, separate from click tracking.                                                    |
 | Final-game GET           | A final `/game/<game_id>` request may save a game-level outcome and trust details.                                                                                                                     | Do not confuse this side effect with Level 1 or user-event logging.                                                      |
+
+### Runtime safeguards versus unit tests
+
+Packets 1A–1C created both production safeguards and a focused regression suite. They are related, but they do not execute in the same place.
+
+```text
+Production API cycle:
+Scheduler or manual /test ingestion trigger
+→ Schedule
+→ Stats [Packet 1A validation + Packet 1B acceptance/retry safety]
+→ Scores [Packet 1C validation/retry safety]
+
+Development verification:
+python -m unittest discover -s tests/api_calls -p "test_*.py" -v
+→ 31 focused Packet 1A/1B/1C tests
+```
+
+When the API cycle runs, the validator and retry-safe loader behavior run automatically inside Stats and Scores. The 31 unit-test cases do **not** run as a post-ETL production stage. The current `app.py` and `cloudbuild.yaml` contain no unit-test invocation, and the route named `/test` is a manual ingestion trigger rather than the Python test runner.
+
+If automatic regression testing is wanted on future pushes, add an explicit CI or Cloud Build test step. Keep that separate from the scheduled ingestion request so production ETL does not spend time running its own development test harness.
 
 ---
 
