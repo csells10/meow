@@ -3,7 +3,7 @@
 **Last revised:** 2026-07-29
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 1C — Score validation and retry safety (`NEXT`)
+**Current packet:** Packet 2 — Metric pipeline conductor (`NEXT`)
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -302,7 +302,9 @@ Gate NFL stats loading and make retries safe
 
 ### Packet 1C — Score validation and retry safety
 
-**Status:** `NEXT`
+**Status:** `COMPLETE`
+
+**Evidence:** Implementation commit `67e2212` (`Validate and safely retry NFL score loads`). The combined Packet 1A/1B/1C focused suite ran 31 tests successfully, and the Stats/Scores loaders plus both focused loader test files compiled successfully. The live `Scores.scores` and `Scores.score_status` schemas were inspected before implementation; Packet 1C preserves the existing 13-column score-row contract and two-column status contract.
 
 **Goal:** Prevent empty final-score rows and repeated game rows from entering `Scores.scores`.
 
@@ -342,6 +344,8 @@ Validate and safely retry NFL score loads
 ---
 
 ## Packet 2 — Metric pipeline conductor
+
+**Status:** `NEXT`
 
 **Goal:** Call the existing season builders in the only valid order.
 
@@ -687,16 +691,16 @@ At the end:
 
 ## 10. Next action
 
-Begin Packet 1C only:
+Begin Packet 2 only:
 
 ```text
 Confirm current meow/dev and a clean working tree
-→ inspect the complete current Scores loader and closest existing tests
-→ choose the smallest score-validation and game-scoped retry approach
-→ add focused score acceptance, correction, and retry-safety tests
+→ inspect the complete current Facts, Windowed Metrics, and Rankings callable entry points
+→ define the smallest plain conductor interface
+→ add focused call-order and stop-on-failure tests
 → run locally
 → commit
 → stop
 ```
 
-Packet 1C changes scheduled Scores acceptance behavior. Update only the current Scores loader and its focused tests unless inspecting the code proves a tiny helper file is necessary. No `app.py` change. No metric-conductor work. No Levels 1–4 change.
+Packet 2 is inert until `app.py` calls it. Create only the small conductor and its focused tests. Do not change `app.py`, source ingestion, `/game`, lens tags, or Levels 1–4.

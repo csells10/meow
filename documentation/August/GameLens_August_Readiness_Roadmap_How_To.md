@@ -20,15 +20,15 @@ This snapshot is a starting point, not a substitute for checking current `meow/d
 
 ```text
 Branch/source of truth: dev
-Last verified dev commit: b4ff2fa
-Local/remote state after push: dev == origin/dev (0 ahead, 0 behind)
-Latest completed packet: Packet 1B — Stats acceptance and retry safety
-Packet 1B implementation: c7e9e98
-Verification: 19 focused Packet 1A/1B tests passed; focused files compiled
-Next packet: Packet 1C — Score validation and retry safety
+Last verified implementation commit: 67e2212
+Latest completed packet: Packet 1C — Score validation and retry safety
+Packet 1C implementation: 67e2212
+Verification: 31 focused Packet 1A/1B/1C tests passed; focused loader files compiled
+BigQuery contract: existing Scores.scores and Scores.score_status schemas preserved
+Next packet: Packet 2 — Metric pipeline conductor
 ```
 
-`b4ff2fa` merged the current `main` application baseline into `dev`. Read-only comparisons confirmed that the application baseline from `main` and the Packet 1A/1B files from the protected backup both survived unchanged. `main` itself was not moved or rewritten.
+`67e2212` implements Packet 1C on top of the preserved Packet 1A/1B and current application baseline. It validates final score payloads, batches Tank01 requests by game date, reconciles only the target game's two score rows, confirms storage before marking success, and preserves the live BigQuery schema. `app.py`, `/game`, lens tags, Levels 1–4, and `main` were not changed.
 
 If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packet 1B merely because this snapshot is older than the branch.
 
@@ -203,10 +203,10 @@ We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
-Last verified handoff: dev/origin/dev at b4ff2fa on 2026-07-29
-Latest verified completed packet: Packet 1B (implementation c7e9e98)
-Focused verification: 19 Packet 1A/1B tests passed
-Expected next packet: Packet 1C — Score validation and retry safety
+Last verified implementation: Packet 1C at 67e2212 on 2026-07-29
+Latest verified completed packet: Packet 1C
+Focused verification: 31 Packet 1A/1B/1C tests passed
+Expected next packet: Packet 2 — Metric pipeline conductor
 
 First read these files from the repository:
 - documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
@@ -223,9 +223,9 @@ Tell me:
 
 Preserve the roadmap's safety contract, including lens_tags as REPEATED STRING/list[str] from metric_registry.py through Windowed Metrics, Rankings, queries, and /game.
 
-For Packet 1C, inspect the complete current api_calls/api_call_nfl_scores.py and the closest existing score-loader tests before proposing implementation. Do not infer the current code from the older August Plan.
+For Packet 2, inspect the complete current callable entry points in build_metric_facts.py, build_windowed_metrics.py, and build_metric_rankings.py before proposing the conductor. Reuse those builders; do not copy their SQL or logic into the conductor.
 
-Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 2, app.py, or Levels 1–4. Once we agree on Packet 1C, provide complete replacement functions/files and focused tests rather than scattered line edits.
+Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 3, app.py, or Levels 1–4. Once we agree on Packet 2, provide complete replacement functions/files and focused tests rather than scattered line edits.
 ```
 
 ---
