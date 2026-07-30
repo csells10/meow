@@ -4,6 +4,7 @@
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
 **Current packet:** Packet 4 — Activate through `app.py` (`NEXT`)
+**Deployment preflight:** Complete on `dev`; production activation has not occurred
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -105,6 +106,9 @@ These are the working assumptions this roadmap protects.
 | Targeted runs            | `app.py` can pass `load_date` through the configured calls, but the loader signatures are not consistently aligned.                                                                                    | Normalize this small interface while each loader is already being edited.                                                |
 | Scheduler errors         | The current scheduler catches individual API errors and can still return a success response.                                                                                                           | Return a truthful success, no-op, partial failure, or failure.                                                           |
 | Legacy aggregation       | `app.py` still calls the annual 2025 aggregate after Stats reports activity.                                                                                                                           | Replace only this hook after the new metric conductor is tested.                                                         |
+| Container runtime         | Commit `2d95b4e` changed the Docker image from Python 3.9 to Python 3.11, matching `runtime.txt`; the isolated one-file commit is present on `dev`.                                                   | Treat Python 3.11 as the deployment runtime and verify the container before activation.                                  |
+| Deployment trigger        | The external `dev` Cloud Build trigger is disabled; the enabled production trigger matches `^main$`.                                                                                                  | `dev` work must remain non-deploying; production activation occurs only through the controlled `main` path.              |
+| Request deadlines         | Cloud Run currently permits 300 seconds; the enabled 8:00 a.m. Eastern Scheduler job permits 180 seconds and has no automatic retries (`retryCount` absent/default `0`).                              | Align both request deadlines to 900 seconds during controlled activation; keep automatic retries disabled initially.     |
 | Facts builder            | `run_build_game_team_metric_facts()` already builds, validates, dry-runs, and writes the season table.                                                                                                 | Reuse it.                                                                                                                |
 | Windowed builder         | `run_build_windowed_metrics()` already builds, validates, dry-runs, and writes the season table.                                                                                                       | Reuse it.                                                                                                                |
 | Rankings builder         | `run_build_team_metric_rankings()` builds, validates, dry-runs, and writes `team_metric_rankings_{season}`.                                                                                            | Reuse it.                                                                                                                |
@@ -549,11 +553,38 @@ Record source/output counts, representative strong/supporting/watch metric sampl
 
 **Goal:** Replace the legacy annual aggregate hook with the tested metric conductor.
 
-**Update last:**
+### Completed deployment preflight
+
+The following checks were completed on 2026-07-30 before Packet 4 implementation:
+
+```text
+Python image: 3.9 → 3.11
+Runtime commit: 2d95b4e — Align Cloud Run image with Python 3.11
+Commit scope: Dockerfile only
+GitHub proof: dev is exactly one Dockerfile commit ahead of documentation checkpoint d76dbea
+Dev Cloud Build trigger: disabled
+Production Cloud Build trigger: enabled for ^main$ only
+Cloud Run request timeout: 300 seconds
+Production Scheduler deadline: 180 seconds
+Production Scheduler: daily 8:00 a.m. America/New_York; no automatic retries
+```
+
+The Python 3.11 commit is pushed to `dev`, but the disabled `dev` trigger means it has not deployed production. No Cloud Run or Scheduler setting was changed during preflight.
+
+**Primary code seam — update last:**
 
 ```text
 app.py from current meow/dev
 ```
+
+**Deployment configuration seam:**
+
+```text
+cloudbuild.yaml — persist a 900-second Cloud Run request timeout
+Get-NFL-Schedule — set attempt deadline to 900 seconds during controlled activation
+```
+
+The Cloud Run and Scheduler settings must agree before the complete scheduled chain is enabled. Keep Scheduler automatic retries at zero until the local/container rehearsal and first controlled run succeed.
 
 **Required behavior:**
 
@@ -584,8 +615,24 @@ Keep this practical:
 6. Targeted `load_date` reaches Schedule, Stats, and Scores consistently.
 7. `/health`, `/games`, `/game`, Admin, user-management, and all other current routes remain registered.
 8. Existing auth behavior remains unchanged.
+9. The Python 3.11 container builds, starts, and serves the preserved routes.
+10. Deployment configuration requests a 900-second Cloud Run timeout without altering the `main`-only trigger boundary.
 
-**Behavior impact:** This is the production activation commit.
+### Controlled activation checks
+
+Before merging or deploying Packet 4:
+
+1. Run the focused Packet 4 tests locally.
+2. Build and boot the Python 3.11 Docker image locally.
+3. Confirm the `dev` trigger remains disabled and the production trigger remains `main`-only.
+4. Confirm `cloudbuild.yaml` deploys Cloud Run with a 900-second request timeout.
+5. Change `Get-NFL-Schedule` to a 900-second attempt deadline at activation, not during development.
+6. Keep automatic Scheduler retries disabled for the first controlled run.
+7. Verify the deployed revision, one no-op/controlled request, route health, and returned stage summary before relying on the next daily schedule.
+
+Raising a timeout limit does not reserve or bill the full 15 minutes; cost follows actual Cloud Run execution and BigQuery work. The longer limits simply prevent a healthy run from being cut off at the current three- or five-minute boundaries.
+
+**Behavior impact:** The `app.py` activation commit and matching deployment settings change production behavior only when they reach the enabled `main` deployment path. The existing Python 3.11 commit on `dev` is preflight only and has not deployed production.
 
 **Commit:**
 
@@ -810,7 +857,10 @@ Confirm current meow/dev and a clean working tree
 → prove accepted Stats games call the conductor once for explicit season 2026
 → prove Stats, Scores, and metric failures remain visible
 → preserve targeted load_date, all routes, authentication, and existing /game behavior
-→ verify the external production trigger cannot deploy dev unexpectedly
+→ treat the pushed Python 3.11 Dockerfile commit as completed preflight, then build and boot that container locally
+→ verify the external production trigger still cannot deploy dev unexpectedly
+→ persist a 900-second Cloud Run request timeout in deployment configuration
+→ plan the matching 900-second Scheduler deadline as a controlled activation action; keep retries disabled
 → stop before Packet 5
 ```
 
