@@ -20,17 +20,26 @@ This snapshot is a starting point, not a substitute for checking current `meow/d
 
 ```text
 Branch/source of truth: dev
-Last verified code commit before this documentation checkpoint: 9584e86
+Last verified code commit on dev: 2d95b4e — Align Cloud Run image with Python 3.11
 Latest completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
 2026 schedule: 322 games loaded; repeat preview skipped all 322 with 0 inserts
 2026 metric tables: Facts, Windowed Metrics, and Rankings shells created and verified empty
 Schema proof: 39/33/39 columns match 2025; lens_tags is STRING/REPEATED
 Conductor proof: write=False failed closed at empty Facts and skipped downstream stages
 /game proof: scheduled 20260806_CAR@ARI resolved safely with empty metrics and explicit unavailable reasons
+Runtime preflight: Dockerfile now uses Python 3.11, matching runtime.txt; commit changed only Dockerfile and is pushed to dev
+Deployment trigger proof: dev trigger disabled; enabled production trigger matches ^main$ only
+Current deadlines: Cloud Run 300s; production Scheduler 180s; Scheduler has no automatic retries
+Activation decision: align Cloud Run and Scheduler to 900s during controlled Packet 4 activation; keep retries disabled initially
+Production impact so far: none — Python 3.11 and documentation are on non-deploying dev; no timeout setting changed
 Protected behavior: no application code, app.py scheduling, formulas, Levels 1–4, or historical tables changed
 Next packet: Packet 4 — Activate through app.py
 Deferred proof: populated 2026 Stats → Facts → Windowed → Rankings → /game → Levels 1–4
 ```
+
+The deployment preflight is also complete. Commit `2d95b4e` changed only `Dockerfile` from Python 3.9 to Python 3.11 and is present on `dev`; this matches `runtime.txt`. GitHub comparison confirmed `dev` is exactly one Dockerfile commit ahead of documentation checkpoint `d76dbea`. The external `dev` Cloud Build trigger is disabled, while the enabled production trigger matches `^main$`, so the push did not deploy production.
+
+Cloud Run still has a 300-second request timeout. The enabled `Get-NFL-Schedule` job runs daily at 8:00 a.m. in `America/New_York`, has a 180-second attempt deadline, and has no automatic retries because `retryCount` is absent/default `0`. Packet 4 must persist a 900-second Cloud Run timeout in deployment configuration and align the Scheduler deadline to 900 seconds during controlled activation. Do not change production timeouts during read-only planning, and keep retries disabled until the local/container rehearsal and first controlled run succeed.
 
 Packet 2's conductor remains implemented by `e054ee0` and clarified by `4c3e919`. It requires an explicit season, calls Facts → Windowed Metrics → Rankings, stops on invalid or failed stages, and remains inert until `app.py` calls it.
 
@@ -122,6 +131,21 @@ Document Packet 3 completion and advance to Packet 4 [skip ci]
 ```
 
 This skip marker is an extra safeguard for the documentation checkpoint. It does not replace correcting and verifying the production trigger's branch filter.
+
+### Verified deployment preflight — 2026-07-30
+
+```text
+Dockerfile runtime: Python 3.11
+Runtime commit on dev: 2d95b4e
+Dev Cloud Build trigger: disabled
+Production Cloud Build trigger: enabled for ^main$ only
+Cloud Run timeout: 300 seconds
+Get-NFL-Schedule deadline: 180 seconds
+Get-NFL-Schedule schedule: 8:00 a.m. America/New_York
+Automatic Scheduler retries: none
+```
+
+The agreed Packet 4 activation target is 900 seconds for both Cloud Run and Scheduler. The limit itself does not bill 15 minutes; cost follows actual execution and BigQuery work. Persist the Cloud Run timeout in `cloudbuild.yaml`, change the Scheduler deadline only during controlled activation, and keep retries disabled initially.
 
 ---
 
@@ -251,7 +275,7 @@ We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
-Last verified code commit before the Packet 3 documentation checkpoint: 9584e86
+Last verified code commit on dev: 2d95b4e — Align Cloud Run image with Python 3.11
 Latest verified completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
 Expected next packet: Packet 4 — Activate through app.py
 
@@ -265,6 +289,14 @@ Packet 3 evidence:
 - No application code, source ingestion, formulas, Levels 1–4, historical run IDs, or historical tables changed.
 - Populated-row, populated-lens_tags, and Levels 1–4 real-data proof is deferred until accepted completed-game 2026 Stats/Scores exist.
 
+Deployment preflight evidence:
+- Commit 2d95b4e changed only Dockerfile from Python 3.9 to Python 3.11 and is pushed to dev.
+- Dockerfile now matches runtime.txt at Python 3.11.
+- The dev Cloud Build trigger is disabled; the enabled production trigger matches ^main$ only.
+- The push to dev did not deploy production.
+- Cloud Run currently allows 300 seconds; Get-NFL-Schedule allows 180 seconds and has no automatic retries.
+- During controlled Packet 4 activation, align both deadlines to 900 seconds and keep retries disabled initially.
+
 First read these files from the repository:
 - documentation/August/GameLens_August_Readiness_Roadmap_How_To.md
 - documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
@@ -277,11 +309,13 @@ Tell me:
 3. the smallest complete app.py behavior change;
 4. the focused tests for no-op, success, partial failure/failure, targeted load_date, route registration, and auth preservation;
 5. the exact BigQuery effects and rollback path;
-6. whether the external production deployment trigger is still restricted away from dev.
+6. whether the external production deployment trigger is still restricted away from dev;
+7. how the Python 3.11 Docker image will be built and boot-tested locally;
+8. the exact cloudbuild.yaml change for a 900-second Cloud Run request timeout and the controlled Scheduler command/check for a matching 900-second deadline.
 
 Preserve every route, blueprint, auth check, targeted load_date path, /game behavior, metric formula, window definition, ranking rule, lens_tags contract, Level 1–4 path, and historical run.
 
-Do not change code yet. Do not redesign GameLens. Do not begin Packet 5 or productionize Levels 1–4. First propose Packet 4 only, including exact files/functions, tests, expected behavior, deployment safety, and stopping point.
+Do not change code yet. Do not redesign GameLens. Do not begin Packet 5 or productionize Levels 1–4. Do not change production Cloud Run or Scheduler settings during read-only planning. First propose Packet 4 only, including exact files/functions, tests, Python 3.11 container rehearsal, expected behavior, matching 900-second activation settings, deployment safety, rollback, and stopping point.
 ```
 
 ---
