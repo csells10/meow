@@ -205,6 +205,45 @@ class SeasonScheduleLoaderTests(unittest.TestCase):
         self.assertEqual(summary["failed_dates"], ["2026-08-01"])
         self.assertEqual(summary["games_to_insert"], 1)
 
+    def test_empty_date_is_not_failure_and_processing_continues(self):
+        second_game = {
+            "gameID": "20260802_BUF@NYJ",
+            "gameDate": "20260802",
+            "season": "2026",
+        }
+
+        with patch.object(
+            schedule,
+            "fetch_schedule_games",
+            side_effect=[
+                ValueError("No valid response for date 20260801"),
+                [second_game],
+            ],
+        ), patch.object(
+            schedule,
+            "transform_schedule_games",
+            return_value=pd.DataFrame([second_game]),
+        ), patch.object(
+            schedule,
+            "fetch_existing_game_ids",
+            return_value=set(),
+        ), patch.object(
+            schedule,
+            "insert_schedule_rows",
+        ):
+            summary = schedule.load_nfl_season_schedule(
+                season=2026,
+                start_date=date(2026, 8, 1),
+                end_date=date(2026, 8, 2),
+                write=False,
+                sleep_seconds=0,
+                client=self.client,
+            )
+
+        self.assertEqual(summary["dates_checked"], 2)
+        self.assertEqual(summary["failed_dates"], [])
+        self.assertEqual(summary["games_to_insert"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
