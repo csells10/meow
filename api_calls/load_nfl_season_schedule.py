@@ -152,7 +152,16 @@ def load_nfl_season_schedule(
         summary["dates_checked"] += 1
 
         try:
-            raw_games = fetch_schedule_games(API_URL, headers, game_date)
+            try:
+                raw_games = fetch_schedule_games(API_URL, headers, game_date)
+            except ValueError as exc:
+                empty_response_message = (
+                    f"No valid response for date {game_date}"
+                )
+                if str(exc) != empty_response_message:
+                    raise
+                raw_games = []
+
             season_games = filter_games_for_season(raw_games, season)
             summary["season_games_found"] += len(season_games)
 
@@ -187,6 +196,11 @@ def load_nfl_season_schedule(
                 error=str(exc),
             )
         finally:
+            dates_checked = index + 1
+            if dates_checked % 25 == 0:
+                print(
+                    f"Progress: checked {dates_checked}/{len(dates)} dates"
+                )
             if sleep_seconds > 0 and index < len(dates) - 1:
                 time.sleep(sleep_seconds)
 
