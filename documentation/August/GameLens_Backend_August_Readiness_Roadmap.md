@@ -1,9 +1,9 @@
 # GameLens Backend August Readiness Roadmap
 
-**Last revised:** 2026-07-29
+**Last revised:** 2026-07-30
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 3 — 2026 operational checkpoint (`NEXT`)
+**Current packet:** Packet 4 — Activate through `app.py` (`NEXT`)
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
 
@@ -436,23 +436,47 @@ The conductor:
 
 ## Packet 3 — 2026 operational checkpoint
 
-**Status:** `NEXT`
+**Status:** `COMPLETE — PRESEASON/ZERO-DATA READINESS`
+
+**Evidence date:** 2026-07-30
 
 **Goal:** Prove the existing metric system can support 2026 before scheduling it.
 
-This is primarily a deliberate local/BigQuery checkpoint, not a new subsystem.
+Packet 3 was completed as a deliberate local/BigQuery checkpoint without changing application code, source ingestion, metric formulas, windows, rankings, `/game` behavior, or Levels 1–4.
 
-### Schema and build checks
+### Schedule bootstrap and retry evidence
 
-* Use the existing metric-table setup script.
-* Compare the 2025 and 2026 schemas.
-* Confirm `lens_tags` remains a repeated string field.
-* Confirm expected partitioning/clustering if the setup script uses it.
-* Run the three builders manually for 2026.
-* Record source and output row counts.
-* Inspect a small sample from each output table.
+The season bootstrap loaded the complete 2026 schedule into `League.schedule`:
 
-Required tables:
+```text
+dates checked: 243
+failed dates: 0
+season games found: 322
+existing games skipped: 1
+games inserted: 321
+```
+
+The immediate `write=False` rerun proved duplicate protection:
+
+```text
+season games found: 322
+existing games skipped: 322
+games to insert: 0
+games inserted: 0
+```
+
+### Schema and table evidence
+
+The current code-defined schemas matched the live 2025 tables exactly:
+
+```text
+Facts: 39 columns
+Windowed Metrics: 33 columns
+Rankings: 39 columns
+lens_tags: STRING/REPEATED in all three
+```
+
+The following empty 2026 shells were then created with guarded create-only logic:
 
 ```text
 Analytics.game_team_metric_facts_2026
@@ -460,25 +484,68 @@ Analytics.team_metrics_windowed_2026
 Analytics.team_metric_rankings_2026
 ```
 
-### Runtime smoke check
+All three carried the expected `app=gamelens`, `domain=nfl`, and `managed_by=python` labels. A post-creation read confirmed zero rows and full schema equality with 2025. Historical tables were not deleted, replaced, or rebuilt.
 
-Use an eligible scheduled 2026 game and verify:
+### Zero-data conductor evidence
 
-* the schedule/header resolves;
-* both teams obtain the expected pregame-safe metrics when history exists;
-* rankings appear when prior ranking history exists;
-* legitimate early-season absence is explained or safely omitted;
-* the response renders without changing matchup logic.
+The conductor was run deliberately with:
 
-Do not create a new readiness service unless this smoke test exposes a recurring problem that existing tests cannot express.
+```python
+run_gamelens_metric_pipeline(season="2026", write=False)
+```
 
-**Behavior impact:** Only the deliberate 2026 table setup/build.
+Because no completed 2026 game Stats existed, Facts loaded zero source rows and raised `ValueError: No source rows found for season=2026`. The conductor reported:
 
-**Commit:** None unless code or the existing setup script actually changes.
+```text
+overall status: failed
+failed stage: facts
+Facts: failed
+Windowed Metrics: skipped
+Rankings: skipped
+```
 
+This is the expected fail-closed early-season result, not evidence of damaged tables. A follow-up metadata read confirmed all three 2026 metric tables still contained zero rows.
+
+### `/game` degraded-mode evidence
+
+A read-only service-layer smoke test used scheduled game `20260806_CAR@ARI`:
+
+```text
+header resolved: true
+response season: 2026
+final score: null
+game profile rows: 0
+team comparison rows: 0
+core-area rows: 0
+ranking available: false — no_ranking_rows_found
+matchup breakdown available: false — ranking_context_unavailable
+```
+
+The response builder returned safely without manufacturing pregame history or changing matchup logic. No `lens_tags` fields existed because no metric rows existed; therefore `lens_tags_non_array_count: 0` proves no malformed value was emitted, but it does not yet prove populated 2026 tag arrays.
+
+### Deferred real-data proof
+
+After the first 2026 games finish and accepted Stats/Scores exist, perform this explicit follow-up:
+
+```text
+Stats
+→ Facts
+→ Windowed Metrics
+→ Rankings
+→ /game populated-row and lens_tags-array verification
+→ Levels 1–4 real-data compatibility proof
+```
+
+Record source/output counts, representative strong/supporting/watch metric samples, populated `lens_tags` arrays, and the downstream season/run behavior. The current code inspection found the query/service and Levels 1–4 paths season-aware; no Level 1–4 formula, historical `run_id`, or QA table was changed. This deferred populated-data proof does not invalidate Packet 3's completed preseason checkpoint.
+
+**Behavior impact:** The 2026 schedule and three empty metric-table shells now exist. No application code or scheduled workflow changed.
+
+**Commit:** None for implementation; Packet 3 used deliberate credentialed runtime operations and this documentation checkpoint.
 ---
 
 ## Packet 4 — Activate through `app.py`
+
+**Status:** `NEXT`
 
 **Goal:** Replace the legacy annual aggregate hook with the tested metric conductor.
 
@@ -732,17 +799,21 @@ At the end:
 
 ## 10. Next action
 
-Begin Packet 3 only:
+Begin Packet 4 only:
 
 ```text
 Confirm current meow/dev and a clean working tree
-→ inspect the existing metric-table setup script and current 2025 schemas
-→ inspect available 2026 schedule and Stats source coverage read-only
-→ define the smallest safe 2026 schema/build checkpoint
-→ verify lens_tags remains REPEATED STRING
-→ run deliberate 2026 builds only after scope and write behavior are approved
-→ record row counts, samples, timing, and any warnings
-→ stop
+→ inspect current app.py, configuration, source-loader return contracts, and the Packet 2 conductor
+→ identify only the legacy 2025 aggregate hook and the surrounding scheduler response/error path
+→ propose the smallest complete app.py change and focused tests
+→ prove no accepted Stats games produces a truthful no-op
+→ prove accepted Stats games call the conductor once for explicit season 2026
+→ prove Stats, Scores, and metric failures remain visible
+→ preserve targeted load_date, all routes, authentication, and existing /game behavior
+→ verify the external production trigger cannot deploy dev unexpectedly
+→ stop before Packet 5
 ```
 
-Packet 3 is the operational proof before scheduling. Do not change `app.py`, source ingestion, `/game`, metric formulas, window definitions, ranking logic, lens tags, or Levels 1–4. If 2026 source data is legitimately absent, record that boundary rather than manufacturing readiness evidence.
+Packet 4 is the activation seam. Do not alter source validation, metric formulas, window definitions, ranking logic, `lens_tags`, `/game`, or Levels 1–4. Keep the first step read-only and do not push an activation commit until the exact table effects, test evidence, deployment trigger, and rollback path are understood.
+
+The deferred populated 2026 proof remains required after the first completed games produce accepted Stats/Scores; it is not permission to manufacture rows or overwrite historical evidence.
