@@ -14,27 +14,31 @@ The goal is simple:
 
 ---
 
-## Current verified handoff — 2026-07-29
+## Current verified handoff — 2026-07-30
 
 This snapshot is a starting point, not a substitute for checking current `meow/dev`.
 
 ```text
 Branch/source of truth: dev
-Last verified implementation commit: 4c3e919
-Latest completed packet: Packet 2 — GameLens metric pipeline conductor
-Packet 2 implementation: e054ee0; naming clarification: 4c3e919
-Verification: 7 focused Packet 2 tests passed; credentialed 2025 BigQuery dry run succeeded with write=False
-Dry-run rows: Facts 36,532; Windowed Metrics 138,532; Rankings 426,086
-Protected behavior: no BigQuery tables changed; app.py and production scheduling remain unchanged
-Next packet: Packet 3 — 2026 operational checkpoint
+Last verified code commit before this documentation checkpoint: 9584e86
+Latest completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
+2026 schedule: 322 games loaded; repeat preview skipped all 322 with 0 inserts
+2026 metric tables: Facts, Windowed Metrics, and Rankings shells created and verified empty
+Schema proof: 39/33/39 columns match 2025; lens_tags is STRING/REPEATED
+Conductor proof: write=False failed closed at empty Facts and skipped downstream stages
+/game proof: scheduled 20260806_CAR@ARI resolved safely with empty metrics and explicit unavailable reasons
+Protected behavior: no application code, app.py scheduling, formulas, Levels 1–4, or historical tables changed
+Next packet: Packet 4 — Activate through app.py
+Deferred proof: populated 2026 Stats → Facts → Windowed → Rankings → /game → Levels 1–4
 ```
 
-`e054ee0` added Packet 2's small conductor, and `4c3e919` clarified its scope through the final module name `services/gamelens_metric_pipeline_conductor.py`. The conductor requires an explicit season, calls the existing builders in Facts → Windowed Metrics → Rankings order, stops on invalid or failed stages, and returns truthful stage statuses and row counts. It is inert until `app.py` calls it.
+Packet 2's conductor remains implemented by `e054ee0` and clarified by `4c3e919`. It requires an explicit season, calls Facts → Windowed Metrics → Rankings, stops on invalid or failed stages, and remains inert until `app.py` calls it.
 
-The real 2025 `write=False` run completed successfully with 36,532 Facts rows, 138,532 Windowed Metrics rows, and 426,086 Rankings rows. The expected warnings—5,328 rows across eight unregistered metrics excluded and 220 duplicate Facts rows deduplicated with `keep="last"`—did not fail the run. No BigQuery table was created, replaced, appended to, recreated, or wiped.
+Packet 3 established the full 322-game 2026 schedule, created only the three missing empty 2026 metric shells, verified exact 2025 schema parity, and preserved `lens_tags` as `STRING/REPEATED`. The 2026 `write=False` conductor check correctly failed at Facts because there were zero completed-game source rows, skipped Windowed Metrics and Rankings, and left all three tables at zero rows.
 
-If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packet 2 merely because this snapshot is older than the branch.
+The scheduled-game service-layer smoke test resolved `20260806_CAR@ARI` as season 2026, returned `final_score: null`, safely omitted metric sections, reported `no_ranking_rows_found` and `ranking_context_unavailable`, and emitted no malformed `lens_tags`. Because there were no metric rows, populated tag-array verification is deliberately deferred until accepted completed-game Stats exist.
 
+If current `origin/dev` contains later commits, inspect and reconcile them. Do not reset or redo Packets 1–3 merely because this snapshot is older than the branch.
 ---
 
 ## 1. What is authoritative
@@ -114,7 +118,7 @@ Before a normal code push:
 For a documentation-only checkpoint that must not invoke Cloud Build, include `[skip ci]` in the commit message:
 
 ```text
-Document Packet 2 completion and advance to Packet 3 [skip ci]
+Document Packet 3 completion and advance to Packet 4 [skip ci]
 ```
 
 This skip marker is an extra safeguard for the documentation checkpoint. It does not replace correcting and verifying the production trigger's branch filter.
@@ -206,6 +210,8 @@ python -c "from services.gamelens_metric_pipeline_conductor import run_gamelens_
 
 This command reads and calculates against current stored 2025 inputs. Because `write=False` is forwarded to every builder, it does not create, replace, append to, recreate, or wipe BigQuery tables. Normal BigQuery query costs can still occur.
 
+Packet 3 also ran the same conductor for season `2026` with `write=False`. With no completed-game Stats, the expected result is `failed_stage: facts` with Windowed Metrics and Rankings skipped. Treat that as a fail-closed early-season boundary, then verify the three 2026 metric tables remain unchanged. Do not reinterpret an empty Facts source as successful populated readiness.
+
 The current `app.py` and `cloudbuild.yaml` do not invoke these commands. Automatic test execution would require a dedicated CI or Cloud Build test step. The route named `/test` is a manual ingestion endpoint; it is not the Python unit-test runner.
 
 ---
@@ -232,7 +238,7 @@ Rules:
 - `/game` exposes them as a JSON array.
 - Do not flatten, stringify, rename, or silently discard tags.
 - Normal builder and orchestration changes must not rewrite tag values.
-- Packet 3 verifies representative strong, supporting/context, and watch/excluded metrics.
+- Packet 3 preserved the schema contract with `lens_tags = STRING/REPEATED`; because zero 2026 metric rows existed, populated tag-array and representative strong/supporting/watch samples remain part of the first completed-game follow-up.
 
 This protection does not require a new service, table, or scheduler.
 
@@ -245,30 +251,37 @@ We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
-Last verified implementation: Packet 2 at e054ee0, clarified at 4c3e919, on 2026-07-29
-Latest verified completed packet: Packet 2 — GameLens metric pipeline conductor
-Focused verification: 7 Packet 2 tests passed
-Credentialed verification: 2025 write=False dry run succeeded (Facts 36,532; Windowed 138,532; Rankings 426,086)
-Expected next packet: Packet 3 — 2026 operational checkpoint
+Last verified code commit before the Packet 3 documentation checkpoint: 9584e86
+Latest verified completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
+Expected next packet: Packet 4 — Activate through app.py
+
+Packet 3 evidence:
+- League.schedule contains all 322 2026 games; repeat preview skipped 322 and inserted 0.
+- Analytics.game_team_metric_facts_2026, Analytics.team_metrics_windowed_2026, and Analytics.team_metric_rankings_2026 exist with zero rows.
+- Their schemas match 2025 exactly at 39/33/39 columns.
+- lens_tags remains STRING/REPEATED.
+- run_gamelens_metric_pipeline(season="2026", write=False) failed closed at empty Facts and skipped downstream stages without changing the tables.
+- Scheduled game 20260806_CAR@ARI resolved through the /game response builder with season 2026, no final score, safe empty metric sections, no_ranking_rows_found, and ranking_context_unavailable.
+- No application code, source ingestion, formulas, Levels 1–4, historical run IDs, or historical tables changed.
+- Populated-row, populated-lens_tags, and Levels 1–4 real-data proof is deferred until accepted completed-game 2026 Stats/Scores exist.
 
 First read these files from the repository:
-- documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
 - documentation/August/GameLens_August_Readiness_Roadmap_How_To.md
+- documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
 
-Begin read-only. Inspect current dev, recent commits, existing tests, and the complete functions relevant to the roadmap. Reconcile the roadmap progress snapshot from code and test evidence; do not trust checkboxes or prior chat memory by themselves.
+Begin read-only. Inspect current dev and recent commits, then inspect the complete current app.py scheduler path, its configuration, Schedule/Stats/Scores return contracts, services/gamelens_metric_pipeline_conductor.py, and focused tests.
 
 Tell me:
-1. the latest confirmed completed packet and its evidence;
-2. the first unfinished or uncertain packet;
-3. whether that packet changes production behavior;
-4. the smallest local test that will prove it;
-5. the exact files/functions we would touch.
+1. what current dev proves;
+2. the exact legacy 2025 aggregate hook Packet 4 will replace;
+3. the smallest complete app.py behavior change;
+4. the focused tests for no-op, success, partial failure/failure, targeted load_date, route registration, and auth preservation;
+5. the exact BigQuery effects and rollback path;
+6. whether the external production deployment trigger is still restricted away from dev.
 
-Preserve the roadmap's safety contract, including lens_tags as REPEATED STRING/list[str] from metric_registry.py through Windowed Metrics, Rankings, queries, and /game.
+Preserve every route, blueprint, auth check, targeted load_date path, /game behavior, metric formula, window definition, ranking rule, lens_tags contract, Level 1–4 path, and historical run.
 
-For Packet 3, inspect the existing metric-table setup script, current 2025 schemas, available 2026 source data, and the Packet 2 conductor before proposing any write. Separate read-only schema/source checks from deliberate 2026 table creation or replacement.
-
-Do not change code yet. Do not redesign GameLens. Do not jump ahead to Packet 4, app.py, or Levels 1–4. First propose the smallest safe Packet 3 checkpoint, including the exact BigQuery reads, any deliberate writes, expected evidence, and stop conditions.
+Do not change code yet. Do not redesign GameLens. Do not begin Packet 5 or productionize Levels 1–4. First propose Packet 4 only, including exact files/functions, tests, expected behavior, deployment safety, and stopping point.
 ```
 
 ---
@@ -299,4 +312,6 @@ If no commit was made, say so. A diagnosis or investigation can be useful withou
 - Do not add a workflow engine, run ledger, readiness subsystem, or snapshot platform unless a demonstrated problem requires it.
 - Do not let an old attachment override current `meow/dev`.
 - Do not mark a packet complete without test evidence.
+- Do not treat Packet 3's expected empty-Facts failure as a regression.
+- Do not claim populated 2026 `lens_tags` proof until real metric rows exist.
 - Do not keep working through several packets in one oversized change.
