@@ -102,6 +102,14 @@ def run_api_calls(load_date=None):
         run_aggregate_for_season("2025")
     else:
         log_event("info", "aggregate_skipped", reason="no_stats_inserted")
+        return {
+            "status": "no_op",
+            "accepted_stats_games": 0,
+            "metric_pipeline": {
+                "status": "skipped",
+                "reason": "no_accepted_stats_games",
+            },
+        }
 
 
 def setup_schedules(load_date=None):
