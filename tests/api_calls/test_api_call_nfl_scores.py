@@ -25,23 +25,28 @@ except ModuleNotFoundError:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-helper_module = types.ModuleType("utils.helper")
-helper_module.get_secret = MagicMock(return_value="test-key")
-helper_module.fetch_and_validate_api_data = MagicMock()
-response_module = types.ModuleType("utils.response_helpers")
-response_module.save_raw_response = MagicMock()
-logging_module = types.ModuleType("utils.logging_setup")
-logging_module.log_event = MagicMock()
-utils_module = sys.modules.get("utils") or types.ModuleType("utils")
-utils_module.helper = helper_module
-utils_module.response_helpers = response_module
-utils_module.logging_setup = logging_module
-sys.modules["utils"] = utils_module
-sys.modules["utils.helper"] = helper_module
-sys.modules["utils.response_helpers"] = response_module
-sys.modules["utils.logging_setup"] = logging_module
+if not (REPO_ROOT / "utils" / "helper.py").exists():
+    helper_module = types.ModuleType("utils.helper")
+    helper_module.get_secret = MagicMock(return_value="test-key")
+    helper_module.fetch_and_validate_api_data = MagicMock()
+    response_module = types.ModuleType("utils.response_helpers")
+    response_module.save_raw_response = MagicMock()
+    logging_module = types.ModuleType("utils.logging_setup")
+    logging_module.log_event = MagicMock()
+    utils_module = types.ModuleType("utils")
+    utils_module.helper = helper_module
+    utils_module.response_helpers = response_module
+    utils_module.logging_setup = logging_module
+    sys.modules.setdefault("utils", utils_module)
+    sys.modules.setdefault("utils.helper", helper_module)
+    sys.modules.setdefault("utils.response_helpers", response_module)
+    sys.modules.setdefault("utils.logging_setup", logging_module)
 
-from api_calls import api_call_nfl_scores as scores
+if (REPO_ROOT / "utils" / "helper.py").exists():
+    with patch("utils.helper.get_secret", return_value="test-key"):
+        from api_calls import api_call_nfl_scores as scores
+else:
+    from api_calls import api_call_nfl_scores as scores
 
 
 GAME_ID = "20250907_MIA@IND"
