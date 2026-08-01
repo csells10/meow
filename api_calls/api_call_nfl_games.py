@@ -10,9 +10,11 @@ from utils.helper import (
 )
 from utils.logging_setup import log_event
 from utils.response_helpers import save_raw_response
+from runtime_config import load_runtime_config
 
-PROJECT = "nfl-stream-406420"
-TABLE_SCHEDULE = f"{PROJECT}.League.schedule"
+RUNTIME_CONFIG = load_runtime_config()
+PROJECT = RUNTIME_CONFIG.project_id
+TABLE_SCHEDULE = RUNTIME_CONFIG.league_table("schedule")
 bq = bigquery.Client(project=PROJECT)
 
 # ────────────────────────────────────────────────────────────────

@@ -8,12 +8,14 @@ from google.cloud import bigquery
 from utils.helper import fetch_and_validate_api_data, get_secret
 from utils.logging_setup import log_event
 from utils.response_helpers import save_raw_response
+from runtime_config import load_runtime_config
 
 
-PROJECT = "nfl-stream-406420"
-BQ_SOURCE = "Scores.scores_to_process"
-SCORES_TARGET = f"{PROJECT}.Scores.scores"
-SCORE_STATUS_TARGET = f"{PROJECT}.Scores.score_status"
+RUNTIME_CONFIG = load_runtime_config()
+PROJECT = RUNTIME_CONFIG.project_id
+BQ_SOURCE = RUNTIME_CONFIG.scores_object("scores_to_process")
+SCORES_TARGET = RUNTIME_CONFIG.scores_table("scores")
+SCORE_STATUS_TARGET = RUNTIME_CONFIG.scores_table("score_status")
 API_HOST = (
     "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
 )

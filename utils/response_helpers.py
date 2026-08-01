@@ -1,5 +1,9 @@
 from utils.logging_setup import log_event
 from utils.gcs import upload_file_to_gcs
+from runtime_config import load_runtime_config
+
+
+RUNTIME_CONFIG = load_runtime_config()
 
 def save_raw_response(response, data_date, prefix="raw"):
     import os
@@ -17,8 +21,10 @@ def save_raw_response(response, data_date, prefix="raw"):
             json.dump(response, f, indent=4)
 
         # Upload to GCS
-        bucket = os.getenv("GCS_BUCKET_NAME", "xtra_point")
-        gcs_path = upload_file_to_gcs(bucket, filename)
+        gcs_path = upload_file_to_gcs(
+            RUNTIME_CONFIG.raw_response_bucket,
+            filename,
+        )
         log_event("info", "backup_to_gcs_complete", gcs_path=gcs_path)
 
         # Optional: delete local temp file after upload

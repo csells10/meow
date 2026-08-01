@@ -3,7 +3,7 @@
 **Prepared:** 2026-08-01  
 **Repository:** `csells10/meow`  
 **Working branch:** `dev`  
-**Status:** `PLAN ONLY — NO REPLAY INFRASTRUCTURE OR CLOUD TEST HAS BEEN RUN`  
+**Status:** `IN PROGRESS — R0 COMPLETE; R1 LOCAL CHECKPOINT GREEN; NO REPLAY INFRASTRUCTURE OR CLOUD TEST HAS BEEN RUN`
 **Related handoff:** `documentation/August/GameLens_Packet_4_Pause_And_Resume_Handoff_20260801.md`
 
 ---
@@ -131,6 +131,51 @@ Each chunk ends at a safe stopping point. Do not combine chunks merely to make t
 | R8 | Verify rebuilt data | Read-only verification | Results match defined acceptance checks |
 | R9 | Prove idempotency | Yes, dev only | Same request produces no duplicates and safe no-op/rebuild behavior |
 | R10 | Close Packet 4 evidence | Documentation only | Roadmap/handoff updated with result and next decision |
+
+---
+
+## 5A. Execution log — 2026-08-01
+
+### R0 — Complete
+
+The starting state was re-established without changing code or cloud resources:
+
+- local `dev` and `origin/dev` matched at `16ff59c`;
+- the working tree was clean;
+- the existing focused baseline passed: 7 app tests + 7 conductor tests = 14/14;
+- the dev build trigger was disabled and still referenced `cloudbuild.yaml`;
+- the main build trigger was enabled and referenced `cloudbuild.yaml`;
+- `nfl-games-app-dev` served 100% traffic from revision `00061-5lb`;
+- the dev service timeout was 300 seconds;
+- the dev service used the default compute service account;
+- no replay-target environment-variable names were present in the dev-service snapshot;
+- production's latest ready revision remained `00143-twq`, but 100% of production traffic remained pinned to known-good revision `00136-vsx`;
+- production Scheduler remained enabled at 08:00 America/New_York and continued to call `nfl-games-app-main` with `POST /`.
+
+Safety conclusion: the dev trigger and production traffic protections were intact, but the dev service was not yet isolated by runtime targets, service-account permissions, or timeout. A historical request remained prohibited.
+
+### R1 — Implementation checkpoint green; Christian's local confirmation pending
+
+The first local-only safety seam now has:
+
+- explicit production/dev environment and daily/controlled-replay mode;
+- explicit active season, League/Scores/Analytics datasets, and raw-response bucket;
+- production-compatible defaults matching the pre-R1 behavior;
+- fail-closed dev validation requiring all replay targets;
+- rejection of production or unapproved datasets in dev mode;
+- rejection of the production or non-development raw-response bucket;
+- the configured active season wired into `app.py` and the metric conductor;
+- ingestion, derived-table builders, raw-response storage, `/games`, and `/game` query paths wired to the same resolved targets.
+
+Independent local verification passed:
+
+- 7 runtime-target configuration tests;
+- 8 app tests, including configured season `2025` reaching the conductor;
+- 7 conductor tests;
+- 38 existing box-score, Stats, Scores, and season-schedule tests;
+- Python compilation and `git diff --check`.
+
+No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made. Do not begin R2 until Christian fast-forwards and confirms the focused R1 tests locally.
 
 ---
 

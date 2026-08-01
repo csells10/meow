@@ -99,11 +99,17 @@ from google.cloud import bigquery
 
 from utils.logging_setup import log_event, setup_logging
 from analytics.metric_registry import validate_metric_registry  # type: ignore
+from runtime_config import load_runtime_config
 
 
-PROJECT = "nfl-stream-406420"
-SOURCE_TABLE_TEMPLATE = "Analytics.team_metrics_windowed_{season}"
-OUTPUT_TABLE_TEMPLATE = "Analytics.team_metric_rankings_{season}"
+RUNTIME_CONFIG = load_runtime_config()
+PROJECT = RUNTIME_CONFIG.project_id
+SOURCE_TABLE_TEMPLATE = RUNTIME_CONFIG.analytics_object(
+    "team_metrics_windowed_{season}"
+)
+OUTPUT_TABLE_TEMPLATE = RUNTIME_CONFIG.analytics_object(
+    "team_metric_rankings_{season}"
+)
 
 PERCENTILE_DECIMALS = 2
 

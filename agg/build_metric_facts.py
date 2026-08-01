@@ -41,12 +41,16 @@ from analytics.metric_registry import (  # type: ignore
     get_metric_meta,
     validate_metric_registry,
 )
+from runtime_config import load_runtime_config
 
 
-PROJECT = "nfl-stream-406420"
-SOURCE_METRICS_TABLE = "Analytics.game_metrics_flat"
-SCHEDULE_TABLE = "League.schedule"
-OUTPUT_TABLE_TEMPLATE = "Analytics.game_team_metric_facts_{season}"
+RUNTIME_CONFIG = load_runtime_config()
+PROJECT = RUNTIME_CONFIG.project_id
+SOURCE_METRICS_TABLE = RUNTIME_CONFIG.analytics_object("game_metrics_flat")
+SCHEDULE_TABLE = RUNTIME_CONFIG.league_object("schedule")
+OUTPUT_TABLE_TEMPLATE = RUNTIME_CONFIG.analytics_object(
+    "game_team_metric_facts_{season}"
+)
 
 FINAL_STATUSES = ["Final", "Final/OT"]
 DEDUP_KEEP = "last"

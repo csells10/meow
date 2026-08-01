@@ -10,6 +10,7 @@ from routes.user_routes import user_routes
 from services.gamelens_metric_pipeline_conductor import (
     run_gamelens_metric_pipeline,
 )
+from runtime_config import load_runtime_config
 from utils.logging_setup import setup_logging, log_event
 
 # ------------------------------------------------------------
@@ -36,9 +37,9 @@ app.register_blueprint(game_routes)
 app.register_blueprint(admin_claim_health_routes)
 app.register_blueprint(user_routes)
 
-# Packet 4 intentionally uses one explicit active NFL season.
-# January 2027 postseason games still belong to the 2026 NFL season.
-ACTIVE_NFL_SEASON = "2026"
+# Production defaults to 2026. Dev replay mode must provide an explicit,
+# validated season and isolated targets before this module can finish loading.
+RUNTIME_CONFIG = load_runtime_config()
 
 # Dictionary used to track how many times each API call has run
 # during a given scheduled execution cycle.
@@ -147,11 +148,11 @@ def run_api_calls(load_date=None):
             "running_gamelens_metric_pipeline",
             reason="stats_accepted",
             count=accepted_stats_games,
-            season=ACTIVE_NFL_SEASON,
+            season=RUNTIME_CONFIG.active_season,
         )
         try:
             metric_pipeline = run_gamelens_metric_pipeline(
-                season=ACTIVE_NFL_SEASON,
+                season=RUNTIME_CONFIG.active_season,
                 write=True,
             )
             if not isinstance(metric_pipeline, dict):
@@ -160,7 +161,7 @@ def run_api_calls(load_date=None):
                 )
         except Exception as exc:
             metric_pipeline = {
-                "season": ACTIVE_NFL_SEASON,
+                "season": RUNTIME_CONFIG.active_season,
                 "status": "failed",
                 "failed_stage": None,
                 "stages": {},
@@ -169,7 +170,7 @@ def run_api_calls(load_date=None):
             log_event(
                 "error",
                 "gamelens_metric_pipeline_error",
-                season=ACTIVE_NFL_SEASON,
+                season=RUNTIME_CONFIG.active_season,
                 error=str(exc),
             )
     else:
@@ -179,7 +180,7 @@ def run_api_calls(load_date=None):
             reason="no_accepted_stats_games",
         )
         metric_pipeline = {
-            "season": ACTIVE_NFL_SEASON,
+            "season": RUNTIME_CONFIG.active_season,
             "status": "skipped",
             "reason": "no_accepted_stats_games",
         }

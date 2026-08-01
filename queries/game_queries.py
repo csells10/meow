@@ -1,6 +1,8 @@
 from google.cloud import bigquery
+from runtime_config import load_runtime_config
 
-client = bigquery.Client()
+RUNTIME_CONFIG = load_runtime_config()
+client = bigquery.Client(project=RUNTIME_CONFIG.project_id)
 
 
 def use_windowed_metrics_for_game() -> bool:
@@ -55,7 +57,9 @@ def get_game_header(game_id: str) -> dict:
     including away/home team logo URLs.
     """
 
-    query = """
+    schedule_table = RUNTIME_CONFIG.league_table("schedule")
+    teams_table = f"{RUNTIME_CONFIG.project_id}.Teams.team_logos"
+    query = f"""
         SELECT
             s.gameID,
             s.gameDate,
@@ -71,10 +75,10 @@ def get_game_header(game_id: str) -> dict:
             s.home,
             home_logo.logoURL AS home_logo,
             s.espnLink
-        FROM `nfl-stream-406420.League.schedule` s
-        LEFT JOIN `nfl-stream-406420.Teams.team_logos` away_logo
+        FROM `{schedule_table}` s
+        LEFT JOIN `{teams_table}` away_logo
             ON s.teamIDAway = away_logo.teamID
-        LEFT JOIN `nfl-stream-406420.Teams.team_logos` home_logo
+        LEFT JOIN `{teams_table}` home_logo
             ON s.teamIDHome = home_logo.teamID
         WHERE s.gameID = @game_id
         LIMIT 1
@@ -141,7 +145,9 @@ def get_team_metrics(game_id: str):
     season = str(header["season"])[:4]
     window_type = select_window_type(header)
 
-    table = f"nfl-stream-406420.Analytics.team_metrics_windowed_{season}"
+    table = RUNTIME_CONFIG.analytics_table(
+        f"team_metrics_windowed_{season}"
+    )
 
     query = f"""
         WITH base AS (
@@ -225,7 +231,9 @@ def get_team_metrics(game_id: str):
             "team_id": team_id,
             "team_abv": row.get("team_abv"),
             "window_type": window_type,
-            "source_table": f"Analytics.team_metrics_windowed_{season}",
+            "source_table": RUNTIME_CONFIG.analytics_object(
+                f"team_metrics_windowed_{season}"
+            ),
         }
 
         if str(team_id) == str(away_team_id):
@@ -356,7 +364,8 @@ def get_final_score(game_id: str):
     Fetch quarter-by-quarter score from Scores.scores.
     """
 
-    query = """
+    scores_table = RUNTIME_CONFIG.scores_table("scores")
+    query = f"""
         SELECT
             team_type,
             Q1,
@@ -366,7 +375,7 @@ def get_final_score(game_id: str):
             OT,
             homePts,
             awayPts
-        FROM `nfl-stream-406420.Scores.scores`
+        FROM `{scores_table}`
         WHERE gameID = @game_id
     """
 
@@ -444,7 +453,9 @@ def get_team_rankings_for_game(
     game_date = header["game_date"]
     season = str(header["season"])[:4]
 
-    table = f"nfl-stream-406420.Analytics.team_metric_rankings_{season}"
+    table = RUNTIME_CONFIG.analytics_table(
+        f"team_metric_rankings_{season}"
+    )
 
     metric_filter_sql = ""
     query_params = [

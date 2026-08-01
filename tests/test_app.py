@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 import app as app_module
@@ -125,6 +126,36 @@ class TestApp(unittest.TestCase):
         self.assertEqual(summary["status"], "success")
         self.assertEqual(summary["accepted_stats_games"], 2)
         self.assertEqual(summary["metric_pipeline"]["status"], "success")
+
+    def test_configured_2025_season_reaches_conductor(self):
+        call_order = []
+        api_calls = self._api_calls(call_order, stats_result=1)
+        replay_config = replace(
+            app_module.RUNTIME_CONFIG,
+            active_season="2025",
+        )
+        pipeline_summary = {
+            "season": "2025",
+            "status": "success",
+            "failed_stage": None,
+            "stages": {},
+        }
+
+        with (
+            patch.object(app_module, "API_CALLS", api_calls),
+            patch.object(app_module, "RUNTIME_CONFIG", replay_config),
+            patch.object(
+                app_module,
+                "run_gamelens_metric_pipeline",
+                create=True,
+                return_value=pipeline_summary,
+            ) as conductor,
+        ):
+            summary = app_module.run_api_calls(load_date="2025-09-14")
+
+        conductor.assert_called_once_with(season="2025", write=True)
+        self.assertEqual(summary["status"], "success")
+        self.assertEqual(summary["metric_pipeline"]["season"], "2025")
 
     def test_stats_exception_is_visible_and_skips_conductor(self):
         call_order = []

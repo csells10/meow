@@ -1,9 +1,11 @@
 from google.cloud import bigquery
+from runtime_config import load_runtime_config
 
-PROJECT_ID = "nfl-stream-406420"
+RUNTIME_CONFIG = load_runtime_config()
+PROJECT_ID = RUNTIME_CONFIG.project_id
 
 TABLES = {
-    "schedule": f"{PROJECT_ID}.League.schedule",
+    "schedule": RUNTIME_CONFIG.league_table("schedule"),
 }
 
 def get_bigquery_client():
