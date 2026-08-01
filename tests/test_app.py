@@ -20,6 +20,7 @@ class TestApp(unittest.TestCase):
         self,
         call_order,
         stats_result=0,
+        scores_result=None,
         schedule_error=None,
         stats_error=None,
         scores_error=None,
@@ -49,6 +50,7 @@ class TestApp(unittest.TestCase):
                 "function": self._record_call(
                     call_order,
                     "scores",
+                    result=scores_result,
                     error=scores_error,
                 ),
                 "max_cycles": 1,
@@ -61,12 +63,54 @@ class TestApp(unittest.TestCase):
             "season": "2026",
             "status": "success",
             "failed_stage": None,
-            "stages": {},
+            "stages": {
+                "facts": {"status": "completed", "row_count": 2},
+                "windowed_metrics": {
+                    "status": "completed",
+                    "row_count": 3,
+                },
+                "rankings": {"status": "completed", "row_count": 4},
+            },
         }
+
+    @staticmethod
+    def _ingestion_result(
+        *,
+        status="success",
+        game_ids=("20260806_CLE@CHI",),
+        successful_games=1,
+        failures=(),
+        no_op_reason=None,
+    ):
+        result = {
+            "status": status,
+            "selected_game_count": len(game_ids),
+            "selected_game_ids": list(game_ids),
+            "successful_game_count": successful_games,
+            "failed_game_count": len(failures),
+            "failures": list(failures),
+        }
+        if no_op_reason is not None:
+            result["no_op_reason"] = no_op_reason
+        return result
 
     def test_zero_accepted_stats_is_successful_no_op(self):
         call_order = []
-        api_calls = self._api_calls(call_order, stats_result=0)
+        api_calls = self._api_calls(
+            call_order,
+            stats_result=self._ingestion_result(
+                status="no_op",
+                game_ids=(),
+                successful_games=0,
+                no_op_reason="no_eligible_games",
+            ),
+            scores_result=self._ingestion_result(
+                status="no_op",
+                game_ids=(),
+                successful_games=0,
+                no_op_reason="no_eligible_games",
+            ),
+        )
 
         with (
             patch.object(app_module, "API_CALLS", api_calls),
@@ -88,6 +132,11 @@ class TestApp(unittest.TestCase):
         )
         conductor.assert_not_called()
         self.assertEqual(summary["status"], "no_op")
+        self.assertEqual(summary["execution_mode"], "daily")
+        self.assertEqual(summary["active_season"], "2026")
+        self.assertEqual(summary["selected_game_count"], 0)
+        self.assertEqual(summary["selected_game_ids"], [])
+        self.assertEqual(summary["no_op_reason"], "no_accepted_stats_games")
         self.assertEqual(summary["accepted_stats_games"], 0)
         self.assertEqual(summary["metric_pipeline"]["status"], "skipped")
         self.assertEqual(
@@ -97,7 +146,18 @@ class TestApp(unittest.TestCase):
 
     def test_positive_accepted_stats_runs_2026_conductor_with_writes(self):
         call_order = []
-        api_calls = self._api_calls(call_order, stats_result=2)
+        game_ids = ("20260806_CLE@CHI", "20260806_LV@SEA")
+        api_calls = self._api_calls(
+            call_order,
+            stats_result=self._ingestion_result(
+                game_ids=game_ids,
+                successful_games=2,
+            ),
+            scores_result=self._ingestion_result(
+                game_ids=game_ids,
+                successful_games=2,
+            ),
+        )
 
         with (
             patch.object(app_module, "API_CALLS", api_calls),
@@ -124,15 +184,40 @@ class TestApp(unittest.TestCase):
         conductor.assert_called_once_with(season="2026", write=True)
         legacy_aggregate.assert_not_called()
         self.assertEqual(summary["status"], "success")
+        self.assertEqual(summary["execution_mode"], "daily")
+        self.assertEqual(summary["active_season"], "2026")
+        self.assertEqual(summary["selected_game_count"], 2)
+        self.assertEqual(summary["selected_game_ids"], list(game_ids))
         self.assertEqual(summary["accepted_stats_games"], 2)
+        self.assertEqual(
+            summary["ingestion"]["NFL Scores API Call"][
+                "successful_game_count"
+            ],
+            2,
+        )
         self.assertEqual(summary["metric_pipeline"]["status"], "success")
+        self.assertEqual(
+            summary["metric_pipeline"]["stages"]["rankings"]["row_count"],
+            4,
+        )
 
     def test_configured_2025_season_reaches_conductor(self):
         call_order = []
-        api_calls = self._api_calls(call_order, stats_result=1)
+        api_calls = self._api_calls(
+            call_order,
+            stats_result=self._ingestion_result(
+                game_ids=("20250914_ATL@MIN",),
+            ),
+            scores_result=self._ingestion_result(
+                game_ids=("20250914_ATL@MIN",),
+            ),
+        )
         replay_config = replace(
             app_module.RUNTIME_CONFIG,
+            environment="dev",
+            run_mode="controlled_replay",
             active_season="2025",
+            replay_date="2025-09-14",
         )
         pipeline_summary = {
             "season": "2025",
@@ -155,7 +240,40 @@ class TestApp(unittest.TestCase):
 
         conductor.assert_called_once_with(season="2025", write=True)
         self.assertEqual(summary["status"], "success")
+        self.assertEqual(summary["execution_mode"], "controlled_replay")
+        self.assertEqual(summary["active_season"], "2025")
+        self.assertEqual(summary["selected_game_ids"], ["20250914_ATL@MIN"])
         self.assertEqual(summary["metric_pipeline"]["season"], "2025")
+
+    def test_stats_internal_failure_is_visible_and_skips_conductor(self):
+        call_order = []
+        failure = {
+            "game_id": "20260806_CLE@CHI",
+            "error": "game_not_final - not final",
+        }
+        api_calls = self._api_calls(
+            call_order,
+            stats_result=self._ingestion_result(
+                status="failed",
+                successful_games=0,
+                failures=(failure,),
+            ),
+            scores_result=self._ingestion_result(),
+        )
+
+        with (
+            patch.object(app_module, "API_CALLS", api_calls),
+            patch.object(app_module, "run_gamelens_metric_pipeline") as conductor,
+        ):
+            summary = app_module.run_api_calls(load_date="2026-08-06")
+
+        conductor.assert_not_called()
+        self.assertEqual(summary["status"], "partial_failure")
+        self.assertEqual(summary["accepted_stats_games"], 0)
+        stats_summary = summary["ingestion"]["NFL Stats API Call"]
+        self.assertEqual(stats_summary["status"], "failed")
+        self.assertEqual(stats_summary["failed_game_count"], 1)
+        self.assertEqual(stats_summary["failures"], [failure])
 
     def test_stats_exception_is_visible_and_skips_conductor(self):
         call_order = []
@@ -221,6 +339,38 @@ class TestApp(unittest.TestCase):
             summary["ingestion"]["NFL Scores API Call"]["status"],
             "failed",
         )
+
+    def test_scores_internal_failure_remains_visible(self):
+        call_order = []
+        failure = {
+            "game_id": "20260806_CLE@CHI",
+            "error": "score payload missing",
+        }
+        api_calls = self._api_calls(
+            call_order,
+            stats_result=self._ingestion_result(),
+            scores_result=self._ingestion_result(
+                status="failed",
+                successful_games=0,
+                failures=(failure,),
+            ),
+        )
+
+        with (
+            patch.object(app_module, "API_CALLS", api_calls),
+            patch.object(
+                app_module,
+                "run_gamelens_metric_pipeline",
+                return_value=self._successful_pipeline_summary(),
+            ),
+        ):
+            summary = app_module.run_api_calls(load_date="2026-08-06")
+
+        self.assertEqual(summary["status"], "partial_failure")
+        scores_summary = summary["ingestion"]["NFL Scores API Call"]
+        self.assertEqual(scores_summary["status"], "failed")
+        self.assertEqual(scores_summary["failed_game_count"], 1)
+        self.assertEqual(scores_summary["failures"], [failure])
 
     def test_conductor_reported_failure_is_not_success(self):
         call_order = []

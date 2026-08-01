@@ -46,6 +46,21 @@ RUNTIME_CONFIG = load_runtime_config()
 api_cycles = {}
 
 
+def _normalize_api_result(api_name, result):
+    """Normalize legacy counts and structured ingestion results."""
+    if isinstance(result, dict):
+        stage_summary = dict(result)
+        stage_summary.setdefault("status", "success")
+        return stage_summary
+
+    stage_summary = {"status": "success"}
+    if api_name == "NFL Stats API Call":
+        stage_summary["successful_game_count"] = int(result or 0)
+    elif api_name == "NFL Scores API Call":
+        stage_summary["successful_game_count"] = int(result or 0)
+    return stage_summary
+
+
 def run_api_calls(load_date=None):
     """
     Execute each configured ingestion API call in sequence.
@@ -88,11 +103,14 @@ def run_api_calls(load_date=None):
                 if load_date
                 else api_call["function"]()
             )
-            ingestion[api_name] = {"status": "success"}
+            ingestion[api_name] = _normalize_api_result(api_name, result)
 
             # The NFL Stats API call returns successfully accepted games.
             if api_name == "NFL Stats API Call":
-                accepted_stats_games = result or 0
+                accepted_stats_games = ingestion[api_name].get(
+                    "successful_game_count",
+                    0,
+                )
                 ingestion[api_name]["accepted_games"] = accepted_stats_games
 
             # Track execution cycles for visibility/debugging.
@@ -121,7 +139,16 @@ def run_api_calls(load_date=None):
             ingestion[api_name] = {
                 "status": "failed",
                 "error": str(exc),
+                "failures": [{"error": str(exc)}],
             }
+            if api_name in {
+                "NFL Stats API Call",
+                "NFL Scores API Call",
+            }:
+                ingestion[api_name].update({
+                    "successful_game_count": 0,
+                    "failed_game_count": 1,
+                })
             log_event(
                 "error",
                 "api_call_error",
@@ -132,12 +159,19 @@ def run_api_calls(load_date=None):
     failed_ingestion = [
         api_name
         for api_name, stage_summary in ingestion.items()
-        if stage_summary["status"] == "failed"
+        if stage_summary["status"] in {"failed", "partial_failure"}
     ]
     successful_ingestion_count = sum(
-        stage_summary["status"] == "success"
+        stage_summary["status"] in {"success", "no_op"}
         for stage_summary in ingestion.values()
     )
+
+    stats_summary = ingestion.get("NFL Stats API Call", {})
+    scores_summary = ingestion.get("NFL Scores API Call", {})
+    selected_game_ids = stats_summary.get("selected_game_ids") or (
+        scores_summary.get("selected_game_ids") or []
+    )
+    selected_game_ids = list(selected_game_ids)
 
     # ------------------------------------------------------------
     # Stats-gated GameLens metric pipeline
@@ -201,13 +235,20 @@ def run_api_calls(load_date=None):
     else:
         status = "success"
 
-    return {
+    summary = {
         "status": status,
+        "execution_mode": RUNTIME_CONFIG.run_mode,
+        "active_season": RUNTIME_CONFIG.active_season,
         "load_date": load_date,
+        "selected_game_count": len(selected_game_ids),
+        "selected_game_ids": selected_game_ids,
         "accepted_stats_games": accepted_stats_games,
         "ingestion": ingestion,
         "metric_pipeline": metric_pipeline,
     }
+    if status == "no_op":
+        summary["no_op_reason"] = "no_accepted_stats_games"
+    return summary
 
 
 def setup_schedules(load_date=None):

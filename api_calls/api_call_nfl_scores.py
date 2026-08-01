@@ -13,6 +13,7 @@ from api_calls.api_utils.controlled_replay_scope import (
     normalize_load_date,
     select_games_for_load_date,
 )
+from api_calls.api_utils.ingestion_summary import build_ingestion_summary
 
 
 RUNTIME_CONFIG = load_runtime_config()
@@ -384,7 +385,7 @@ def reconcile_game_rows(
     return True
 
 
-def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
+def fetch_nfl_scores(load_date: Optional[str] = None) -> dict:
     log_event("info", "nfl_scores_job_started", load_date=load_date)
     bq = bigquery.Client(project=PROJECT)
     backlog = fetch_scores_to_process(bq, load_date=load_date)
@@ -394,17 +395,21 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
         controlled_replay=RUNTIME_CONFIG.is_controlled_replay,
         configured_replay_date=RUNTIME_CONFIG.replay_date,
     )
+    selected_game_ids = [game.get("gameID") for game in backlog]
 
     target_date = normalize_api_date(load_date) if load_date else None
     games_by_date: Dict[str, List[dict]] = defaultdict(list)
-    rejected_before_fetch = 0
+    failures = []
 
     for game in backlog:
         game_id = game.get("gameID")
         try:
             game_date = get_backlog_game_date(game)
         except ValueError as exc:
-            rejected_before_fetch += 1
+            failures.append({
+                "game_id": str(game_id),
+                "error": str(exc),
+            })
             log_event(
                 "warning",
                 "score_game_rejected",
@@ -422,14 +427,16 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
         "scores_backlog_loaded",
         backlog=len(backlog),
         eligible=eligible_count,
-        rejected=rejected_before_fetch,
+        rejected=len(failures),
     )
     if not games_by_date:
         log_event("info", "no_scores_to_process")
-        return 0
+        return build_ingestion_summary(
+            selected_game_ids=selected_game_ids,
+            failures=failures,
+        )
 
-    success_count = 0
-    rejected_count = rejected_before_fetch
+    successful_game_ids = []
 
     for game_date, games in games_by_date.items():
         querystring = {
@@ -452,7 +459,11 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
             if not isinstance(response_games, dict):
                 raise ValueError("Scores response body is not a game mapping")
         except Exception as exc:
-            rejected_count += len(games)
+            for game in games:
+                failures.append({
+                    "game_id": str(game.get("gameID")),
+                    "error": str(exc),
+                })
             log_event(
                 "error",
                 "scores_api_date_failed",
@@ -475,7 +486,7 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
                     rows,
                 )
                 mark_score_as_loaded(bq, game_id)
-                success_count += 1
+                successful_game_ids.append(game_id)
                 log_event(
                     "info",
                     "score_game_loaded",
@@ -483,7 +494,10 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
                     inserted=inserted,
                 )
             except Exception as exc:
-                rejected_count += 1
+                failures.append({
+                    "game_id": str(game_id),
+                    "error": str(exc),
+                })
                 log_event(
                     "error",
                     "score_game_failed",
@@ -497,7 +511,11 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
         "info",
         "nfl_scores_job_complete",
         eligible=eligible_count,
-        successful=success_count,
-        rejected=rejected_count,
+        successful=len(successful_game_ids),
+        rejected=len(failures),
     )
-    return success_count
+    return build_ingestion_summary(
+        selected_game_ids=selected_game_ids,
+        successful_game_ids=successful_game_ids,
+        failures=failures,
+    )

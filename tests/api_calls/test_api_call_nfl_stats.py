@@ -98,6 +98,20 @@ class FetchNflStatsTests(unittest.TestCase):
             item.start()
             self.addCleanup(item.stop)
 
+    def assert_summary(
+        self,
+        result,
+        *,
+        status,
+        successful,
+        failed,
+    ):
+        self.assertEqual(result["status"], status)
+        self.assertEqual(result["selected_game_count"], 1)
+        self.assertEqual(result["selected_game_ids"], [self.game_id])
+        self.assertEqual(result["successful_game_count"], successful)
+        self.assertEqual(result["failed_game_count"], failed)
+
     def test_invalid_response_inserts_nothing_and_writes_no_marker(self):
         with ExitStack() as stack:
             stack.enter_context(patch.object(
@@ -118,7 +132,14 @@ class FetchNflStatsTests(unittest.TestCase):
             )
             result = stats.fetch_nfl_stats()
 
-        self.assertEqual(result, 0)
+        self.assert_summary(
+            result,
+            status="failed",
+            successful=0,
+            failed=1,
+        )
+        self.assertEqual(result["failures"][0]["game_id"], self.game_id)
+        self.assertIn("game_not_final", result["failures"][0]["error"])
         reconcile.assert_not_called()
         mark.assert_not_called()
 
@@ -142,7 +163,13 @@ class FetchNflStatsTests(unittest.TestCase):
             ))
             result = stats.fetch_nfl_stats(load_date="2026-09-10")
 
-        self.assertEqual(result, 1)
+        self.assert_summary(
+            result,
+            status="success",
+            successful=1,
+            failed=0,
+        )
+        self.assertEqual(result["failures"], [])
         self.assertEqual(events, ["rows", "marker"])
 
     def test_insert_failure_writes_no_marker_and_counts_no_game(self):
@@ -162,7 +189,13 @@ class FetchNflStatsTests(unittest.TestCase):
             )
             result = stats.fetch_nfl_stats()
 
-        self.assertEqual(result, 0)
+        self.assert_summary(
+            result,
+            status="failed",
+            successful=0,
+            failed=1,
+        )
+        self.assertIn("insert failed", result["failures"][0]["error"])
         mark.assert_not_called()
 
     def test_marker_failure_counts_no_game(self):
@@ -182,7 +215,13 @@ class FetchNflStatsTests(unittest.TestCase):
             ))
             result = stats.fetch_nfl_stats()
 
-        self.assertEqual(result, 0)
+        self.assert_summary(
+            result,
+            status="failed",
+            successful=0,
+            failed=1,
+        )
+        self.assertIn("marker failed", result["failures"][0]["error"])
 
     def test_retry_with_complete_rows_does_not_insert_duplicates(self):
         with ExitStack() as stack:
@@ -240,7 +279,18 @@ class FetchNflStatsTests(unittest.TestCase):
             first_result = stats.fetch_nfl_stats()
             second_result = stats.fetch_nfl_stats()
 
-        self.assertEqual((first_result, second_result), (0, 1))
+        self.assert_summary(
+            first_result,
+            status="failed",
+            successful=0,
+            failed=1,
+        )
+        self.assert_summary(
+            second_result,
+            status="success",
+            successful=1,
+            failed=0,
+        )
         mark.assert_called_once_with(self.client, self.game_id)
 
     def test_controlled_replay_rejection_is_visible(self):

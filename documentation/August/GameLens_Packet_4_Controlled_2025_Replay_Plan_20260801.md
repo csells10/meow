@@ -182,7 +182,7 @@ expected output from deliberate failure-path tests.
 
 No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
 
-### R2 — Implementation checkpoint green; Christian's local confirmation pending
+### R2 — Complete
 
 The one-date selection boundary now has:
 
@@ -208,10 +208,51 @@ Independent local verification passed 72 tests:
 - 7 conductor tests;
 - `git diff --check`.
 
+Christian fast-forwarded to published commit `5841fbb` and independently
+confirmed the focused R2 gate: 8 runtime-configuration tests, 5 pure replay
+scope tests, 11 Stats tests, and 15 Scores tests all passed (39/39).
+
 The app verification mocked BigQuery clients and API secrets before import.
 No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
+
+### R3 — Implementation checkpoint green; Christian's local confirmation pending
+
+The real `POST /` response now has a stable scorecard containing:
+
+- execution mode, active season, and requested load date;
+- selected-game count and selected game IDs;
+- structured Stats and Scores results with selected, successful, and failed
+  game counts;
+- per-game failure details when a daily ingestion item is rejected;
+- visible exception details when an ingestion call fails;
+- accepted Stats game count used by the conductor gate;
+- conductor status and existing Facts, Windowed Metrics, and Rankings row
+  counts;
+- overall success, no-op, partial-failure, or failure status;
+- an explicit `no_accepted_stats_games` reason for a legitimate no-op.
+
+The shared Stats and Scores loaders now return the same JSON-ready result
+contract in both daily and controlled-replay modes. `app.py` still accepts the
+legacy integer count contract as a compatibility boundary. Parsing,
+validation, BigQuery reconciliation, status-marker ordering, retry behavior,
+and conductor builder logic were not duplicated or redesigned.
+
+Independent local verification passed 74 tests in clean suite processes:
+
+- 8 runtime-target configuration tests;
+- 5 pure controlled-replay selection tests;
+- 11 Stats tests;
+- 15 Scores tests;
+- 11 box-score validation tests;
+- 7 season-schedule tests;
+- 10 app response/failure tests;
+- 7 conductor tests;
+- Python compilation and `git diff --check`.
+
+The test harness mocked API secrets and BigQuery clients before import. No
+BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
 Do not call the historical endpoint yet; Christian must first fast-forward and
-confirm the focused R2 tests locally.
+confirm the focused R3 tests locally.
 
 ---
 
@@ -787,8 +828,8 @@ Do not combine infrastructure creation, endpoint invocation, production activati
 
 ## 10. The very next step
 
-Fast-forward the published R2 commit and run its focused local gate. Do not
+Fast-forward the published R3 commit and run its focused local gate. Do not
 create BigQuery clones, change Cloud Run, or call Tank01 yet.
 
-After Christian confirms R2 locally, begin R3 by making the real `POST /`
-response fully truthful and season-aware.
+After Christian confirms R3 locally, begin R4 by creating the isolated cloud
+sandbox without invoking the application endpoint.

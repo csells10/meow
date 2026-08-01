@@ -14,6 +14,7 @@ from api_calls.api_utils.controlled_replay_scope import (
     normalize_load_date,
     select_games_for_load_date,
 )
+from api_calls.api_utils.ingestion_summary import build_ingestion_summary
 
 RUNTIME_CONFIG = load_runtime_config()
 PROJECT = RUNTIME_CONFIG.project_id
@@ -187,14 +188,16 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
         configured_replay_date=RUNTIME_CONFIG.replay_date,
     )
     log_event("info", "games_to_ingest", count=len(backlog))
+    selected_game_ids = [game.get("gameID") for game in backlog]
     if not backlog:
         log_event(
             "info",
             "no_stats_to_process",
             load_date=load_date,
         )
-        return 0
-    success_count = 0
+        return build_ingestion_summary(selected_game_ids=())
+    successful_game_ids = []
+    failures = []
 
     for ix, game in enumerate(backlog, 1):
         game_id = game["gameID"]
@@ -225,6 +228,10 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
                         "Controlled replay Stats rejected game "
                         f"{game_id}: {validation.code} - {validation.reason}"
                     )
+                failures.append({
+                    "game_id": str(game_id),
+                    "error": f"{validation.code} - {validation.reason}",
+                })
                 continue
 
             save_raw_response({"body": box}, game_id, prefix="nfl_boxscore")
@@ -242,7 +249,7 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
                 expected_team_ids,
             )
             mark_game_as_loaded(bq, game_id)
-            success_count += 1
+            successful_game_ids.append(game_id)
 
             log_event(
                 "info",
@@ -262,6 +269,10 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
             )
             if RUNTIME_CONFIG.is_controlled_replay:
                 raise
+            failures.append({
+                "game_id": str(game_id),
+                "error": str(exc),
+            })
         finally:
             time.sleep(0.7 + random.uniform(0, 0.3))
 
@@ -269,6 +280,11 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
         "info",
         "etl_job_complete",
         processed=len(backlog),
-        successful=success_count,
+        successful=len(successful_game_ids),
+        failed=len(failures),
     )
-    return success_count
+    return build_ingestion_summary(
+        selected_game_ids=selected_game_ids,
+        successful_game_ids=successful_game_ids,
+        failures=failures,
+    )

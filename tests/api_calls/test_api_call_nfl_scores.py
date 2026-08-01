@@ -288,6 +288,20 @@ class FetchNflScoresTests(unittest.TestCase):
             item.start()
             self.addCleanup(item.stop)
 
+    def assert_summary(
+        self,
+        result,
+        *,
+        status,
+        selected,
+        successful,
+        failed,
+    ):
+        self.assertEqual(result["status"], status)
+        self.assertEqual(result["selected_game_count"], selected)
+        self.assertEqual(result["successful_game_count"], successful)
+        self.assertEqual(result["failed_game_count"], failed)
+
     def test_date_endpoint_is_called_once_for_same_day_backlog(self):
         api_response = {
             "body": {
@@ -313,7 +327,18 @@ class FetchNflScoresTests(unittest.TestCase):
                 load_date="2025-09-07"
             )
 
-        self.assertEqual(result, 2)
+        self.assert_summary(
+            result,
+            status="success",
+            selected=2,
+            successful=2,
+            failed=0,
+        )
+        self.assertEqual(
+            result["selected_game_ids"],
+            [GAME_ID, self.second_game_id],
+        )
+        self.assertEqual(result["failures"], [])
         fetch.assert_called_once()
         querystring = fetch.call_args.args[2]
         self.assertEqual(querystring["gameDate"], "20250907")
@@ -340,7 +365,14 @@ class FetchNflScoresTests(unittest.TestCase):
                 load_date="20250907"
             )
 
-        self.assertEqual(result, 0)
+        self.assert_summary(
+            result,
+            status="failed",
+            selected=2,
+            successful=0,
+            failed=2,
+        )
+        self.assertEqual(result["failures"][0]["game_id"], GAME_ID)
         reconcile.assert_not_called()
         mark.assert_not_called()
 
@@ -370,7 +402,14 @@ class FetchNflScoresTests(unittest.TestCase):
             ))
             result = scores.fetch_nfl_scores()
 
-        self.assertEqual(result, 0)
+        self.assert_summary(
+            result,
+            status="failed",
+            selected=1,
+            successful=0,
+            failed=1,
+        )
+        self.assertIn("marker failed", result["failures"][0]["error"])
 
     def test_controlled_replay_score_failure_is_visible(self):
         replay_config = MagicMock(
