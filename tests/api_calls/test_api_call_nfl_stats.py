@@ -243,8 +243,93 @@ class FetchNflStatsTests(unittest.TestCase):
         self.assertEqual((first_result, second_result), (0, 1))
         mark.assert_called_once_with(self.client, self.game_id)
 
+    def test_controlled_replay_rejection_is_visible(self):
+        replay_config = MagicMock(
+            is_controlled_replay=True,
+            replay_date="2026-09-10",
+        )
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(stats, "RUNTIME_CONFIG", replay_config))
+            stack.enter_context(patch.object(
+                stats,
+                "fetch_games_to_process",
+                return_value=[{
+                    "gameID": self.game_id,
+                    "gameDate": "2026-09-10",
+                }],
+            ))
+            stack.enter_context(patch.object(
+                stats,
+                "validate_nfl_boxscore",
+                return_value=Validation(
+                    accepted=False,
+                    code="game_not_final",
+                    reason="not final",
+                    team_ids=(),
+                ),
+            ))
+            reconcile = stack.enter_context(
+                patch.object(stats, "reconcile_game_rows")
+            )
+            mark = stack.enter_context(
+                patch.object(stats, "mark_game_as_loaded")
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "game_not_final"):
+                stats.fetch_nfl_stats(load_date="2026-09-10")
+
+        reconcile.assert_not_called()
+        mark.assert_not_called()
+
+    def test_controlled_replay_two_games_fails_before_api_or_write(self):
+        replay_config = MagicMock(
+            is_controlled_replay=True,
+            replay_date="2026-09-10",
+        )
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(stats, "RUNTIME_CONFIG", replay_config))
+            stack.enter_context(patch.object(
+                stats,
+                "fetch_games_to_process",
+                return_value=[
+                    {"gameID": self.game_id, "gameDate": "2026-09-10"},
+                    {"gameID": "20260910_LV@DEN", "gameDate": "2026-09-10"},
+                ],
+            ))
+            fetch = stack.enter_context(
+                patch.object(stats, "fetch_and_validate_api_data")
+            )
+            reconcile = stack.enter_context(
+                patch.object(stats, "reconcile_game_rows")
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "exactly one game"):
+                stats.fetch_nfl_stats(load_date="2026-09-10")
+
+        fetch.assert_not_called()
+        reconcile.assert_not_called()
+
 
 class StatsHelperTests(unittest.TestCase):
+    def test_backlog_query_is_parameterized_by_load_date(self):
+        client = MagicMock()
+        client.query.return_value.result.return_value = []
+
+        result = stats.fetch_games_to_process(
+            client,
+            load_date="2026-09-10",
+        )
+
+        self.assertEqual(result, [])
+        sql = client.query.call_args.args[0]
+        job_config = client.query.call_args.kwargs["job_config"]
+        self.assertIn("WHERE DATE(gameDate) = @load_date", sql)
+        self.assertEqual(job_config.query_parameters[0].name, "load_date")
+        self.assertEqual(
+            str(job_config.query_parameters[0].value),
+            "2026-09-10",
+        )
+
     def test_partial_existing_rows_are_replaced_and_confirmed(self):
         client = MagicMock()
         game_id = "20260910_BUF@KC"

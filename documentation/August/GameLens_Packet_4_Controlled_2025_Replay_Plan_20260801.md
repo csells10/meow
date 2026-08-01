@@ -154,7 +154,7 @@ The starting state was re-established without changing code or cloud resources:
 
 Safety conclusion: the dev trigger and production traffic protections were intact, but the dev service was not yet isolated by runtime targets, service-account permissions, or timeout. A historical request remained prohibited.
 
-### R1 — Implementation checkpoint green; Christian's local confirmation pending
+### R1 — Complete
 
 The first local-only safety seam now has:
 
@@ -175,7 +175,43 @@ Independent local verification passed:
 - 38 existing box-score, Stats, Scores, and season-schedule tests;
 - Python compilation and `git diff --check`.
 
-No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made. Do not begin R2 until Christian fast-forwards and confirms the focused R1 tests locally.
+Christian fast-forwarded to published commit `ddf0411a` and independently
+confirmed the focused R1 gate: 7 runtime-target tests, 8 app tests, and 7
+conductor tests all passed (22/22). The apparent ERROR log entries were the
+expected output from deliberate failure-path tests.
+
+No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
+
+### R2 — Implementation checkpoint green; Christian's local confirmation pending
+
+The one-date selection boundary now has:
+
+- parameterized BigQuery date filters on both Stats and Scores backlog reads;
+- a shared pure selection guard that excludes other backlog dates;
+- a required, valid `GAMELENS_REPLAY_DATE` in controlled-replay mode;
+- rejection when a request date differs from the configured replay date;
+- a pre-API/pre-write failure when more than one game is eligible;
+- an explicit zero-game no-op;
+- controlled-replay Stats and Scores failures that escape to `app.py` rather
+  than becoming a successful zero count;
+- unchanged production defaults and existing game-scoped retry behavior.
+
+Independent local verification passed 72 tests:
+
+- 8 runtime-target configuration tests;
+- 5 pure controlled-replay selection tests;
+- 11 Stats tests;
+- 15 Scores tests;
+- 11 box-score validation tests;
+- 7 season-schedule tests;
+- 8 app tests;
+- 7 conductor tests;
+- `git diff --check`.
+
+The app verification mocked BigQuery clients and API secrets before import.
+No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
+Do not call the historical endpoint yet; Christian must first fast-forward and
+confirm the focused R2 tests locally.
 
 ---
 
@@ -751,10 +787,8 @@ Do not combine infrastructure creation, endpoint invocation, production activati
 
 ## 10. The very next step
 
-The next step is **Chunk R0 only**.
+Fast-forward the published R2 commit and run its focused local gate. Do not
+create BigQuery clones, change Cloud Run, or call Tank01 yet.
 
-After R0, begin R1 by writing the fail-closed runtime-target tests. Do not create BigQuery clones, change Cloud Run, or call Tank01 yet.
-
-That gives us the easiest possible first win:
-
-> Prove locally that dev mode cannot point at production, then stop.
+After Christian confirms R2 locally, begin R3 by making the real `POST /`
+response fully truthful and season-aware.

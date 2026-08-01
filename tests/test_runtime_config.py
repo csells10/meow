@@ -10,6 +10,7 @@ class RuntimeConfigTests(unittest.TestCase):
             "GAMELENS_ENVIRONMENT": "dev",
             "GAMELENS_RUN_MODE": "controlled_replay",
             "GAMELENS_ACTIVE_SEASON": "2025",
+            "GAMELENS_REPLAY_DATE": "2025-09-14",
             "GAMELENS_LEAGUE_DATASET": "League_dev",
             "GAMELENS_SCORES_DATASET": "Scores_dev",
             "GAMELENS_ANALYTICS_DATASET": "Analytics_dev",
@@ -23,6 +24,7 @@ class RuntimeConfigTests(unittest.TestCase):
 
         self.assertEqual(config.active_season, "2025")
         self.assertTrue(config.is_controlled_replay)
+        self.assertEqual(config.replay_date, "2025-09-14")
         self.assertEqual(
             config.league_table("schedule"),
             "nfl-stream-406420.League_dev.schedule",
@@ -79,6 +81,17 @@ class RuntimeConfigTests(unittest.TestCase):
                 ):
                     load_runtime_config(
                         self._dev_env(GAMELENS_ACTIVE_SEASON=season)
+                    )
+
+    def test_controlled_replay_requires_valid_replay_date(self):
+        for replay_date in ("", "20250914", "2025-02-30"):
+            with self.subTest(replay_date=replay_date):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "GAMELENS_REPLAY_DATE",
+                ):
+                    load_runtime_config(
+                        self._dev_env(GAMELENS_REPLAY_DATE=replay_date)
                     )
 
     def test_production_defaults_remain_unchanged(self):

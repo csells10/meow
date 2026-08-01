@@ -228,6 +228,27 @@ class ReconcileGameRowsTests(unittest.TestCase):
                 scores.mark_score_as_loaded(self.client, GAME_ID)
 
 
+class ScoreBacklogQueryTests(unittest.TestCase):
+    def test_backlog_query_is_parameterized_by_load_date(self):
+        client = MagicMock()
+        client.query.return_value.result.return_value = []
+
+        result = scores.fetch_scores_to_process(
+            client,
+            load_date="2025-09-07",
+        )
+
+        self.assertEqual(result, [])
+        sql = client.query.call_args.args[0]
+        job_config = client.query.call_args.kwargs["job_config"]
+        self.assertIn("WHERE DATE(gameDate) = @load_date", sql)
+        self.assertEqual(job_config.query_parameters[0].name, "load_date")
+        self.assertEqual(
+            str(job_config.query_parameters[0].value),
+            "2025-09-07",
+        )
+
+
 class FetchNflScoresTests(unittest.TestCase):
     def setUp(self):
         self.client = MagicMock()
@@ -350,6 +371,55 @@ class FetchNflScoresTests(unittest.TestCase):
             result = scores.fetch_nfl_scores()
 
         self.assertEqual(result, 0)
+
+    def test_controlled_replay_score_failure_is_visible(self):
+        replay_config = MagicMock(
+            is_controlled_replay=True,
+            replay_date="2025-09-07",
+        )
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(scores, "RUNTIME_CONFIG", replay_config))
+            stack.enter_context(patch.object(
+                scores,
+                "fetch_scores_to_process",
+                return_value=[{
+                    "gameID": GAME_ID,
+                    "gameDate": "2025-09-07",
+                }],
+            ))
+            stack.enter_context(patch.object(
+                scores,
+                "fetch_and_validate_api_data",
+                side_effect=RuntimeError("scores unavailable"),
+            ))
+            reconcile = stack.enter_context(
+                patch.object(scores, "reconcile_game_rows")
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "scores unavailable"):
+                scores.fetch_nfl_scores(load_date="2025-09-07")
+
+        reconcile.assert_not_called()
+
+    def test_controlled_replay_two_games_fails_before_api_or_write(self):
+        replay_config = MagicMock(
+            is_controlled_replay=True,
+            replay_date="2025-09-07",
+        )
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(scores, "RUNTIME_CONFIG", replay_config))
+            fetch = stack.enter_context(
+                patch.object(scores, "fetch_and_validate_api_data")
+            )
+            reconcile = stack.enter_context(
+                patch.object(scores, "reconcile_game_rows")
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "exactly one game"):
+                scores.fetch_nfl_scores(load_date="2025-09-07")
+
+        fetch.assert_not_called()
+        reconcile.assert_not_called()
 
 
 if __name__ == "__main__":

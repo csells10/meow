@@ -9,6 +9,10 @@ from utils.helper import fetch_and_validate_api_data, get_secret
 from utils.logging_setup import log_event
 from utils.response_helpers import save_raw_response
 from runtime_config import load_runtime_config
+from api_calls.api_utils.controlled_replay_scope import (
+    normalize_load_date,
+    select_games_for_load_date,
+)
 
 
 RUNTIME_CONFIG = load_runtime_config()
@@ -47,13 +51,34 @@ SCORE_COLUMNS = (
 FINAL_STATUS_VALUES = {"completed", "final"}
 
 
-def fetch_scores_to_process(client: bigquery.Client) -> List[dict]:
+def fetch_scores_to_process(
+    client: bigquery.Client,
+    load_date: Optional[str] = None,
+) -> List[dict]:
+    where_clause = ""
+    job_config = None
+    if load_date:
+        target_date = date.fromisoformat(normalize_load_date(load_date))
+        where_clause = "WHERE DATE(gameDate) = @load_date"
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter(
+                    "load_date",
+                    "DATE",
+                    target_date,
+                )
+            ]
+        )
     sql = f"""
         SELECT *
         FROM `{PROJECT}.{BQ_SOURCE}`
+        {where_clause}
         ORDER BY gameDate DESC
     """
-    return [dict(row) for row in client.query(sql).result()]
+    return [
+        dict(row)
+        for row in client.query(sql, job_config=job_config).result()
+    ]
 
 
 def insert_rows_bq(client: bigquery.Client, rows: List[dict]) -> None:
@@ -362,7 +387,13 @@ def reconcile_game_rows(
 def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
     log_event("info", "nfl_scores_job_started", load_date=load_date)
     bq = bigquery.Client(project=PROJECT)
-    backlog = fetch_scores_to_process(bq)
+    backlog = fetch_scores_to_process(bq, load_date=load_date)
+    backlog = select_games_for_load_date(
+        backlog,
+        load_date=load_date,
+        controlled_replay=RUNTIME_CONFIG.is_controlled_replay,
+        configured_replay_date=RUNTIME_CONFIG.replay_date,
+    )
 
     target_date = normalize_api_date(load_date) if load_date else None
     games_by_date: Dict[str, List[dict]] = defaultdict(list)
@@ -429,6 +460,8 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
                 games=len(games),
                 error=str(exc)[:300],
             )
+            if RUNTIME_CONFIG.is_controlled_replay:
+                raise
             continue
 
         for game in games:
@@ -457,6 +490,8 @@ def fetch_nfl_scores(load_date: Optional[str] = None) -> int:
                     game_id=game_id,
                     error=str(exc)[:300],
                 )
+                if RUNTIME_CONFIG.is_controlled_replay:
+                    raise
 
     log_event(
         "info",

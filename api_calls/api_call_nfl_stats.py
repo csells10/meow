@@ -1,5 +1,6 @@
 import random
 import time
+from datetime import date
 from typing import List, Optional, Set
 
 from api_calls.api_utils.parse_nfl_stats import parse_game_stats
@@ -9,6 +10,10 @@ from utils.helper import get_secret, fetch_and_validate_api_data
 from utils.response_helpers import save_raw_response
 from utils.logging_setup import log_event
 from runtime_config import load_runtime_config
+from api_calls.api_utils.controlled_replay_scope import (
+    normalize_load_date,
+    select_games_for_load_date,
+)
 
 RUNTIME_CONFIG = load_runtime_config()
 PROJECT = RUNTIME_CONFIG.project_id
@@ -20,13 +25,34 @@ API_URL = f"https://{API_HOST}/getNFLBoxScore"
 API_KEY = get_secret("Tank_Rapidapi")
 
 
-def fetch_games_to_process(client: bigquery.Client) -> List[dict]:
+def fetch_games_to_process(
+    client: bigquery.Client,
+    load_date: Optional[str] = None,
+) -> List[dict]:
+    where_clause = ""
+    job_config = None
+    if load_date:
+        target_date = date.fromisoformat(normalize_load_date(load_date))
+        where_clause = "WHERE DATE(gameDate) = @load_date"
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter(
+                    "load_date",
+                    "DATE",
+                    target_date,
+                )
+            ]
+        )
     sql = f"""
         SELECT *
         FROM `{PROJECT}.{BQ_SOURCE}`
+        {where_clause}
         ORDER BY gameDate DESC
     """
-    return [dict(r) for r in client.query(sql).result()]
+    return [
+        dict(row)
+        for row in client.query(sql, job_config=job_config).result()
+    ]
 
 
 HEADERS = {
@@ -153,8 +179,21 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
     log_event("info", "nfl_stats_job_started", load_date=load_date)
     bq = bigquery.Client(project=PROJECT)
 
-    backlog = fetch_games_to_process(bq)
+    backlog = fetch_games_to_process(bq, load_date=load_date)
+    backlog = select_games_for_load_date(
+        backlog,
+        load_date=load_date,
+        controlled_replay=RUNTIME_CONFIG.is_controlled_replay,
+        configured_replay_date=RUNTIME_CONFIG.replay_date,
+    )
     log_event("info", "games_to_ingest", count=len(backlog))
+    if not backlog:
+        log_event(
+            "info",
+            "no_stats_to_process",
+            load_date=load_date,
+        )
+        return 0
     success_count = 0
 
     for ix, game in enumerate(backlog, 1):
@@ -181,6 +220,11 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
                     code=validation.code,
                     reason=validation.reason,
                 )
+                if RUNTIME_CONFIG.is_controlled_replay:
+                    raise RuntimeError(
+                        "Controlled replay Stats rejected game "
+                        f"{game_id}: {validation.code} - {validation.reason}"
+                    )
                 continue
 
             save_raw_response({"body": box}, game_id, prefix="nfl_boxscore")
@@ -216,6 +260,8 @@ def fetch_nfl_stats(load_date: Optional[str] = None):
                 game_id=game_id,
                 error=str(exc)[:300],
             )
+            if RUNTIME_CONFIG.is_controlled_replay:
+                raise
         finally:
             time.sleep(0.7 + random.uniform(0, 0.3))
 

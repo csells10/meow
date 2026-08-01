@@ -8,6 +8,7 @@ dataset or raw-response bucket defaults.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import os
 import re
 from typing import Mapping, Optional
@@ -84,6 +85,21 @@ def _validate_season(value: str) -> str:
     if not re.fullmatch(r"20\d{2}", season):
         raise ValueError("GAMELENS_ACTIVE_SEASON must be a four-digit NFL season")
     return season
+
+
+def _validate_replay_date(value: str) -> str:
+    replay_date = str(value or "").strip()
+    try:
+        parsed = datetime.strptime(replay_date, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError(
+            "GAMELENS_REPLAY_DATE must be a valid YYYY-MM-DD date"
+        )
+    if parsed.strftime("%Y-%m-%d") != replay_date:
+        raise ValueError(
+            "GAMELENS_REPLAY_DATE must be a valid YYYY-MM-DD date"
+        )
+    return replay_date
 
 
 def _validate_dev_targets(config: RuntimeConfig) -> None:
@@ -165,6 +181,12 @@ def load_runtime_config(
     if not project_id:
         raise ValueError("GAMELENS_PROJECT_ID cannot be blank")
 
+    replay_date = str(
+        source.get("GAMELENS_REPLAY_DATE") or ""
+    ).strip() or None
+    if run_mode == "controlled_replay":
+        replay_date = _validate_replay_date(replay_date)
+
     config = RuntimeConfig(
         project_id=project_id,
         environment=environment,
@@ -174,7 +196,7 @@ def load_runtime_config(
         scores_dataset=scores_dataset,
         analytics_dataset=analytics_dataset,
         raw_response_bucket=raw_response_bucket,
-        replay_date=str(source.get("GAMELENS_REPLAY_DATE") or "").strip() or None,
+        replay_date=replay_date,
     )
 
     if config.is_dev:
