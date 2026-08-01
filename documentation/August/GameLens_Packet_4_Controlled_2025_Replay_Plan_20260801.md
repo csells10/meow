@@ -124,6 +124,7 @@ Each chunk ends at a safe stopping point. Do not combine chunks merely to make t
 | R1 | Fail-closed runtime targeting | No | Local tests prove dev cannot resolve production write targets |
 | R2 | Targeted replay behavior | No | Local tests prove one date cannot drain the full backlog |
 | R3 | Truthful response and season | No | Local tests prove `POST /` reports 2025 and failures honestly |
+| R3.5 | Schedule spine safety | No | Schedule failures are tested and replay skips Schedule |
 | R4 | Build the isolated sandbox | Yes, dev only | Datasets, bucket, service account, clones, and views exist |
 | R5 | Choose and rewind one game | Yes, dev only | Exactly one game is eligible in working clones |
 | R6 | Deploy and preflight dev | Yes, dev only | Health/config proof passes; ingestion has not run |
@@ -215,7 +216,7 @@ scope tests, 11 Stats tests, and 15 Scores tests all passed (39/39).
 The app verification mocked BigQuery clients and API secrets before import.
 No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
 
-### R3 — Implementation checkpoint green; Christian's local confirmation pending
+### R3 — Complete and independently confirmed
 
 The real `POST /` response now has a stable scorecard containing:
 
@@ -249,10 +250,46 @@ Independent local verification passed 74 tests in clean suite processes:
 - 7 conductor tests;
 - Python compilation and `git diff --check`.
 
+Christian fast-forwarded to published commit `2eed066` and independently
+confirmed the focused R3 gate: 10 app tests, 11 Stats tests, and 15 Scores
+tests all passed (36/36).
+
 The test harness mocked API secrets and BigQuery clients before import. No
 BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
+
+### R3.5 — Implementation checkpoint green; local confirmation pending
+
+A direct review of the Schedule spine found no dedicated daily-controller test
+suite. Date-level delete or insert failures were logged and converted to
+`False`, while the top-level Schedule call returned no summary. That could let
+`app.py` report Schedule success after an internal failure.
+
+R3.5 adds:
+
+- direct tests for Schedule transformation, date requests, and invalid data;
+- proof that empty API results cause no delete or insert;
+- proof that replacement uses a parameterized game-ID delete;
+- visible delete/insert failures instead of swallowed failures;
+- a structured Schedule summary with dates, game IDs, inserted rows, and
+  failures;
+- an explicit controlled-replay Schedule no-op before secret lookup, Tank01,
+  raw-response storage, or BigQuery writes;
+- an app-level proof that Schedule partial failure makes the overall result a
+  partial failure.
+
+Independent local verification passed 63 focused tests in clean processes:
+
+- 11 direct Schedule tests;
+- 11 app response/failure tests;
+- 11 Stats tests;
+- 15 Scores tests;
+- 7 season-schedule tests;
+- 8 runtime-target configuration tests;
+- Python compilation and `git diff --check`.
+
+No BigQuery, GCS, Tank01, Cloud Run, Scheduler, trigger, or IAM change was made.
 Do not call the historical endpoint yet; Christian must first fast-forward and
-confirm the focused R3 tests locally.
+confirm the focused R3.5 tests locally.
 
 ---
 
@@ -476,6 +513,36 @@ Extend `tests.test_app` for:
 ### Done when
 
 The focused app and conductor suites pass and the response contains enough evidence to diagnose the run.
+
+---
+
+## Chunk R3.5 — Cover the daily Schedule spine
+
+### Goal
+
+Make the existing Schedule controller directly testable and ensure its
+failures reach the truthful R3 response without changing replay data.
+
+### Tests first
+
+Add direct coverage for:
+
+- yesterday, today, and the next two date selections;
+- transformation fields and loaded flags;
+- empty-response no-write behavior;
+- parameterized delete and successful insert behavior;
+- visible delete or insert failures;
+- controlled-replay Schedule skip before external access;
+- app-level Schedule failure reporting.
+
+### Suggested commit boundary
+
+`Make Schedule ingestion failures visible`
+
+### Done when
+
+The Schedule, App, Stats, Scores, season-schedule, and runtime-configuration
+suites pass in clean processes.
 
 ---
 
@@ -817,8 +884,9 @@ Keep code work in these small commits:
 1. `Add fail-closed dev replay target configuration`
 2. `Scope controlled replay ingestion to one date`
 3. `Return truthful controlled replay summaries`
-4. `Persist dev replay deployment settings`
-5. `Document Packet 4 controlled replay result [skip ci]`
+4. `Make Schedule ingestion failures visible`
+5. `Persist dev replay deployment settings`
+6. `Document Packet 4 controlled replay result [skip ci]`
 
 Each commit gets its focused tests before the next begins.
 
@@ -828,8 +896,8 @@ Do not combine infrastructure creation, endpoint invocation, production activati
 
 ## 10. The very next step
 
-Fast-forward the published R3 commit and run its focused local gate. Do not
+Fast-forward the published R3.5 commit and run its focused local gate. Do not
 create BigQuery clones, change Cloud Run, or call Tank01 yet.
 
-After Christian confirms R3 locally, begin R4 by creating the isolated cloud
+After Christian confirms R3.5 locally, begin R4 by creating the isolated cloud
 sandbox without invoking the application endpoint.

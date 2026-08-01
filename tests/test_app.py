@@ -21,6 +21,7 @@ class TestApp(unittest.TestCase):
         call_order,
         stats_result=0,
         scores_result=None,
+        schedule_result=None,
         schedule_error=None,
         stats_error=None,
         scores_error=None,
@@ -31,6 +32,7 @@ class TestApp(unittest.TestCase):
                 "function": self._record_call(
                     call_order,
                     "schedule",
+                    result=schedule_result,
                     error=schedule_error,
                 ),
                 "max_cycles": 1,
@@ -274,6 +276,57 @@ class TestApp(unittest.TestCase):
         self.assertEqual(stats_summary["status"], "failed")
         self.assertEqual(stats_summary["failed_game_count"], 1)
         self.assertEqual(stats_summary["failures"], [failure])
+
+    def test_schedule_internal_failure_is_visible(self):
+        call_order = []
+        schedule_result = {
+            "status": "partial_failure",
+            "requested_dates": ["20260805", "20260806"],
+            "successful_dates": ["20260806"],
+            "no_op_dates": [],
+            "selected_game_count": 1,
+            "selected_game_ids": ["20260806_CLE@CHI"],
+            "successful_game_count": 1,
+            "inserted_row_count": 1,
+            "failed_date_count": 1,
+            "failures": [{
+                "game_date": "20260805",
+                "error": "schedule unavailable",
+            }],
+        }
+        api_calls = self._api_calls(
+            call_order,
+            schedule_result=schedule_result,
+            stats_result=self._ingestion_result(
+                status="no_op",
+                game_ids=(),
+                successful_games=0,
+                no_op_reason="no_eligible_games",
+            ),
+            scores_result=self._ingestion_result(
+                status="no_op",
+                game_ids=(),
+                successful_games=0,
+                no_op_reason="no_eligible_games",
+            ),
+        )
+
+        with patch.object(
+            app_module,
+            "API_CALLS",
+            api_calls,
+        ), patch.object(
+            app_module,
+            "run_gamelens_metric_pipeline",
+        ) as conductor:
+            summary = app_module.run_api_calls(load_date="2026-08-06")
+
+        conductor.assert_not_called()
+        self.assertEqual(summary["status"], "partial_failure")
+        self.assertEqual(
+            summary["ingestion"]["NFL Game Schedule API Call"],
+            schedule_result,
+        )
 
     def test_stats_exception_is_visible_and_skips_conductor(self):
         call_order = []

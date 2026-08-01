@@ -46,13 +46,25 @@ def process_yesterday_games(table_id, api_url, headers, yesterday_date):
         # Step 1b: Only proceed if games exist
         if not raw_games:
             log_event("warning", "no_games_found_yesterday", game_date=yesterday_date)
-            return False
+            return {
+                "status": "no_op",
+                "game_date": yesterday_date,
+                "selected_game_ids": [],
+                "inserted_row_count": 0,
+                "no_op_reason": "no_games_returned",
+            }
 
         # Step 1c: Transform records
         df = transform_game_records(raw_games)
         if df.empty:
             log_event("warning", "no_games_after_transform_yesterday", game_date=yesterday_date)
-            return False
+            return {
+                "status": "no_op",
+                "game_date": yesterday_date,
+                "selected_game_ids": [],
+                "inserted_row_count": 0,
+                "no_op_reason": "no_games_after_transform",
+            }
 
         # Step 1d: Delete and insert all rows for yesterday's gameIDs
         game_ids = df["gameID"].tolist()
@@ -69,11 +81,16 @@ def process_yesterday_games(table_id, api_url, headers, yesterday_date):
         # Step 1e: Insert fresh records
         insert_into_bigquery(table_id, df.to_dict(orient="records"))
         log_event("info", "yesterday_games_inserted", game_date=yesterday_date, inserted=len(df))
-        return True
+        return {
+            "status": "success",
+            "game_date": yesterday_date,
+            "selected_game_ids": [str(game_id) for game_id in game_ids],
+            "inserted_row_count": len(df),
+        }
 
     except Exception as e:
         log_event("error", "yesterday_games_process_failed", game_date=yesterday_date, error=str(e))
-        return False
+        raise
 
 # ────────────────────────────────────────────────────────────────
 # Step 2 – Today and next 2 days: Delete and insert by gameID
@@ -95,7 +112,13 @@ def process_game_date(table_id, api_url, headers, game_date):
         df = transform_game_records(raw_games)
         if df.empty:
             log_event("warning", "no_games_after_transform", game_date=game_date)
-            return False
+            return {
+                "status": "no_op",
+                "game_date": game_date,
+                "selected_game_ids": [],
+                "inserted_row_count": 0,
+                "no_op_reason": "no_games_after_transform",
+            }
 
         # Step 2c: Delete all rows in BigQuery for these gameIDs
         game_ids = df["gameID"].tolist()
@@ -112,11 +135,16 @@ def process_game_date(table_id, api_url, headers, game_date):
         # Step 2d: Insert all fresh records
         insert_into_bigquery(table_id, df.to_dict(orient="records"))
         log_event("info", "games_inserted", game_date=game_date, inserted=len(df))
-        return True
+        return {
+            "status": "success",
+            "game_date": game_date,
+            "selected_game_ids": [str(game_id) for game_id in game_ids],
+            "inserted_row_count": len(df),
+        }
 
     except Exception as e:
         log_event("error", "games_fetch_or_insert_failed", game_date=game_date, error=str(e))
-        return False
+        raise
 
 # ────────────────────────────────────────────────────────────────
 # Step 3 – Fetch games for a single date from API
@@ -186,12 +214,25 @@ def fetch_nfl_games(load_date=None):
     - Step 5a: If not a historical run, first process yesterday (safe delete & insert).
     - Step 5b: Then, process today and next 2 days (delete & insert for each date).
     """
-    table_id = TABLE_SCHEDULE
-    api_url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForDate"
-    headers = {
-        "x-rapidapi-key": get_secret("Tank_Rapidapi"),
-        "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
-    }
+    if RUNTIME_CONFIG.is_controlled_replay:
+        log_event(
+            "info",
+            "schedule_replay_skipped",
+            load_date=load_date,
+        )
+        return {
+            "status": "no_op",
+            "requested_dates": [],
+            "successful_dates": [],
+            "no_op_dates": [],
+            "selected_game_count": 0,
+            "selected_game_ids": [],
+            "successful_game_count": 0,
+            "inserted_row_count": 0,
+            "failed_date_count": 0,
+            "failures": [],
+            "no_op_reason": "controlled_replay_schedule_skipped",
+        }
 
     is_historical_run = (
         load_date is not None and
@@ -199,28 +240,97 @@ def fetch_nfl_games(load_date=None):
     )
     start_date = datetime.strptime(load_date, "%Y-%m-%d") if load_date else datetime.now()
 
-    try:
-        if not is_historical_run:
-            any_inserted = False
+    if is_historical_run:
+        log_event("info", "historical_schedule_skipped", load_date=load_date)
+        return {
+            "status": "no_op",
+            "requested_dates": [],
+            "successful_dates": [],
+            "no_op_dates": [],
+            "selected_game_count": 0,
+            "selected_game_ids": [],
+            "successful_game_count": 0,
+            "inserted_row_count": 0,
+            "failed_date_count": 0,
+            "failures": [],
+            "no_op_reason": "historical_schedule_skipped",
+        }
 
-            # Step 5a – Process yesterday's games first (safe)
-            yesterday_date = (start_date + timedelta(days=-1)).strftime("%Y%m%d")
-            process_yesterday_games(table_id, api_url, headers, yesterday_date)
+    table_id = TABLE_SCHEDULE
+    api_url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForDate"
+    headers = {
+        "x-rapidapi-key": get_secret("Tank_Rapidapi"),
+        "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
+    }
+    yesterday_date = (start_date + timedelta(days=-1)).strftime("%Y%m%d")
+    dated_steps = [
+        (process_yesterday_games, yesterday_date),
+        *[
+            (
+                process_game_date,
+                (start_date + timedelta(days=offset)).strftime("%Y%m%d"),
+            )
+            for offset in range(3)
+        ],
+    ]
+    requested_dates = [game_date for _, game_date in dated_steps]
+    successful_dates = []
+    no_op_dates = []
+    selected_game_ids = []
+    inserted_row_count = 0
+    failures = []
 
-            # Step 5b – Today + next 2 days
-            for offset in range(3):
-                game_date = (start_date + timedelta(days=offset)).strftime("%Y%m%d")
-                inserted = process_game_date(table_id, api_url, headers, game_date)
-                if inserted:
-                    any_inserted = True
-
-            # Step 5c – Summary log for success/failure
-            if any_inserted:
-                log_event("info", "games_data_inserted")
+    for processor, game_date in dated_steps:
+        try:
+            result = processor(table_id, api_url, headers, game_date)
+            if result["status"] == "success":
+                successful_dates.append(game_date)
+                selected_game_ids.extend(result["selected_game_ids"])
+                inserted_row_count += result["inserted_row_count"]
             else:
-                log_event("info", "no_new_games_found")
+                no_op_dates.append(game_date)
+        except Exception as exc:
+            failures.append({
+                "game_date": game_date,
+                "error": str(exc),
+            })
+            log_event(
+                "error",
+                "schedule_date_failed",
+                game_date=game_date,
+                error=str(exc),
+            )
 
-    except Exception as e:
-        log_event("error", "nfl_games_job_failed", error=str(e))
-    finally:
-        log_event("info", "nfl_games_job_completed")
+    completed_date_count = len(successful_dates) + len(no_op_dates)
+    if failures and completed_date_count:
+        status = "partial_failure"
+    elif failures:
+        status = "failed"
+    elif successful_dates:
+        status = "success"
+    else:
+        status = "no_op"
+
+    summary = {
+        "status": status,
+        "requested_dates": requested_dates,
+        "successful_dates": successful_dates,
+        "no_op_dates": no_op_dates,
+        "selected_game_count": len(selected_game_ids),
+        "selected_game_ids": selected_game_ids,
+        "successful_game_count": len(selected_game_ids),
+        "inserted_row_count": inserted_row_count,
+        "failed_date_count": len(failures),
+        "failures": failures,
+    }
+    if status == "no_op":
+        summary["no_op_reason"] = "no_schedule_rows_inserted"
+
+    log_event(
+        "info",
+        "nfl_games_job_completed",
+        status=status,
+        inserted=inserted_row_count,
+        failed_dates=len(failures),
+    )
+    return summary
