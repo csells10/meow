@@ -497,7 +497,7 @@ REPLAY_DATE="YYYY-MM-DD"
 Call the truthful scheduler seam exactly once:
 
 ~~~bash
-curl -sS -X POST "$DEV_URL/"   -H "Content-Type: application/json"   -d "{"load_date":"$REPLAY_DATE"}"
+curl -sS -X POST "$DEV_URL/" -H "Content-Type: application/json" -d "{\"load_date\":\"$REPLAY_DATE\"}"
 ~~~
 
 Expected high-level scorecard:
