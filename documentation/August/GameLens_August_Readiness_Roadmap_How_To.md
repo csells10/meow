@@ -51,7 +51,7 @@ The deployment preflight is also complete. Commit `2d95b4e` changed only `Docker
 
 Cloud Run still has a 300-second request timeout. The enabled `Get-NFL-Schedule` job runs daily at 8:00 a.m. in `America/New_York`, has a 180-second attempt deadline, and has no automatic retries because `retryCount` is absent/default `0`. Packet 4 must persist a 900-second Cloud Run timeout in deployment configuration and align the Scheduler deadline to 900 seconds during controlled activation. Do not change production timeouts during read-only planning, and keep retries disabled until the local/container rehearsal and first controlled run succeed.
 
-Packet 2's conductor remains implemented by `e054ee0` and clarified by `4c3e919`. It requires an explicit season, calls Facts → Windowed Metrics → Rankings, stops on invalid or failed stages, and remains inert until `app.py` calls it.
+Packet 2's conductor remains implemented by `e054ee0` and clarified by `4c3e919`. It requires an explicit season, calls Facts → Windowed Metrics → Rankings, and stops on invalid or failed stages. Packet 4 now activates it through `app.py` only when Stats reports accepted games; R6 proved that active path against real dev data.
 
 Packet 3 established the full 322-game 2026 schedule, created only the three missing empty 2026 metric shells, verified exact 2025 schema parity, and preserved `lens_tags` as `STRING/REPEATED`. The 2026 `write=False` conductor check correctly failed at Facts because there were zero completed-game source rows, skipped Windowed Metrics and Rankings, and left all three tables at zero rows.
 
