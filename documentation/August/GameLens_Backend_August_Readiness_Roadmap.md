@@ -1,9 +1,9 @@
 # GameLens Backend August Readiness Roadmap
 
-**Last revised:** 2026-07-30
+**Last revised:** 2026-08-02
 **Status:** Canonical working roadmap
 **Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 4 — Activate through `app.py` (`NEXT`)
+**Current packet:** Packet 4 — Activate through `app.py` (`IN PROGRESS — DEV REAL-DATA E2E PROVEN; PRODUCTION RESOURCE CONFIGURATION REQUIRED`)
 **Deployment preflight:** Complete on `dev`; production activation has not occurred
 
 This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
@@ -549,9 +549,36 @@ Record source/output counts, representative strong/supporting/watch metric sampl
 
 ## Packet 4 — Activate through `app.py`
 
-**Status:** `NEXT`
+**Status:** `IN PROGRESS — DEV REAL-DATA E2E PROVEN; PRODUCTION RESOURCE CONFIGURATION REQUIRED`
 
 **Goal:** Replace the legacy annual aggregate hook with the tested metric conductor.
+
+### R6 real-data controlled replay — PASS with resource follow-up
+
+**Evidence date:** 2026-08-02  
+**Detailed runbook:** `documentation/August/GameLens_Packet_4_R6_Real_Data_Replay_and_Recovery_20260802.md`
+
+R6 exercised the current Packet 4 path against live Stats and Scores APIs for controlled replay game `20250918_MIA@BUF`, with every destination pinned to `League_dev`, `Scores_dev`, and `Analytics_dev`.
+
+The real flow proved:
+
+```text
+live Stats API → 132 accepted dev rows
+live Scores API → 2 accepted dev rows
+→ Facts: 36,538 rows
+→ Windowed Metrics: 138,532 rows
+→ Rankings: 426,965 rows
+```
+
+Both source status records were written and both game-specific backlogs drained to zero. Production data was not targeted or changed.
+
+The initial web request reached revision `nfl-games-app-dev-00066-hw9` but returned HTTP 503 after Cloud Run exceeded its `512Mi` limit with 519 MiB used. Facts and Windowed Metrics had already committed; Rankings had not started. The original POST was deliberately not repeated.
+
+The dev service was increased to `1Gi` and verified healthy at revision `nfl-games-app-dev-00067-w8r`, with all nine isolation variables and the dedicated replay service account preserved. Only the missing Rankings stage was then executed once through job `gamelens-r6-rankings-recovery` at `4Gi`, zero retries, and a 30-minute timeout. Execution `gamelens-r6-rankings-recovery-6nsns` completed successfully in 3m29.35s and increased Rankings from 426,086 to 426,965 rows.
+
+The schedule row's `boxscore_loaded` and `score_loaded` columns remained false. Current code does not update those columns; the Stats and Scores backlog views use their status tables as the authoritative completion records. Because both status rows existed and both backlogs were zero, no manual flag repair was made. Consolidating or explicitly synchronizing the duplicate completion signals is recorded as non-blocking technical debt.
+
+**Packet 4 interpretation:** The application logic and real data flow are proven in isolated dev. Packet 4 is not yet fully production-ready because `512Mi` is definitively insufficient, the manual `1Gi` dev change is not durable deployment configuration, and the complete chain was not proven as one uninterrupted `1Gi` request. Before merge/activation, persist the chosen production memory and decide whether Rankings remains inside the request conductor or runs as a dedicated Cloud Run job.
 
 ### Completed deployment preflight
 
