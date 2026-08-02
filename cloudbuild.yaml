@@ -30,6 +30,9 @@ steps:
       - '4Gi'
       - '--timeout'
       - '900s'
+      - '--no-traffic'
+      - '--tag'
+      - 'packet4-candidate'
 
 timeout: '600s'  
 
