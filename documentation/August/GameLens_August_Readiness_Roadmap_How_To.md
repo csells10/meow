@@ -14,28 +14,38 @@ The goal is simple:
 
 ---
 
-## Current verified handoff — 2026-07-30
+## Current verified handoff — 2026-08-02
 
 This snapshot is a starting point, not a substitute for checking current `meow/dev`.
 
 ```text
 Branch/source of truth: dev
-Last verified code commit on dev: 2d95b4e — Align Cloud Run image with Python 3.11
-Latest completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
-2026 schedule: 322 games loaded; repeat preview skipped all 322 with 0 inserts
-2026 metric tables: Facts, Windowed Metrics, and Rankings shells created and verified empty
-Schema proof: 39/33/39 columns match 2025; lens_tags is STRING/REPEATED
-Conductor proof: write=False failed closed at empty Facts and skipped downstream stages
-/game proof: scheduled 20260806_CAR@ARI resolved safely with empty metrics and explicit unavailable reasons
-Runtime preflight: Dockerfile now uses Python 3.11, matching runtime.txt; commit changed only Dockerfile and is pushed to dev
-Deployment trigger proof: dev trigger disabled; enabled production trigger matches ^main$ only
-Current deadlines: Cloud Run 300s; production Scheduler 180s; Scheduler has no automatic retries
-Activation decision: align Cloud Run and Scheduler to 900s during controlled Packet 4 activation; keep retries disabled initially
-Production impact so far: none — Python 3.11 and documentation are on non-deploying dev; no timeout setting changed
-Protected behavior: no application code, app.py scheduling, formulas, Levels 1–4, or historical tables changed
-Next packet: Packet 4 — Activate through app.py
-Deferred proof: populated 2026 Stats → Facts → Windowed → Rankings → /game → Levels 1–4
+Packet 4 application seam: implemented in app.py; current tests cover no-op, positive Stats, configured season, visible failures, and truthful HTTP status
+Latest verified checkpoint: R6 real-data controlled replay — PASS with production resource follow-up
+Replay target: 20250918_MIA@BUF in isolated 2025 dev datasets
+Real source proof: live APIs wrote 132 Stats rows and 2 Score rows
+Metric proof: Facts 36,538 → Windowed 138,532 → Rankings 426,965
+Backlog proof: Stats 0; Scores 0
+Production impact: none
+Initial failure: dev Cloud Run 512Mi limit exceeded at 519Mi after Facts and Windowed committed
+Recovery: dev service raised to 1Gi; missing Rankings stage executed once in a 4Gi, zero-retry Cloud Run job
+Recovery execution: gamelens-r6-rankings-recovery-6nsns
+Do not rerun: original R6 POST or Rankings recovery job
+Schedule flags: false but non-authoritative; status tables cleared both backlog views
+Current Packet 4 status: IN PROGRESS — dev real-data E2E proven; durable production resource configuration required
+Merge gate: persist production memory and decide request-conductor versus dedicated Rankings job
+Timeout gate: persist Cloud Run and Scheduler activation deadlines required by the roadmap; keep automatic retries disabled initially
+Next action: make the resource/execution decision and validate production-equivalent configuration before merge to main
 ```
+
+The full evidence and reusable partial-success recovery procedure are recorded in:
+
+```text
+documentation/August/GameLens_Packet_4_R6_Real_Data_Replay_and_Recovery_20260802.md
+```
+
+R6 proved the real source and metric data flow, but it also proved that the old `512Mi` service configuration is unsafe. Do not describe `1Gi` as a complete-chain proof: the web request stopped before Rankings, and Rankings was recovered separately at `4Gi`. The remaining Packet 4 decision must be carried into checked-in deployment configuration before merging to `main`.
+
 
 The deployment preflight is also complete. Commit `2d95b4e` changed only `Dockerfile` from Python 3.9 to Python 3.11 and is present on `dev`; this matches `runtime.txt`. GitHub comparison confirmed `dev` is exactly one Dockerfile commit ahead of documentation checkpoint `d76dbea`. The external `dev` Cloud Build trigger is disabled, while the enabled production trigger matches `^main$`, so the push did not deploy production.
 
@@ -275,47 +285,45 @@ We are continuing the GameLens backend August-readiness work.
 
 Repository: csells10/meow
 Branch/source of truth: current meow/dev
-Last verified code commit on dev: 2d95b4e — Align Cloud Run image with Python 3.11
-Latest verified completed packet: Packet 3 — 2026 operational checkpoint (preseason/zero-data readiness)
-Expected next packet: Packet 4 — Activate through app.py
-
-Packet 3 evidence:
-- League.schedule contains all 322 2026 games; repeat preview skipped 322 and inserted 0.
-- Analytics.game_team_metric_facts_2026, Analytics.team_metrics_windowed_2026, and Analytics.team_metric_rankings_2026 exist with zero rows.
-- Their schemas match 2025 exactly at 39/33/39 columns.
-- lens_tags remains STRING/REPEATED.
-- run_gamelens_metric_pipeline(season="2026", write=False) failed closed at empty Facts and skipped downstream stages without changing the tables.
-- Scheduled game 20260806_CAR@ARI resolved through the /game response builder with season 2026, no final score, safe empty metric sections, no_ranking_rows_found, and ranking_context_unavailable.
-- No application code, source ingestion, formulas, Levels 1–4, historical run IDs, or historical tables changed.
-- Populated-row, populated-lens_tags, and Levels 1–4 real-data proof is deferred until accepted completed-game 2026 Stats/Scores exist.
-
-Deployment preflight evidence:
-- Commit 2d95b4e changed only Dockerfile from Python 3.9 to Python 3.11 and is pushed to dev.
-- Dockerfile now matches runtime.txt at Python 3.11.
-- The dev Cloud Build trigger is disabled; the enabled production trigger matches ^main$ only.
-- The push to dev did not deploy production.
-- Cloud Run currently allows 300 seconds; Get-NFL-Schedule allows 180 seconds and has no automatic retries.
-- During controlled Packet 4 activation, align both deadlines to 900 seconds and keep retries disabled initially.
+Current packet: Packet 4 — Activate through app.py
+Current status: IN PROGRESS — dev real-data E2E proven; production resource configuration still required
 
 First read these files from the repository:
 - documentation/August/GameLens_August_Readiness_Roadmap_How_To.md
 - documentation/August/GameLens_Backend_August_Readiness_Roadmap.md
+- documentation/August/GameLens_Packet_4_R6_Real_Data_Replay_and_Recovery_20260802.md
 
-Begin read-only. Inspect current dev and recent commits, then inspect the complete current app.py scheduler path, its configuration, Schedule/Stats/Scores return contracts, services/gamelens_metric_pipeline_conductor.py, and focused tests.
+R6 is closed and must not be rerun:
+- Target game: 20250918_MIA@BUF
+- Live APIs wrote 132 Stats rows and 2 Score rows to isolated dev tables.
+- Facts wrote 36,538 rows.
+- Windowed Metrics wrote 138,532 rows.
+- Rankings recovery produced 426,965 rows.
+- Both source backlogs are zero.
+- Production was untouched.
+- The original POST and recovery job must not be executed again.
+
+Important R6 finding:
+- The original dev request exceeded its 512Mi Cloud Run limit with 519Mi used.
+- Facts and Windowed had already committed before the HTTP 503.
+- Dev was raised to 1Gi and verified healthy.
+- Only Rankings was recovered through a one-time 4Gi, zero-retry Cloud Run job.
+- Therefore 512Mi is proven insufficient, but one uninterrupted complete-chain run at 1Gi is not proven.
+
+Begin read-only. Inspect current dev, app.py, tests/test_app.py, services/gamelens_metric_pipeline_conductor.py, cloudbuild.yaml, cloudbuild-dev.yaml, and current Cloud Run/Scheduler configuration.
 
 Tell me:
-1. what current dev proves;
-2. the exact legacy 2025 aggregate hook Packet 4 will replace;
-3. the smallest complete app.py behavior change;
-4. the focused tests for no-op, success, partial failure/failure, targeted load_date, route registration, and auth preservation;
-5. the exact BigQuery effects and rollback path;
-6. whether the external production deployment trigger is still restricted away from dev;
-7. how the Python 3.11 Docker image will be built and boot-tested locally;
-8. the exact cloudbuild.yaml change for a 900-second Cloud Run request timeout and the controlled Scheduler command/check for a matching 900-second deadline.
+1. the exact current dev commit and whether the working tree is clean;
+2. which Packet 4 code/tests and deployment criteria are complete;
+3. the smallest durable production memory/execution design;
+4. whether Rankings should remain in the request conductor or become a dedicated Cloud Run job;
+5. the exact checked-in memory and timeout configuration changes;
+6. the safest production-equivalent validation before merge to main;
+7. the rollback plan and stop point.
 
-Preserve every route, blueprint, auth check, targeted load_date path, /game behavior, metric formula, window definition, ranking rule, lens_tags contract, Level 1–4 path, and historical run.
+Preserve every route, blueprint, auth check, targeted load_date path, /game behavior, metric formula, window definition, ranking rule, lens_tags contract, Level 1–4 path, historical run, and the status-table retry boundary.
 
-Do not change code yet. Do not redesign GameLens. Do not begin Packet 5 or productionize Levels 1–4. Do not change production Cloud Run or Scheduler settings during read-only planning. First propose Packet 4 only, including exact files/functions, tests, Python 3.11 container rehearsal, expected behavior, matching 900-second activation settings, deployment safety, rollback, and stopping point.
+Do not rerun R6. Do not manually flip the stale schedule flags. Do not touch production data during planning. Do not begin Packet 5 or productionize Levels 1–4. Propose only the remaining Packet 4 resource/deployment step first.
 ```
 
 ---
