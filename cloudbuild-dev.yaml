@@ -26,6 +26,10 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'  
+      - '--memory'
+      - '4Gi'
+      - '--timeout'
+      - '900s'
 
 timeout: '600s'  
 
