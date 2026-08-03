@@ -1,3 +1,5 @@
+> **Authority notice (2026-08-03):** This file remains a detailed technical and research reference for claim training and feature engineering. It is not the current production orchestration plan. Use `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` for Level 1 timing, identifier/idempotency contracts, `/admin` reconciliation, preseason isolation, and production decisions. Level 1 must originate from an immutable pregame capture; Levels 2–4 follow final Stats/Facts.
+
 GameLens Claim Training + Feature Engineering Handoff
 Claim Validation, Feature Testing, and Production Adoption Summary
 1. What We Built
