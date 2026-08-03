@@ -1,10 +1,12 @@
 # GameLens Controlled Production Cutover Plan
 
 **Created:** 2026-08-02
+**Last execution update:** 2026-08-03
 **Repository:** `csells10/meow`
-**Working branch:** `dev`
+**Documentation branch:** `dev`
+**Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Status:** Planned — no candidate deployment or traffic change has occurred
+**Current status:** **CANDIDATE API VALIDATED — FRONTEND PREVIEW PENDING — NOT PROMOTED**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -154,18 +156,164 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 
 ## 5. Release state ladder
 
-| Gate | State | Production user traffic | Production data writes | Exit requirement |
-|---|---|---:|---:|---|
-| A | Documentation and design | Current revision 100% | None | Plan reviewed |
-| B | No-traffic YAML prepared on `dev` | Current revision 100% | None | Diff and tests pass |
-| C | Candidate deployed from `main` | Current revision 100% | None from deployment | Candidate healthy and 0% normal traffic |
-| D | Candidate API tests | Current revision 100% | None allowed | Health, CORS, auth, `/games`, and non-final `/game` pass |
-| E | Candidate UI preview | Current revision 100% | None allowed | Real game page renders without browser errors |
-| F | Promotion window | Candidate 100% after explicit command | Avoid ingestion during switch | Live smoke tests pass |
-| G | Controlled daily activation | Candidate 100% | Expected production ETL writes | First scheduled run and `/game` follow-up pass |
-| H | Cleanup | Candidate remains 100% | Normal daily behavior | Temporary deployment flags removed or intentionally retained |
+| Gate | State | Status on 2026-08-03 | Production user traffic | Exit requirement |
+|---|---|---|---:|---|
+| A | Documentation and design | Complete | Current revision 100% | Plan reviewed |
+| B | No-traffic YAML on `dev` | Complete | Current revision 100% | Diff and tests pass |
+| C | Final pre-merge inspection | Complete | Current revision 100% | Live configuration recorded |
+| D | Candidate deployed from `main` | Complete | Current revision 100% | Candidate healthy at 0% normal traffic |
+| E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
+| F | Candidate UI preview | **Next** | Current revision 100% | Real preview renders without browser errors |
+| G | Promotion window | Not started | Candidate 100% only after explicit command | Live smoke tests pass |
+| H | First scheduled run and cleanup decision | Not started | Promoted revision 100% | ETL proof recorded and release method decided |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
+
+---
+
+## 5A. Current execution checkpoint — 2026-08-03
+
+### Exact state
+
+```text
+State: candidate API validated
+Current gate: Gate F — isolated Lovable frontend preview
+Production promotion: not performed
+Scheduler pause: not performed
+Normal production traffic: unchanged
+Production frontend: unchanged
+```
+
+This is a safe pause point. The backend candidate has passed the planned API contract checks, but the real browser application has not yet been pointed at it. Do not pause Scheduler or move traffic until Gate F is complete and explicitly recorded as `GO`.
+
+### Git and deployment evidence completed
+
+```text
+Backend commit deployed: 26e85ca Deploy main as a no-traffic Packet 4 candidate
+Candidate revision: nfl-games-app-main-00146-meq
+Candidate tag: packet4-candidate
+Candidate URL: https://packet4-candidate---nfl-games-app-main-ids7lwjjta-uc.a.run.app
+Rollback/serving revision: nfl-games-app-main-00136-vsx
+Normal traffic: 100% on nfl-games-app-main-00136-vsx
+Candidate normal traffic: 0%; tag-only access
+Candidate memory: 4Gi
+Candidate timeout: 900s
+Runtime identity: 362530996210-compute@developer.gserviceaccount.com
+Dev/replay environment overrides: none
+```
+
+At the deployment checkpoint, local `main`, local `dev`, `origin/main`, and `origin/dev` all pointed to `26e85ca`. Reconfirm live branch and revision state before any later mutation; this entry is evidence, not a replacement for a fresh check.
+
+### Candidate API evidence completed
+
+Seven expected requests were observed on the candidate revision:
+
+| Test | Result |
+|---|---|
+| `GET /health` | `200`, `{"status":"ok"}` |
+| `OPTIONS /game/contract-check` from `https://gamelens.io` | `200`; origin, `Authorization`, and `GET` allowed |
+| `OPTIONS /me` from `https://gamelens.io` | `200`; origin, `Authorization`, and `GET` allowed |
+| Unauthenticated `GET /game/contract-check` | Intentional `401` JSON with readable CORS response |
+| Authenticated `GET /me` | `200`; established active-admin contract |
+| Authenticated `GET /games?date=2026-08-06` | `200`; returned scheduled `20260806_CAR@ARI` |
+| Authenticated `GET /game/20260806_CAR@ARI` | `200`; full game-page contract with legitimate early-season empty metrics |
+
+The non-final game response correctly reported `game_status: Scheduled`, `final_score: null`, `model_outcome: null`, and `ranking_context.reason: no_ranking_rows_found`. Empty comparison and metric arrays are valid before 2026 results exist; the response degraded cleanly rather than failing.
+
+The revision-specific log scan showed:
+
+```text
+POST requests: none
+5xx responses: none
+Unexpected requests: none
+Application error scan: empty
+Unexpected writes: none observed
+```
+
+The Firebase token used for the authenticated checks was entered silently and then removed from the shell. It was not recorded in this document.
+
+### Lovable pre-change inspection findings
+
+Lovable completed analysis only and reported:
+
+- the production API URL is hardcoded once in `src/lib/nfl-api.ts`, line 7;
+- `src/lib/admin-api.ts` imports the same `API_BASE`, so it requires no separate edit;
+- there are no frontend `.env`, `import.meta.env`, or `VITE_*` API-base mechanisms;
+- the published production site remains on its last published build when a branch preview changes;
+- the safest preview is a temporary Lovable branch named `packet4-candidate-preview`;
+- the temporary edit is one line pointing `API_BASE` at the candidate tagged URL;
+- the branch must not be merged or published;
+- the exact branch-preview hostname is unknown until Lovable creates/assigns it;
+- a fresh/incognito browser session should be used so the 24-hour React Query cache cannot mask which backend answered.
+
+Potential preview-origin requirements were also identified: Firebase Authorized Domains, Google OAuth Authorized JavaScript origins, and the backend CORS allowlist may need the exact branch-preview hostname. Those are additive but shared configuration changes. Do not make them preemptively. First obtain the exact preview hostname, then inspect and approve each narrow change. In particular, do not assume the candidate can receive a service-only CORS change until the backend's actual CORS configuration mechanism is verified.
+
+### Why this has not overcomplicated the normal path
+
+The Lovable branch is a temporary test adapter, not the future production architecture:
+
+```text
+Temporary Lovable branch
+  → points directly to tagged candidate URL for browser proof
+  → never merges and never publishes
+
+Production gamelens.io
+  → stays on the stable nfl-games-app-main service URL
+  → stays unchanged during candidate testing
+  → automatically reaches the new revision only after backend traffic is promoted to 100%
+```
+
+After Gate F passes, backend traffic—not frontend source—is promoted. The normal `gamelens.io` API URL does not need to change. The temporary Lovable branch can then be reverted or deleted. If promotion fails, traffic returns to the saved rollback revision while the production frontend remains unchanged.
+
+This process cannot guarantee that software will never fail. It does keep the unproven browser path away from production users, preserves a known serving revision, and makes both the temporary frontend change and the backend traffic move independently reversible.
+
+### Next smallest action
+
+Christian must create and switch to `packet4-candidate-preview` through Lovable's branch switcher. Then send the following prompt to Lovable:
+
+```text
+GameLens Packet 4 candidate frontend preview — branch-only API_BASE change
+
+Prerequisite: I have created and switched to the Lovable branch packet4-candidate-preview from current main.
+
+Before editing, verify that the active branch is exactly packet4-candidate-preview. If it is not, stop and report the active branch. Do not make any change.
+
+On that branch only, change exactly one line in src/lib/nfl-api.ts:
+
+FROM:
+export const API_BASE = "https://nfl-games-app-main-362530996210.us-central1.run.app";
+
+TO:
+export const API_BASE = "https://packet4-candidate---nfl-games-app-main-ids7lwjjta-uc.a.run.app";
+
+Do not edit, create, rename, or delete any other file. src/lib/admin-api.ts already imports API_BASE and must not be changed.
+
+Do not merge the branch.
+Do not click or trigger Publish/Update.
+Do not modify Firebase, Google OAuth, Cloud Run, CORS, domains, or any project setting.
+Do not sign in, open a game, call the backend, or interact with the branch preview yet.
+
+After the one-line change, report only:
+1. Active branch name.
+2. Branch preview URL and exact hostname. If Lovable has not assigned one, report UNKNOWN; do not guess.
+3. File changed.
+4. Exact one-line diff.
+5. Confirmation that no other file changed.
+6. Confirmation that the branch was not merged.
+7. Confirmation that Publish/Update was not triggered and gamelens.io is unchanged.
+
+Then stop.
+```
+
+### Stop conditions for the next action
+
+Stop immediately if:
+
+- the active Lovable branch is `main` or anything other than `packet4-candidate-preview`;
+- Lovable proposes more than the one-line `API_BASE` edit;
+- Lovable asks to publish, update, merge, or test sign-in before reporting the preview hostname;
+- the candidate URL differs from the verified tagged URL above;
+- any production setting changes unexpectedly.
 
 ---
 
@@ -616,46 +764,90 @@ Stop if any traceback, permission error, dataset-routing error, Firebase verific
 
 ## 11. Gate F — frontend preview against the candidate
 
-API `curl` checks are necessary but do not prove that the actual frontend renders correctly.
+API `curl` checks have passed. This gate proves that the actual Lovable frontend can authenticate and render the candidate response without changing the published production frontend.
 
-Create or use a temporary frontend preview whose API base URL points to the verified tagged candidate URL. Do not change the live `gamelens.io` API target yet.
+### Phase F1 — branch-only API target swap
 
-### Browser test checklist
+Prerequisite: create and switch to Lovable branch `packet4-candidate-preview` from current frontend main through Lovable's branch switcher.
+
+On that branch only, change:
+
+```ts
+export const API_BASE = "https://nfl-games-app-main-362530996210.us-central1.run.app";
+```
+
+to:
+
+```ts
+export const API_BASE = "https://packet4-candidate---nfl-games-app-main-ids7lwjjta-uc.a.run.app";
+```
+
+No other frontend file needs to change. `src/lib/admin-api.ts` imports the shared constant.
+
+During F1:
+
+- do not merge the branch;
+- do not Publish/Update;
+- do not change live `gamelens.io`;
+- do not sign in or call the backend yet;
+- record the exact branch preview URL and hostname;
+- stop if the active branch is not `packet4-candidate-preview`.
+
+Rollback for F1 is the single-line revert to the stable production URL or deletion of the temporary branch.
+
+### Phase F2 — exact-origin authorization review
+
+After Lovable reports the branch hostname, inspect the current configuration before changing anything:
+
+1. Is the exact preview hostname already a Firebase Authorized Domain?
+2. Is `https://<preview-host>` already an authorized JavaScript origin for the existing Google web client?
+3. Does the candidate response allow that exact origin for `OPTIONS /me` and `OPTIONS /game/contract-check`?
+4. How does the backend currently build its CORS allowlist, and can the preview origin be limited to the candidate without changing the live serving revision?
+
+Do not broaden CORS to `*` for authenticated routes. Do not add guessed hostnames. Any required change must be additive, exact-origin, documented, and independently reversible.
+
+### Phase F3 — browser test
+
+Use a fresh/incognito browser profile to avoid the frontend's 24-hour persisted React Query cache.
 
 - Sign in through the normal Firebase flow.
 - Confirm `/me` succeeds in the browser network panel.
-- Open the game list for a known scheduled date.
-- Open one verified non-final game.
+- Open the game list for `2026-08-06`.
+- Open only verified non-final game `20260806_CAR@ARI` while it remains non-final.
 - Confirm the page renders without a blank screen.
 - Confirm no CORS errors appear in the console.
 - Confirm no 401/403 occurs for the allowed user.
 - Confirm no repeated request loop appears.
 - Confirm degraded early-season sections render as unavailable/empty rather than crashing.
-- Inspect the `/game` response and verify `lens_tags`, when present, are arrays.
-- Confirm the live production frontend still reaches the old normal URL and remains usable throughout the preview.
+- Confirm the live production frontend still reaches the stable production URL and remains usable.
+- Review candidate-revision logs again for only the preview-session requests, no `POST`, no `5xx`, and no application errors.
 
-If a temporary preview origin is not already allowed by CORS, do not casually broaden production CORS. Either test from the existing allowed `https://gamelens.io` origin using a deliberate browser-console request or create a separately reviewed narrow-origin change.
+Do not use `POST /`, `/test`, a historical final game, or any write-triggering route.
 
 ### Go/no-go record
 
 ```text
-Candidate revision:
-Candidate URL:
-/health:
-CORS /game:
-CORS /me:
-Unauthenticated 401 contract:
-Authenticated /me:
-Authenticated /games:
-Authenticated non-final /game:
-Frontend preview:
+Lovable branch:
+Preview URL:
+Preview hostname:
+Only src/lib/nfl-api.ts changed:
+No merge:
+No Publish/Update:
+Firebase preview authorization:
+Google OAuth preview origin:
+Candidate CORS preview origin:
+Browser /me:
+Browser /games:
+Browser non-final /game:
+Console errors:
 Candidate log review:
 Unexpected writes:
+Production gamelens.io unchanged:
 Decision: GO / NO-GO
 Reviewer/date:
 ```
 
-Do not promote without an explicit `GO`.
+Do not promote without an explicit `GO`. After a successful preview, keep the production frontend source on the stable service URL. Do not merge the candidate URL into the production frontend.
 
 ---
 
@@ -942,17 +1134,19 @@ These references support the release mechanism. The live GameLens service config
 
 ---
 
-## 19. Next action after this documentation commit
+## 19. Next action after this execution update
 
-Stop. Review this plan.
+The backend work through Gate E is complete. Do not repeat the candidate deployment or API test sequence.
 
-When ready, perform only Gate B:
+Perform only Gate F1:
 
 ```text
-inspect current dev and cloudbuild.yaml
-→ add --no-traffic and packet4-candidate tag to main deployment only
-→ review the exact diff
-→ run focused tests
-→ commit the isolated configuration change
-→ stop before merging main
+create/switch to Lovable branch packet4-candidate-preview
+→ verify the branch name
+→ change only src/lib/nfl-api.ts API_BASE to the verified candidate tag URL
+→ record the assigned preview hostname and exact diff
+→ do not merge or Publish/Update
+→ stop before auth, CORS, browser testing, Scheduler, or traffic changes
 ```
+
+Resume from GitHub's current `documentation/live/go_plan.md`, not an older attachment or chat summary. Begin each operational step by stating why it matters, run one bounded step, inspect its evidence, document the result, and stop at every authorization boundary.
