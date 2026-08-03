@@ -1,12 +1,33 @@
 # GameLens Product Data Collection and Learning Handoff
 
-**Document status:** Draft v0.1  
+**Document status:** Draft v0.2 — architecture reviewed; implementation not started  
 **Created:** 2026-08-03  
+**Last revised:** 2026-08-03  
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Branch represented:** `main`  
 **Current production checkpoint:** Gate G complete; Gate H pending the first scheduled production run  
 **Companion release plan:** [go_plan.md](./go_plan.md)
+
+---
+
+## Document authority and stale-document boundary
+
+Use this document as the canonical product and architecture handoff for productionizing the GameLens intelligence layer after the `/game` cutover. Use [go_plan.md](./go_plan.md) for the production release checkpoint and Gate H evidence.
+
+Older files remain useful evidence, but they do not override this handoff:
+
+| Document | Current role |
+|---|---|
+| `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` | Canonical Levels 1–4 production design and next-step authority |
+| `documentation/live/go_plan.md` | Canonical production cutover and Gate H evidence |
+| `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |
+| `documentation/August/GameLens_Backend_August_Readiness_Roadmap.md` | Historical implementation record for Packets 0–4 |
+| `documentation/August/GameLens_August_Readiness_Roadmap_How_To.md` | Historical restart instructions; do not use its old `dev`/Packet 4 directions |
+| `documentation/August/GameLens_Backend_August_Readiness_Plan.md` | Preserved original planning draft; intentionally left untouched |
+| `documentation/GameLens_Claim_Training_and_Level4_Roadmap.md` | Detailed technical/research reference; this handoff governs production timing and identifiers |
+
+When wording conflicts, current `main` code and passing evidence come first, then `go_plan.md` for the cutover, then this handoff for the learning track.
 
 ---
 
@@ -34,32 +55,31 @@ The existing Levels 0–4 system is the foundation for that learning loop, but i
 
 ---
 
-## 2. One important logic correction
+## 2. Correct Level 1–4 timing
 
-The idea that “Levels 1–4 should run after successful Scores and Stats ETL” is directionally correct, but the full lifecycle cannot start there.
+The idea that “Levels 1–4 should run after successful Scores and Stats ETL” is only partly correct.
 
-**Level 1 must use a payload captured before kickoff.**
+**Level 1 must originate from an immutable payload captured before kickoff. Levels 2–4 wait for final Stats and Facts.**
 
-If GameLens waits until final Scores and Stats are available to create the original claim record, the supposed pregame claim may contain postgame knowledge. That would invalidate the learning loop.
-
-The correct timing is:
-
-```text
-Before kickoff
-  -> capture an immutable /game-style pregame payload
-  -> Level 1 extracts and stores the claims
-
-After the game is final and Stats are accepted
-  -> rebuild Facts -> Windowed Metrics -> Rankings
-  -> Level 2 validates the saved pregame claims against postgame facts
-  -> Level 3 adds pregame-safe feature context
-  -> Level 4 summarizes which claim patterns deserve stronger, measured,
-     softened, blocked, or metadata-only treatment
+```mermaid
+flowchart TD
+    A["Pregame payload captured"] --> B["Level 1: store claims"]
+    B --> C["Wait for final game"]
+    C --> D["Stats accepted; Facts rebuilt"]
+    D --> E["Level 2: validate claims"]
+    E --> F["Level 3: add pregame features"]
+    F --> G["Level 4: calibration batch"]
 ```
 
-Levels 2–4 can follow completed-game ETL. Level 1 cannot be postponed until then.
+The production Level 1 capture must fail closed:
 
----
+- require `captured_at < scheduled_kickoff`;
+- require a scheduled/non-final game state;
+- reject or quarantine any source payload containing populated `final_score`, `actual_winner`, `model_result`, final-margin fields, or other postgame evidence;
+- record legitimate missing early-season metrics rather than manufacturing claims; and
+- remain read-only with respect to model-result persistence.
+
+The existing Level 1 worker is suitable for historical QA but is not yet the production capture boundary. It reads saved payload files and can accept postgame-shaped fields if the caller supplies them. Production work therefore begins with a new capture contract, not by scheduling the historical worker unchanged.
 
 ## 3. Product intent
 
@@ -77,6 +97,15 @@ It should not silently turn into:
 - a frontend copy rewrite without an explicit release decision.
 
 A team may lose while a specific pregame claim still validates. Claim quality and winner accuracy are separate product questions.
+
+### Dual feedback objective
+
+The future learning layer needs two scorecards tied back to the same pregame snapshot:
+
+1. **Game-result calibration:** Did the directional matchup read align with the game result? This uses one game-level record and is not the same as claim validation.
+2. **Claim health:** Were the individual football claims supported by completed-game facts? This uses many claim rows per game.
+
+A future algorithm may learn from both objectives, but neither score may silently overwrite the other. User selection/clicks remain product-interest evidence, not football correctness.
 
 ---
 
@@ -151,6 +180,67 @@ Preserve these boundaries:
 - claim-language support must not change matchup lean, outcome confidence, Model Trust, or winner logic;
 - `core_area_durability_context_v0` remains audit/Admin-only and must not change production confidence labels yet.
 
+### `/admin` feedback-loop contract
+
+The protected endpoint is already registered at:
+
+```text
+GET /admin/gamelens/claim-health?run_id=<learning_run_id>&season=2026&grain=<day|week|season_phase>
+```
+
+It intentionally contains two families of evidence:
+
+| Admin family | Grain | Question answered |
+|---|---|---|
+| Game Calibration | One row per game, then grouped | Did the directional read align with the result, and did Low/Medium/High behave credibly? |
+| Claim Health | One row per saved claim, then grouped | Which claim types, Core Areas, categories, surfaces, and features were supported by postgame facts? |
+
+The reconciliation contract for each selected `learning_run_id` is:
+
+- immutable captured-game count equals the number of games admitted to Level 1;
+- distinct Level 1 `game_id` count equals the captured-game count, except explicitly quarantined captures;
+- each claim row traces to exactly one `capture_id` and `claim_key`;
+- winner-graded, no-pick, and no-decision game counts sum to the game-level population;
+- Level 2 validation-result counts plus explicitly unavailable rows sum to the claim population;
+- the confidence distribution saved in the pregame snapshot agrees with the claim-training rows and the corresponding Admin game totals; and
+- daily trend points use the stable learning cohort plus `grain=day`, not a new learning run for every day.
+
+Current SQL has an important preseason boundary: coverage, Calibration Over Time, and pillar weekly health exclude schedule rows whose week begins with `Preseason`, while several claim matrices filter only by `run_id`. Therefore preseason rehearsal rows must not share the regular-season learning cohort until every Admin section has an explicit, consistent season-phase filter.
+
+### Identifier and idempotency contract
+
+One identifier must not do every job:
+
+| Identifier | Scope | Purpose |
+|---|---|---|
+| `pipeline_run_id` | One Scheduler/manual ETL execution | Operational lineage for Schedule, Stats, Scores, Facts, Windowed Metrics, and Rankings |
+| `learning_run_id` | Stable season + phase + model/ruleset cohort | Accumulating Levels 1–4 evidence and the value currently passed to `/admin` as `run_id` |
+| `capture_id` | One immutable pregame snapshot for one game | Proves exactly what GameLens knew before kickoff |
+| `claim_key` | One deterministic claim within a capture | Game-scoped replay safety and Level 2/3 updates |
+
+Recommended first cohorts are separate, stable identities such as a preseason shadow cohort and a 2026 regular-season production cohort. Do not create a new `learning_run_id` every day; `grain=day` supplies the daily Admin series. Do not reuse historical QA run IDs.
+
+Level 1 writes must MERGE on a stable game-scoped key such as `learning_run_id + capture_id + claim_key`, or delete/reinsert only the selected game. The current whole-run replacement behavior must never be used to refresh one game inside a cumulative production cohort.
+
+### Level 4 batching boundary
+
+The current Level 4 worker reads exactly one source `run_id`. For the first production design, it may recalculate the full cumulative regular-season `learning_run_id` at a weekly or evidence threshold. Selecting across multiple learning cohorts or processing only “new rows since last week” requires an explicit future contract or worker change; it is not supported today.
+
+### Approved confidence-calibration rule — not live
+
+The Admin preview provides enough evidence to approve this as a future isolated production change:
+
+```text
+Preserve Matchup Lean, target team, Profile Type, winner logic, and Model Trust.
+If confidence is High and core_gap < 0.45, soften High to Medium.
+Otherwise preserve the existing confidence label.
+Never promote Low or Medium through this rule.
+```
+
+Implementation belongs beside the existing `/game` confidence guardrails, but only after Gate H and an isolated test/reconciliation step. Persist Admin/audit fields including `confidence_before_calibration`, final `confidence`, `core_gap`, `calibration_rule = core_gap_high_floor_v1`, `calibration_applied`, and the applicable model/ruleset version.
+
+This rule is **approved for isolated implementation but is not currently live**.
+
 ---
 
 ## 6. Data that must be collected
@@ -170,7 +260,7 @@ For every eligible game, retain enough information to prove what GameLens knew b
 | capture status and error | Prevents silent gaps |
 | immutable storage location or object identifier | Makes the evidence auditable |
 
-The production collector must be explicitly read-only. It should not rely on final-game `/game` side effects. The current QA collector protects itself by disabling `save_model_results`; a production design should make this separation intentional rather than depend on monkeypatching.
+The production collector must be explicitly read-only. It should not rely on final-game `/game` side effects. The current QA collector protects itself by disabling `save_model_results`; a production design should make this separation intentional rather than depend on monkeypatching. Captures that fail the timing/status/postgame-field contract are quarantined with a reason and never admitted to Level 1.
 
 ### 6.2 Completed-game ETL record
 
@@ -220,8 +310,9 @@ Run only when:
 
 Output:
 
-- immutable payload snapshot;
-- capture manifest;
+- immutable payload snapshot with deterministic `capture_id`;
+- capture manifest containing `pipeline_run_id`, `learning_run_id`, kickoff, capture time, status, versions, and any quarantine reason;
+- explicit rejection of populated postgame evidence;
 - no claim validation and no production language change.
 
 ### Checkpoint B — Level 1 claim extraction
@@ -230,8 +321,9 @@ Run from the immutable pregame snapshot.
 
 Output:
 
-- one row per pregame claim;
-- idempotent run identity;
+- one row per pregame claim with deterministic `claim_key`;
+- game-scoped MERGE/replacement inside a stable `learning_run_id`;
+- duplicate rerun produces no additional claims;
 - dry-run review before the first BigQuery write.
 
 ### Checkpoint C — completed-game data preparation
@@ -273,7 +365,7 @@ Output:
 - language action recommendations;
 - explicit metadata-only or promotion decision.
 
-**Product recommendation:** begin with a weekly or evidence-threshold batch, not a per-game Level 4 trigger. Calibration needs enough rows to avoid reacting to tiny samples.
+**Product recommendation:** begin with a weekly or evidence-threshold batch over one stable regular-season `learning_run_id`, not a per-game Level 4 trigger. Calibration needs enough rows to avoid reacting to tiny samples. The current worker cannot combine multiple run IDs, so a multi-cohort batch is deferred until its selection contract is designed.
 
 ---
 
@@ -291,6 +383,10 @@ Output:
 
 Do not start P1 operational work until Gate H closes the current production cutover.
 
+### August 6 preseason decision
+
+The August 6 game does **not** require Levels 1–4 for `/game` or the production ETL to work. If Gate H is complete and no production code is changed, it may be used for one optional read-only shadow capture before kickoff. That capture belongs to a separate preseason shadow `learning_run_id`; it may truthfully contain few or no claims because early-season rankings are absent. Levels 2–3 may be rehearsed only after final Facts exist, and Level 4 waits for a meaningful sample. The regular-season Admin accuracy series remains separate.
+
 ---
 
 ## 9. Acceptance criteria
@@ -305,6 +401,9 @@ The first 2026 learning-loop pilot is successful when:
 - the three metric stages report credible row counts;
 - `lens_tags` remains a repeated string in BigQuery and an array in `/game`;
 - Level 1 can be rerun without uncontrolled duplicate claims;
+- every admitted claim traces through `learning_run_id + capture_id + claim_key`;
+- the Admin game population, captured-game population, and claim population reconcile according to the documented grains;
+- preseason shadow evidence is isolated from the regular-season Admin cohort;
 - Level 2 explains unavailable validations rather than hiding them;
 - Level 3 records its formula version;
 - Level 4 records sample sizes with every recommendation;
@@ -330,23 +429,33 @@ For each update, record evidence rather than only changing a status label.
 
 ---
 
-## 11. Open product decisions
+## 11. Decisions made in Draft v0.2
 
-These are intentionally unresolved in Draft v0.1:
+- Level 1 is pregame capture/extraction; it is not a postgame job.
+- The learning system keeps separate game-result and claim-health scorecards.
+- Daily Admin trends use `grain=day` over a stable `learning_run_id`.
+- Preseason shadow evidence uses a different learning cohort from regular season.
+- Production Level 1 uses game-scoped idempotency, never whole-cohort replacement.
+- The `core_gap_high_floor_v1` High-to-Medium rule is approved for isolated implementation but is not live.
+- August 6 is an optional shadow rehearsal, not an intelligence-layer deadline.
+
+## 12. Open product decisions
+
+These remain unresolved in Draft v0.2:
 
 1. **Pregame capture timing:** how long before kickoff should the canonical snapshot be taken, and what happens when rankings are not yet available?
 2. **Immutable storage:** where should production pregame payloads and manifests live?
-3. **Run identity:** should Level 1 use one run per game, slate, week, or season batch?
-4. **Scope:** should the first shadow pilot capture every 2026 game or a controlled preseason sample?
-5. **Level 4 cadence:** weekly, per completed week, or after a minimum number of new validated claims?
-6. **Admin visibility:** which evidence should appear in an internal QA view before any frontend adoption?
-7. **Runtime adoption:** what additional validation would allow a metadata-only feature to affect language, if ever?
+3. **First regular-season cohort name and version contract:** what exact stable `learning_run_id` and ruleset identifier will be used?
+4. **Scope after the August 6 rehearsal:** every eligible 2026 game or a bounded regular-season pilot?
+5. **Level 4 threshold:** weekly, completed-week, or a minimum number of newly validated claims within the stable cohort?
+6. **Admin consistency:** extend season-phase filtering to every section, or keep cohorts permanently separated by phase?
+7. **Runtime adoption:** what additional validation is required before the approved confidence rule or a metadata-only feature affects `/game`?
 
-Draft v0.1 makes no production decision on these questions.
+Draft v0.2 makes no additional production-code decision on these questions.
 
 ---
 
-## 12. Known feature evidence to preserve
+## 13. Known feature evidence to preserve
 
 The current feature work supports these product conclusions:
 
@@ -356,13 +465,13 @@ The current feature work supports these product conclusions:
 - `td_rate`, `red_zone_efficiency`, and `turnover_margin_per_game` remain volatile/caution-only for automatic stronger language.
 - `third_down_pct` and `1st_down_rate` remain context-only in the offensive-efficiency feature.
 - broad Scoring Efficiency must not be treated as uniformly trustworthy.
-- Core Area durability is promising for High-to-Medium confidence softening, but remains an audit feature.
+- Core Area durability produced a useful Admin-only preview. Its `core_gap < 0.45` High-to-Medium rule is approved for isolated implementation, but production `/game` remains unchanged until that separate release step passes.
 
 These are evidence-backed boundaries, not permanent football laws. New 2026 data should test whether they continue to hold.
 
 ---
 
-## 13. Handoff packet contents
+## 14. Handoff packet contents
 
 A future handoff should include:
 
@@ -386,7 +495,7 @@ The handoff should let a new owner answer four questions quickly:
 
 ---
 
-## 14. Source references
+## 15. Source references
 
 ### Product and feature definition
 
@@ -411,15 +520,18 @@ The handoff should let a new owner answer four questions quickly:
 - `../../agg/gamelens_training/update_claim_training_validation.py`
 - `../../agg/gamelens_training/update_claim_training_features.py`
 - `../../agg/gamelens_training/build_claim_language_calibration.py`
+- `../../routes/admin_claim_health_routes.py`
+- `../../services/admin_claim_health_service.py`
+- `../../queries/admin_claim_health_queries.py`
 
 ---
 
-## 15. Next bounded action
+## 16. Next bounded action
 
 Complete Gate H exactly as documented in [go_plan.md](./go_plan.md).
 
 After the first scheduled production run is proven, return to this document and decide only P1:
 
-> Define the pregame capture contract—timing, immutable storage, idempotency, and read-only behavior.
+> Define the pregame capture contract—timing, immutable storage, identifiers, postgame-field rejection, game-scoped idempotency, read-only behavior, preseason isolation, and `/admin` reconciliation.
 
-Do not wire Levels 1–4 into `app.py` as part of Gate H.
+August 6 is not a deadline for the intelligence layer. After Gate H, the only time-sensitive optional action is one read-only pregame shadow capture; do not wire Levels 1–4 or the confidence rule into `app.py` as part of Gate H.
