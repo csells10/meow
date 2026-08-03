@@ -6,7 +6,7 @@
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Current status:** **CANDIDATE API VALIDATED — FRONTEND PREVIEW PENDING — NOT PROMOTED**
+**Current status:** **GATE F COMPLETE — CANDIDATE APPROVED FOR CUTOVER PREPARATION — NOT PROMOTED**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -163,15 +163,15 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 | C | Final pre-merge inspection | Complete | Current revision 100% | Live configuration recorded |
 | D | Candidate deployed from `main` | Complete | Current revision 100% | Candidate healthy at 0% normal traffic |
 | E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
-| F | Candidate UI preview | **Next** | Current revision 100% | Real preview renders without browser errors |
-| G | Promotion window | Not started | Candidate 100% only after explicit command | Live smoke tests pass |
+| F | Candidate UI preview | **Complete — GO** | Current revision 100% | Preview auth, `/me`, `/games`, non-final `/game`, logs, and live-site comparison passed |
+| G | Promotion window | **Next — not started** | Candidate 100% only after explicit command | Rollback anchor rechecked, controlled promotion performed, and live smoke tests pass |
 | H | First scheduled run and cleanup decision | Not started | Promoted revision 100% | ETL proof recorded and release method decided |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
 
 ---
 
-## 5A. Current execution checkpoint — 2026-08-03
+## 5A. Pre-Gate-F execution checkpoint — 2026-08-03
 
 ### Exact state
 
@@ -314,6 +314,111 @@ Stop immediately if:
 - Lovable asks to publish, update, merge, or test sign-in before reporting the preview hostname;
 - the candidate URL differs from the verified tagged URL above;
 - any production setting changes unexpectedly.
+
+---
+
+## 5B. Gate F completion and rollback checkpoint — 2026-08-03
+
+### Outcome
+
+```text
+Gate F decision: GO
+Candidate browser validation: complete
+Production promotion: not performed
+Scheduler pause: not performed
+Normal production traffic: unchanged
+Production frontend source: unchanged
+Next gate: Gate G preparation
+```
+
+Gate F proved the complete read-only browser path through the isolated candidate without changing the published frontend or normal Cloud Run traffic.
+
+### Temporary Lovable preview configuration
+
+```text
+Lovable branch: packet4-candidate-preview
+Preview URL: https://preview--nfl-analytica-pro.lovable.app/login
+Preview origin: https://preview--nfl-analytica-pro.lovable.app
+Only changed file: src/lib/nfl-api.ts
+Branch merged: no
+Publish/Update triggered: no
+Production gamelens.io changed: no
+```
+
+The only temporary frontend change was:
+
+```diff
+- export const API_BASE = "https://nfl-games-app-main-362530996210.us-central1.run.app";
++ export const API_BASE = "https://packet4-candidate---nfl-games-app-main-ids7lwjjta-uc.a.run.app";
+```
+
+This branch is a disposable test adapter. It must not be merged into frontend `main` and must not be published. After the production cutover is proven, revert this line or delete the temporary branch.
+
+### Gate F evidence
+
+| Check | Result |
+|---|---|
+| Candidate CORS preflight from exact Lovable preview origin to `/me` | `200`; exact origin, `Authorization`, `GET`, and `OPTIONS` allowed |
+| Lovable sign-in | Passed |
+| GameLens sign-in and authenticated `/me` | Passed; application moved beyond access check |
+| Browser `/games?date=2026-08-06` | Passed; displayed one `CAR at ARI` game at 8:00 PM |
+| Browser `/game/20260806_CAR@ARI` | Passed; future preseason matchup rendered without a blank screen |
+| Early-season empty ranking state | Rendered safely as “No clear matchup edge”; expected because ranking rows do not yet exist |
+| Candidate request log | Browser `OPTIONS` and `GET` calls for `/me`, `/games`, and `/game` returned `200` |
+| Candidate application error scan | Empty |
+| Candidate write safety | No `POST /`; no ingestion triggered |
+| Production `gamelens.io` slate | Passed for 2026-08-06 |
+| Production `gamelens.io` matchup detail | Passed for `20260806_CAR@ARI` |
+
+Two earlier `GET /` requests returned `405`. This is expected because the ingestion root accepts `POST`, not `GET`. They did not execute ingestion and are not Gate F failures. One preflight experienced a cold start; later request latency returned to normal.
+
+### Rollback anchor confirmed by the post-preview safety check
+
+```text
+Rollback revision: nfl-games-app-main-00136-vsx
+Rollback revision normal traffic: 100%
+Candidate revision: nfl-games-app-main-00146-meq
+Candidate access: packet4-candidate tag
+Candidate normal traffic: 0%
+Candidate tagged URL: https://packet4-candidate---nfl-games-app-main-ids7lwjjta-uc.a.run.app
+Unexpected candidate 5xx responses: none
+Candidate application errors: none
+```
+
+This is the confirmed rollback anchor from the latest Gate F traffic inspection. Because Cloud Run state is mutable, re-run the read-only service, Scheduler, and in-flight-request checks immediately before Gate G. If `00136-vsx` is no longer the sole 100%-serving revision, stop and record the new live anchor rather than using this snapshot blindly.
+
+### What “fully main” means after this checkpoint
+
+The normal path remains simple:
+
+```text
+GitHub main
+  → contains the approved backend and the completed cutover documentation
+
+Published frontend main
+  → keeps the stable nfl-games-app-main service URL
+  → does not receive the temporary tagged candidate URL
+
+Cloud Run nfl-games-app-main
+  → moves from 00136-vsx to 00146-meq only through the explicit Gate G traffic command
+```
+
+Do not merge or publish `packet4-candidate-preview`. The ordinary frontend URL already follows whichever Cloud Run revision owns 100% of the service's normal traffic.
+
+### Next smallest actions
+
+1. Commit this Gate F record to `dev`.
+2. Fast-forward the local `dev` branch to the documentation commit.
+3. Deliberately merge/push the documentation record from `dev` into GitHub `main`; this is a Git operation and does not itself move Cloud Run traffic because the deployed backend commit is already the no-traffic candidate commit.
+4. Before Gate G, re-confirm:
+   - the rollback revision still owns 100% normal traffic;
+   - `00146-meq` is still the ready candidate;
+   - Scheduler is enabled, has a `900s` deadline, and no ingestion request is in flight;
+   - no unexpected GitHub or Lovable source change is present.
+5. Only then pause Scheduler, promote the candidate, run the live smoke tests, and either resume Scheduler or roll back.
+6. After the promoted path is proven, revert/delete the temporary Lovable preview branch.
+
+Stop before Step 3 until the documentation fast-forward is inspected. Merging `dev` to `main`, pausing Scheduler, and moving Cloud Run traffic are separate authorization boundaries.
 
 ---
 
@@ -1136,17 +1241,18 @@ These references support the release mechanism. The live GameLens service config
 
 ## 19. Next action after this execution update
 
-The backend work through Gate E is complete. Do not repeat the candidate deployment or API test sequence.
+Gate F is complete with a documented `GO`. Do not repeat the candidate deployment, API tests, Lovable branch edit, preview sign-in, or browser validation.
 
-Perform only Gate F1:
+Perform only the documentation synchronization step:
 
 ```text
-create/switch to Lovable branch packet4-candidate-preview
-→ verify the branch name
-→ change only src/lib/nfl-api.ts API_BASE to the verified candidate tag URL
-→ record the assigned preview hostname and exact diff
-→ do not merge or Publish/Update
-→ stop before auth, CORS, browser testing, Scheduler, or traffic changes
+fast-forward local dev to the Gate F documentation commit
+→ inspect documentation/live/go_plan.md and confirm the working tree is clean
+→ stop before merging dev into main
 ```
+
+After that inspection, the next separately authorized action is to merge the documentation record into `main`. The later Gate G traffic cutover remains a different step: reconfirm the live rollback anchor, check Scheduler and in-flight work, pause Scheduler, promote `00146-meq`, smoke-test `gamelens.io`, then resume Scheduler or roll back.
+
+The temporary Lovable branch must remain unpublished and unmerged. The production frontend must keep the stable `nfl-games-app-main` service URL.
 
 Resume from GitHub's current `documentation/live/go_plan.md`, not an older attachment or chat summary. Begin each operational step by stating why it matters, run one bounded step, inspect its evidence, document the result, and stop at every authorization boundary.
