@@ -6,7 +6,7 @@
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Current status:** **GATE F COMPLETE — CANDIDATE APPROVED FOR CUTOVER PREPARATION — NOT PROMOTED**
+**Current status:** **GATE G COMPLETE — CANDIDATE PROMOTED AND LIVE SMOKE-TESTED — GATE H PENDING**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -164,8 +164,8 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 | D | Candidate deployed from `main` | Complete | Current revision 100% | Candidate healthy at 0% normal traffic |
 | E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
 | F | Candidate UI preview | **Complete — GO** | Current revision 100% | Preview auth, `/me`, `/games`, non-final `/game`, logs, and live-site comparison passed |
-| G | Promotion window | **Next — not started** | Candidate 100% only after explicit command | Rollback anchor rechecked, controlled promotion performed, and live smoke tests pass |
-| H | First scheduled run and cleanup decision | Not started | Promoted revision 100% | ETL proof recorded and release method decided |
+| G | Promotion window | **Complete — GO** | Candidate `00146-meq` 100% | Rollback anchor rechecked, controlled promotion completed, live smoke tests passed, and Scheduler resumed |
+| H | First scheduled run and cleanup decision | **Next — pending first scheduled run** | Candidate `00146-meq` 100% | ETL proof recorded and release method decided |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
 
@@ -419,6 +419,150 @@ Do not merge or publish `packet4-candidate-preview`. The ordinary frontend URL a
 6. After the promoted path is proven, revert/delete the temporary Lovable preview branch.
 
 Stop before Step 3 until the documentation fast-forward is inspected. Merging `dev` to `main`, pausing Scheduler, and moving Cloud Run traffic are separate authorization boundaries.
+
+
+---
+
+## 5C. Gate G production promotion completion — 2026-08-03
+
+### Outcome
+
+```text
+Gate G decision: GO
+Candidate revision promoted: nfl-games-app-main-00146-meq
+Normal production traffic: 100% on candidate
+Stable production frontend: passed
+Scheduler: resumed and ENABLED
+Production ingestion manually triggered: no
+Rollback performed: no
+Next gate: Gate H — first scheduled production run
+```
+
+Gate G moved the already validated Packet 4 candidate to normal production traffic, proved the ordinary frontend path, and restored the daily Scheduler only after the smoke tests and error review passed.
+
+This is the formal completion of the **traffic cutover**. It is not yet the final Packet 4 definition of done because the first scheduled production ETL run has not occurred under the promoted revision.
+
+### Git and revision anchors
+
+```text
+GitHub main before promotion: 6a29757
+GitHub dev before promotion: 6a29757
+Promoted revision: nfl-games-app-main-00146-meq
+Promoted revision memory: 4Gi
+Promoted revision timeout: 900s
+Rollback revision: nfl-games-app-main-00136-vsx
+Candidate tag retained: packet4-candidate
+Stable Cloud Run service: nfl-games-app-main
+```
+
+The rollback revision remains the known pre-promotion runtime anchor. Traffic can be returned to `00136-vsx` with the documented rollback command if Gate H exposes a blocking production failure. Reconfirm that revision still exists and is Ready before any later rollback; do not rely on this dated snapshot blindly.
+
+### Controlled promotion sequence and evidence
+
+| Step | Evidence | Result |
+|---|---|---|
+| Fresh pre-cutover service snapshot | Rollback `00136-vsx` at 100%; candidate `00146-meq` Ready | Passed |
+| Candidate runtime check | `4Gi`, `900s`, healthy container | Passed |
+| Candidate tagged health | `GET /health` returned `200 {"status":"ok"}` | Passed |
+| Scheduler safety pause | `Get-NFL-Schedule` reported `PAUSED` before traffic movement | Passed |
+| Explicit traffic promotion | `00146-meq` received 100% normal traffic | Passed |
+| Stable production health | Scheduler's ordinary service URL returned `200` | Passed |
+| Revision attribution | Stable-URL health request logged on `00146-meq` | Passed |
+| Production Google authentication | Sign-in completed successfully | Passed |
+| Production slate | 2026-08-06 displayed `CAR at ARI` | Passed |
+| Production matchup detail | `20260806_CAR@ARI` rendered safely | Passed |
+| Expected early-season state | “No clear matchup edge” rendered without failure | Passed |
+| Final candidate error scan | No fresh application errors found | Passed |
+| Scheduler resume | Job reported `ENABLED` after all smoke tests passed | Passed |
+| Final traffic verification | `00146-meq` remained at 100% | Passed |
+
+### Live frontend request proof
+
+The post-promotion request log tied the ordinary production hostname directly to `00146-meq`:
+
+```text
+OPTIONS /me: 200
+GET /me: 200
+OPTIONS /games?date=2026-08-03: 200
+GET /games?date=2026-08-03: 200
+OPTIONS /games?date=2026-08-06: 200
+GET /games?date=2026-08-06: 200
+OPTIONS /game/20260806_CAR@ARI: 200
+GET /game/20260806_CAR@ARI: 200
+Fresh candidate application error scan: empty
+```
+
+The final non-final game request completed successfully. The observed multi-second `/game` latency was not accompanied by a timeout, `5xx`, traceback, or error record.
+
+### Final Scheduler state after Gate G
+
+```text
+Job: Get-NFL-Schedule
+State: ENABLED
+Schedule: 00 8 * * *
+Time zone: America/New_York
+Attempt deadline: 900s
+HTTP method: POST
+Target: https://nfl-games-app-main-362530996210.us-central1.run.app/
+Traffic behind target: 100% nfl-games-app-main-00146-meq
+Manual force-run issued during Gate G: no
+```
+
+Resuming the job restored its schedule; it did not issue a manual run. Because the August 3 8:00 a.m. Eastern window had already passed, the next expected automatic execution is August 4, 2026 at 8:00 a.m. Eastern.
+
+The retry configuration was not changed during Gate G. The pre-cutover snapshot recorded:
+
+```text
+maxBackoffDuration: 3600s
+maxDoublings: 5
+maxRetryDuration: 0s
+minBackoffDuration: 5s
+```
+
+Preserve and inspect the live values during Gate H rather than paraphrasing them as disabled or enabled without the exact configuration.
+
+### Production-write safety
+
+```text
+Candidate API tests during Gates E–G: read-only
+Promotion command: traffic routing only
+Browser smoke tests: read-only non-final game paths
+Manual POST / ingestion during Gate G: none
+Unexpected production writes observed: none
+```
+
+Gate G did not prove the full daily ETL against production destinations. That proof belongs to Gate H.
+
+### Frontend cleanup remains deferred
+
+The temporary Lovable branch `packet4-candidate-preview` remains a test artifact:
+
+```text
+Merged into frontend main: no
+Published to gamelens.io: no
+Production API_BASE changed: no
+Production frontend still uses the stable service URL: yes
+```
+
+Do not merge or publish that branch. Revert its one-line tagged-URL change or delete the temporary branch only after the promoted revision and first scheduled run are proven.
+
+### Gate H stop point
+
+Do not repeat the candidate deployment, Gate E API tests, Lovable preview, Scheduler pause, traffic promotion, or Gate G browser smoke test.
+
+The next bounded action is to observe the first automatic scheduled run on August 4, 2026 at 8:00 a.m. Eastern and capture truthful production evidence for:
+
+- the Scheduler attempt and HTTP result;
+- the Cloud Run request on `00146-meq`;
+- schedule, Stats, Scores, Facts, Windowed, and Rankings stage outcomes;
+- request duration and any timeout, OOM, permission, or dataset-routing failure;
+- Stats and Scores backlog state;
+- post-run `/games` and one safe non-final `/game`;
+- whether traffic remains 100% on `00146-meq`;
+- whether the rollback anchor remains available.
+
+Do not manually force the Scheduler job merely to accelerate Gate H. If the automatic run fails or its result is ambiguous, preserve logs and evidence before retrying, rolling back, or repairing data.
+
 
 ---
 
@@ -1241,18 +1385,25 @@ These references support the release mechanism. The live GameLens service config
 
 ## 19. Next action after this execution update
 
-Gate F is complete with a documented `GO`. Do not repeat the candidate deployment, API tests, Lovable branch edit, preview sign-in, or browser validation.
+Gate G is complete with a documented `GO`. Production traffic is 100% on `nfl-games-app-main-00146-meq`, the ordinary GameLens frontend passed, and `Get-NFL-Schedule` is `ENABLED`.
 
-Perform only the documentation synchronization step:
+Do not repeat the promotion sequence or manually invoke `POST /`. The next action is Gate H:
 
 ```text
-fast-forward local dev to the Gate F documentation commit
-→ inspect documentation/live/go_plan.md and confirm the working tree is clean
-→ stop before merging dev into main
+wait for the automatic August 4, 2026 8:00 a.m. America/New_York Scheduler execution
+→ capture the Scheduler and revision-specific Cloud Run evidence
+→ verify the truthful ETL stage summary and backlog state
+→ run the safe post-run frontend checks
+→ decide GO, investigate, or roll back from preserved evidence
 ```
 
-After that inspection, the next separately authorized action is to merge the documentation record into `main`. The later Gate G traffic cutover remains a different step: reconfirm the live rollback anchor, check Scheduler and in-flight work, pause Scheduler, promote `00146-meq`, smoke-test `gamelens.io`, then resume Scheduler or roll back.
+Until Gate H passes, describe the release precisely as:
 
-The temporary Lovable branch must remain unpublished and unmerged. The production frontend must keep the stable `nfl-games-app-main` service URL.
+```text
+Gate G complete
+traffic cutover complete
+live frontend smoke-tested
+first scheduled production run pending
+```
 
-Resume from GitHub's current `documentation/live/go_plan.md`, not an older attachment or chat summary. Begin each operational step by stating why it matters, run one bounded step, inspect its evidence, document the result, and stop at every authorization boundary.
+Do not merge or publish `packet4-candidate-preview`. Do not remove the no-traffic/tag release flags yet. Resume from GitHub's current `documentation/live/go_plan.md`, begin each operational step by stating why it matters, execute one bounded step, inspect its evidence, and stop at every authorization boundary.
