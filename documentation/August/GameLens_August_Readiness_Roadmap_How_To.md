@@ -2,11 +2,15 @@
 
 - **Roadmap:** `documentation/August/GameLens_Backend_August_Readiness_Roadmap.md`
 - **Repository:** `csells10/meow`
-- **Code source of truth:** Current `meow/dev`
+- **Status:** Historical Packet 0–4 restart guide
+- **Code source of truth:** Current `meow/main`
+- **Current restart documents:** `documentation/live/go_plan.md` and `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md`
 
-This file helps a new ChatGPT conversation resume backend work without relying on memory from an older chat.
+This file records how Packet work was resumed before the production cutover. Do not follow its later `dev`, Packet 4, merge, or deployment instructions as current steps.
 
-Use the attached How-To and canonical August Readiness Roadmap to continue the GameLens backend work. The older August Readiness Plan is a superseded planning draft and must not override the roadmap. First inspect the current meow/dev branch and recent commits read-only. Reconcile the repository against the roadmap, confirm the current packet, and recommend only the next smallest locally testable step. Preserve lens_tags, Levels 1–4, historical runs, and existing behavior. Do not change code until we agree on the next step. When providing Python changes, give me complete functions rather than scattered line edits.
+> **Authority notice (2026-08-03):** Gate G is complete and Gate H is the live production checkpoint. Use `documentation/live/go_plan.md` for that checkpoint. Use `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` for Levels 1–4, `/admin` feedback-loop design, identifiers, preseason isolation, and the approved-but-not-live confidence rule. The original August Readiness Plan remains untouched.
+
+Historical procedure retained below: inspect the then-current `dev` branch, reconcile it against the packet roadmap, and complete one bounded change at a time. This procedure documents how Packets 0–4 were executed; it no longer identifies the current branch, packet, or next action.
 
 The goal is simple:
 
@@ -14,7 +18,7 @@ The goal is simple:
 
 ---
 
-## Current verified handoff — 2026-08-02
+## Historical verified handoff — 2026-08-02
 
 This snapshot is a starting point, not a substitute for checking current `meow/dev`.
 

@@ -1,12 +1,14 @@
 # GameLens Backend August Readiness Roadmap
 
-**Last revised:** 2026-08-02
-**Status:** Canonical working roadmap
-**Code source of truth:** Current `meow/dev`
-**Current packet:** Packet 4 — Activate through `app.py` (`IN PROGRESS — DEV REAL-DATA E2E PROVEN; PRODUCTION RESOURCE CONFIGURATION REQUIRED`)
-**Deployment preflight:** Complete on `dev`; production activation has not occurred
+**Last revised:** 2026-08-03
+**Status:** Historical implementation record — Packets 0–4 and cutover evidence
+**Code source of truth:** Current `meow/main`
+**Current checkpoint:** Gate G complete; use `documentation/live/go_plan.md` for Gate H
+**Learning-track authority:** `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md`
 
-This document replaces the earlier August plan and implementation-map drafts. It is the single practical roadmap for backend readiness.
+> **Authority notice:** This roadmap explains how the August backend path was built. Its old `dev`, Packet 4, and “next action” instructions are preserved as history and must not be used to resume current work. For production operations use `documentation/live/go_plan.md`; for Levels 1–4 use the live product-data handoff. The original `GameLens_Backend_August_Readiness_Plan.md` remains an untouched planning artifact.
+
+This document replaced the earlier August plan and implementation-map drafts during implementation. It is no longer the active restart document.
 
 The standard is intentionally modest:
 
@@ -724,7 +726,7 @@ production_daily_2026_claim_training
 
 Requirements:
 
-* Generate or load pregame-safe `/game` payloads for the selected final games.
+* Load immutable `/game`-style payloads captured before kickoff. A game becoming final makes it eligible for Levels 2–3; it does not make a postgame payload valid for Level 1.
 * Preserve historical 2023–2025 QA runs.
 * Merge one game's claims by stable grain such as `run_id + claim_key`, or delete/reinsert only that game within the production `run_id`.
 * Never use whole-run replacement to update one game in a cumulative production run.
@@ -780,7 +782,7 @@ What it should not do:
 | Admin daily snapshots            | Live Claim Health can remain while production learning stabilizes.            |
 | Dynamic multi-season discovery   | One explicit active season is acceptable for August.                          |
 | `/game` SQL view or table function | Existing query/service separation is adequate unless profiling proves otherwise. |
-| Mandatory pregame snapshot store | Current strict-before-date queries already enforce the key product rule.       |
+| Production pregame capture contract | Required for prospective Level 1 evidence; governed by the live product-data handoff. |
 
 ---
 
