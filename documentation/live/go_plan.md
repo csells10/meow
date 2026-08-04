@@ -1,12 +1,12 @@
 # GameLens Controlled Production Cutover Plan
 
 **Created:** 2026-08-02
-**Last execution update:** 2026-08-03
+**Last execution update:** 2026-08-04
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Current status:** **GATE G COMPLETE — CANDIDATE PROMOTED AND LIVE SMOKE-TESTED — GATE H PENDING**
+**Current status:** **GATE G COMPLETE — GATE H REMEDIATION PROVEN IN DEV — NEW PRODUCTION CANDIDATE PENDING**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -156,7 +156,7 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 
 ## 5. Release state ladder
 
-| Gate | State | Status on 2026-08-03 | Production user traffic | Exit requirement |
+| Gate | State | Status on 2026-08-04 | Production user traffic | Exit requirement |
 |---|---|---|---:|---|
 | A | Documentation and design | Complete | Current revision 100% | Plan reviewed |
 | B | No-traffic YAML on `dev` | Complete | Current revision 100% | Diff and tests pass |
@@ -165,7 +165,7 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 | E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
 | F | Candidate UI preview | **Complete — GO** | Current revision 100% | Preview auth, `/me`, `/games`, non-final `/game`, logs, and live-site comparison passed |
 | G | Promotion window | **Complete — GO** | Candidate `00146-meq` 100% | Rollback anchor rechecked, controlled promotion completed, live smoke tests passed, and Scheduler resumed |
-| H | First scheduled run and cleanup decision | **Next — pending first scheduled run** | Candidate `00146-meq` 100% | ETL proof recorded and release method decided |
+| H | Remediation rollout and repaired scheduled run | **Remediation proven in dev — new candidate pending** | Current production revision remains live | Repaired production ETL proof recorded and release method decided |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
 
@@ -1383,27 +1383,70 @@ These references support the release mechanism. The live GameLens service config
 
 ---
 
-## 19. Next action after this execution update
+## 19. Gate H remediation checkpoint — 2026-08-04
 
-Gate G is complete with a documented `GO`. Production traffic is 100% on `nfl-games-app-main-00146-meq`, the ordinary GameLens frontend passed, and `Get-NFL-Schedule` is `ENABLED`.
+The instruction to wait for the first automatic August 4 Scheduler execution is retired. That execution occurred and produced the evidence that led to the Schedule no-game remediation.
 
-Do not repeat the promotion sequence or manually invoke `POST /`. The next action is Gate H:
+Gate H is not complete. The correction has been proven in dev but has not yet been transferred to a new production candidate.
+
+### Dev remediation evidence
 
 ```text
-wait for the automatic August 4, 2026 8:00 a.m. America/New_York Scheduler execution
-→ capture the Scheduler and revision-specific Cloud Run evidence
-→ verify the truthful ETL stage summary and backlog state
-→ run the safe post-run frontend checks
-→ decide GO, investigate, or roll back from preserved evidence
+Schedule no-game correction commit: aabdd8f
+Combined dev commit: 2d72dbd1c762b6ebae238ab40615a82142a8db47
+Focused regression tests: 35 passed
+Temporary daily revision: nfl-games-app-dev-00077-c8j
+HTTP status: 200
+Schedule status: success
+Dates checked: 4
+Dates with games: 1
+Dates with no games: 3
+Schedule failures: 0
+Inserted game: 20260806_CAR@ARI
+Stats: no_op — no eligible games
+Scores: no_op — no eligible games
+Metric pipeline: skipped — no accepted stats games
+Overall application status: no_op
 ```
 
-Until Gate H passes, describe the release precisely as:
+The overall `no_op` is correct. Schedule succeeded, while the future game was not yet eligible for Stats, Scores, or metric processing.
+
+An immediate manual repeat temporarily encountered BigQuery's streaming-buffer restriction while replacing the newly inserted Schedule row. The row remained present exactly once with both processing flags `false`. After the buffer cleared, the approved single retest passed without code or data repair. This is recorded as an immediate-retry limitation, not a blocker for the normal daily cadence.
+
+Dev was restored after the proof:
+
+```text
+Restored revision: nfl-games-app-dev-00078-ngp
+Image commit: 2d72dbd1c762b6ebae238ab40615a82142a8db47
+Traffic: 100%
+Run mode: controlled_replay
+Active season: 2025
+Replay date: 2025-09-18
+```
+
+### Next bounded release sequence
+
+```text
+review and commit the Gate H evidence
+→ inspect fresh Git and live production state
+→ fast-forward main to the proven dev history
+→ verify creation of a new 0%-traffic production candidate
+→ repeat the read-only candidate gates
+→ authorize or reject deliberate traffic promotion
+→ preserve the first automatic production execution of the repaired revision
+→ complete Gate H only if its Scheduler, Cloud Run, ETL, backlog, and frontend evidence pass
+```
+
+Do not manually invoke production `POST /`. Do not assume the current Scheduler or production revision state from this document; inspect both immediately before transferring the proven history to `main`.
+
+Until the new production candidate is deployed and validated, describe the release precisely as:
 
 ```text
 Gate G complete
-traffic cutover complete
-live frontend smoke-tested
-first scheduled production run pending
+Gate H remediation proven in dev
+dev restored to controlled_replay
+production remediation candidate pending
+Gate H incomplete
 ```
 
-Do not merge or publish `packet4-candidate-preview`. Do not remove the no-traffic/tag release flags yet. Resume from GitHub's current `documentation/live/go_plan.md`, begin each operational step by stating why it matters, execute one bounded step, inspect its evidence, and stop at every authorization boundary.
+Do not remove the no-traffic/tag release flags. Resume with a fresh Git and production-state inspection, execute one bounded step at a time, and stop at every authorization boundary.
