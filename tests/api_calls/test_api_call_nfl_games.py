@@ -35,24 +35,6 @@ except ModuleNotFoundError:
     sys.modules.setdefault("google.cloud.bigquery", bigquery_module)
 
 
-helper_module = types.ModuleType("utils.helper")
-helper_module.insert_into_bigquery = MagicMock()
-helper_module.get_secret = MagicMock(return_value="test-key")
-helper_module.fetch_and_validate_api_data = MagicMock()
-response_module = types.ModuleType("utils.response_helpers")
-response_module.save_raw_response = MagicMock()
-logging_module = types.ModuleType("utils.logging_setup")
-logging_module.log_event = MagicMock()
-utils_module = sys.modules.get("utils") or types.ModuleType("utils")
-utils_module.helper = helper_module
-utils_module.response_helpers = response_module
-utils_module.logging_setup = logging_module
-sys.modules["utils"] = utils_module
-sys.modules["utils.helper"] = helper_module
-sys.modules["utils.response_helpers"] = response_module
-sys.modules["utils.logging_setup"] = logging_module
-
-
 from api_calls import api_call_nfl_games as games
 
 
@@ -262,6 +244,7 @@ class FetchNflGamesTests(unittest.TestCase):
         with (
             patch.object(games, "RUNTIME_CONFIG", daily_config),
             patch.object(games, "datetime", clock),
+            patch.object(games, "get_secret", return_value="test-key"),
             patch.object(
                 games,
                 "process_yesterday_games",
@@ -313,6 +296,7 @@ class FetchNflGamesTests(unittest.TestCase):
         with (
             patch.object(games, "RUNTIME_CONFIG", daily_config),
             patch.object(games, "datetime", clock),
+            patch.object(games, "get_secret", return_value="test-key"),
             patch.object(
                 games,
                 "process_yesterday_games",
