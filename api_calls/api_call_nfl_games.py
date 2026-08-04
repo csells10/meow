@@ -45,7 +45,7 @@ def process_yesterday_games(table_id, api_url, headers, yesterday_date):
 
         # Step 1b: Only proceed if games exist
         if not raw_games:
-            log_event("warning", "no_games_found_yesterday", game_date=yesterday_date)
+            log_event("info", "no_games_found_yesterday", game_date=yesterday_date)
             return {
                 "status": "no_op",
                 "game_date": yesterday_date,
@@ -57,7 +57,7 @@ def process_yesterday_games(table_id, api_url, headers, yesterday_date):
         # Step 1c: Transform records
         df = transform_game_records(raw_games)
         if df.empty:
-            log_event("warning", "no_games_after_transform_yesterday", game_date=yesterday_date)
+            log_event("info", "no_games_after_transform_yesterday", game_date=yesterday_date)
             return {
                 "status": "no_op",
                 "game_date": yesterday_date,
@@ -108,10 +108,21 @@ def process_game_date(table_id, api_url, headers, game_date):
         log_event("info", "games_fetched", game_date=game_date, count=len(raw_games))
         save_raw_response({"body": raw_games}, game_date, prefix="nfl_games")
 
-        # Step 2b: Transform API records into DataFrame
+        # Step 2b: Treat an explicit empty list as a normal no-game date.
+        if not raw_games:
+            log_event("info", "no_games_found", game_date=game_date)
+            return {
+                "status": "no_op",
+                "game_date": game_date,
+                "selected_game_ids": [],
+                "inserted_row_count": 0,
+                "no_op_reason": "no_games_returned",
+            }
+
+        # Step 2c: Transform API records into a DataFrame.
         df = transform_game_records(raw_games)
         if df.empty:
-            log_event("warning", "no_games_after_transform", game_date=game_date)
+            log_event("info", "no_games_after_transform", game_date=game_date)
             return {
                 "status": "no_op",
                 "game_date": game_date,
@@ -120,7 +131,7 @@ def process_game_date(table_id, api_url, headers, game_date):
                 "no_op_reason": "no_games_after_transform",
             }
 
-        # Step 2c: Delete all rows in BigQuery for these gameIDs
+        # Step 2d: Delete all rows in BigQuery for these gameIDs
         game_ids = df["gameID"].tolist()
         if game_ids:
             delete_query = f"""
@@ -132,7 +143,7 @@ def process_game_date(table_id, api_url, headers, game_date):
             bq.query(delete_query, job_config=job_config).result()
             log_event("info", "existing_games_deleted", count=len(game_ids))
 
-        # Step 2d: Insert all fresh records
+        # Step 2e: Insert all fresh records
         insert_into_bigquery(table_id, df.to_dict(orient="records"))
         log_event("info", "games_inserted", game_date=game_date, inserted=len(df))
         return {
@@ -230,6 +241,9 @@ def fetch_nfl_games(load_date=None):
             "requested_dates": [],
             "successful_dates": [],
             "no_op_dates": [],
+            "dates_checked": 0,
+            "dates_with_games": 0,
+            "dates_with_no_games": 0,
             "selected_game_count": 0,
             "selected_game_ids": [],
             "successful_game_count": 0,
@@ -252,6 +266,9 @@ def fetch_nfl_games(load_date=None):
             "requested_dates": [],
             "successful_dates": [],
             "no_op_dates": [],
+            "dates_checked": 0,
+            "dates_with_games": 0,
+            "dates_with_no_games": 0,
             "selected_game_count": 0,
             "selected_game_ids": [],
             "successful_game_count": 0,
@@ -321,6 +338,9 @@ def fetch_nfl_games(load_date=None):
         "requested_dates": requested_dates,
         "successful_dates": successful_dates,
         "no_op_dates": no_op_dates,
+        "dates_checked": len(requested_dates),
+        "dates_with_games": len(successful_dates),
+        "dates_with_no_games": len(no_op_dates),
         "selected_game_count": len(selected_game_ids),
         "selected_game_ids": selected_game_ids,
         "successful_game_count": len(selected_game_ids),
@@ -335,6 +355,9 @@ def fetch_nfl_games(load_date=None):
         "info",
         "nfl_games_job_completed",
         status=status,
+        dates_checked=len(requested_dates),
+        dates_with_games=len(successful_dates),
+        dates_with_no_games=len(no_op_dates),
         inserted=inserted_row_count,
         failed_dates=len(failures),
     )

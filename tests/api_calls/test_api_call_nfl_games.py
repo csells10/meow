@@ -273,6 +273,72 @@ class FetchNflGamesTests(unittest.TestCase):
         self.assertEqual(summary["status"], "success")
         self.assertEqual(summary["inserted_row_count"], 1)
 
+    def test_all_empty_dates_are_successful_no_op_with_truthful_counts(self):
+        fixed_now = datetime(2026, 8, 1, 8, 0, 0)
+        daily_config = MagicMock(is_controlled_replay=False)
+        clock = MagicMock()
+        clock.now.return_value = fixed_now
+
+        with (
+            patch.object(games, "RUNTIME_CONFIG", daily_config),
+            patch.object(games, "datetime", clock),
+            patch.object(games, "get_secret", return_value="test-key"),
+            patch.object(
+                games,
+                "fetch_games_for_date",
+                return_value=[],
+            ) as fetch,
+            patch.object(games, "save_raw_response"),
+            patch.object(games, "bq") as bq,
+            patch.object(games, "insert_into_bigquery") as insert,
+            patch.object(games, "log_event") as log,
+        ):
+            summary = games.fetch_nfl_games()
+
+        expected_dates = [
+            "20260731",
+            "20260801",
+            "20260802",
+            "20260803",
+        ]
+        self.assertEqual(fetch.call_count, 4)
+        bq.query.assert_not_called()
+        insert.assert_not_called()
+        self.assertEqual(summary["status"], "no_op")
+        self.assertEqual(summary["requested_dates"], expected_dates)
+        self.assertEqual(summary["successful_dates"], [])
+        self.assertEqual(summary["no_op_dates"], expected_dates)
+        self.assertEqual(summary["dates_checked"], 4)
+        self.assertEqual(summary["dates_with_games"], 0)
+        self.assertEqual(summary["dates_with_no_games"], 4)
+        self.assertEqual(summary["failed_date_count"], 0)
+        self.assertEqual(summary["failures"], [])
+        self.assertEqual(summary["inserted_row_count"], 0)
+
+        no_game_events = [
+            call
+            for call in log.call_args_list
+            if call.args[1] in {
+                "no_games_found_yesterday",
+                "no_games_found",
+            }
+        ]
+        self.assertEqual(len(no_game_events), 4)
+        self.assertTrue(all(call.args[0] == "info" for call in no_game_events))
+
+        completion = next(
+            call
+            for call in log.call_args_list
+            if call.args[1] == "nfl_games_job_completed"
+        )
+        self.assertEqual(completion.args[0], "info")
+        self.assertEqual(completion.kwargs["status"], "no_op")
+        self.assertEqual(completion.kwargs["dates_checked"], 4)
+        self.assertEqual(completion.kwargs["dates_with_games"], 0)
+        self.assertEqual(completion.kwargs["dates_with_no_games"], 4)
+        self.assertEqual(completion.kwargs["failed_dates"], 0)
+
+
     def test_historical_daily_request_is_an_explicit_no_op(self):
         daily_config = MagicMock(is_controlled_replay=False)
         with (

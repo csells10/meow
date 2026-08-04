@@ -1,8 +1,10 @@
 import unittest
 from dataclasses import replace
-from unittest.mock import patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import app as app_module
+from api_calls import api_call_nfl_games as games
 
 
 class TestApp(unittest.TestCase):
@@ -472,6 +474,117 @@ class TestApp(unittest.TestCase):
         self.assertEqual(summary["status"], "failure")
         self.assertEqual(summary["metric_pipeline"]["status"], "failed")
         self.assertEqual(summary["metric_pipeline"]["error"], "pipeline crashed")
+
+    def test_empty_schedule_cycle_returns_http_200_and_skips_metrics(self):
+        daily_config = replace(
+            app_module.RUNTIME_CONFIG,
+            environment="dev",
+            run_mode="daily",
+            active_season="2026",
+            replay_date=None,
+        )
+        schedule_clock = MagicMock()
+        schedule_clock.now.return_value = datetime(2026, 8, 1, 8, 0, 0)
+        call_order = []
+
+        def schedule_call(load_date=None):
+            call_order.append(("schedule", load_date))
+            return games.fetch_nfl_games(load_date=load_date)
+
+        no_eligible_games = self._ingestion_result(
+            status="no_op",
+            game_ids=(),
+            successful_games=0,
+            no_op_reason="no_eligible_games",
+        )
+        api_calls = [
+            {
+                "name": "NFL Game Schedule API Call",
+                "function": schedule_call,
+                "max_cycles": 1,
+            },
+            {
+                "name": "NFL Stats API Call",
+                "function": self._record_call(
+                    call_order,
+                    "stats",
+                    result=no_eligible_games,
+                ),
+                "max_cycles": 1,
+            },
+            {
+                "name": "NFL Scores API Call",
+                "function": self._record_call(
+                    call_order,
+                    "scores",
+                    result=no_eligible_games,
+                ),
+                "max_cycles": 1,
+            },
+        ]
+
+        with (
+            patch.object(app_module, "API_CALLS", api_calls),
+            patch.object(app_module, "RUNTIME_CONFIG", daily_config),
+            patch.object(games, "RUNTIME_CONFIG", daily_config),
+            patch.object(games, "datetime", schedule_clock),
+            patch.object(games, "get_secret", return_value="test-key"),
+            patch.object(
+                games,
+                "fetch_games_for_date",
+                return_value=[],
+            ) as fetch,
+            patch.object(games, "save_raw_response"),
+            patch.object(games, "bq") as bq,
+            patch.object(games, "insert_into_bigquery") as insert,
+            patch.object(
+                app_module,
+                "run_gamelens_metric_pipeline",
+            ) as conductor,
+            app_module.app.test_client() as client,
+        ):
+            response = client.post("/", json={})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["status"], "no_op")
+        self.assertEqual(
+            payload["no_op_reason"],
+            "no_accepted_stats_games",
+        )
+        schedule_summary = payload["ingestion"][
+            "NFL Game Schedule API Call"
+        ]
+        self.assertEqual(schedule_summary["status"], "no_op")
+        self.assertEqual(schedule_summary["dates_checked"], 4)
+        self.assertEqual(schedule_summary["dates_with_games"], 0)
+        self.assertEqual(schedule_summary["dates_with_no_games"], 4)
+        self.assertEqual(schedule_summary["failed_date_count"], 0)
+        self.assertEqual(
+            payload["ingestion"]["NFL Stats API Call"]["status"],
+            "no_op",
+        )
+        self.assertEqual(
+            payload["ingestion"]["NFL Scores API Call"]["status"],
+            "no_op",
+        )
+        self.assertEqual(
+            payload["metric_pipeline"]["status"],
+            "skipped",
+        )
+        self.assertEqual(
+            call_order,
+            [
+                ("schedule", None),
+                ("stats", None),
+                ("scores", None),
+            ],
+        )
+        self.assertEqual(fetch.call_count, 4)
+        bq.query.assert_not_called()
+        insert.assert_not_called()
+        conductor.assert_not_called()
+
 
     def test_scheduler_route_returns_summary_and_truthful_http_status(self):
         cases = (
