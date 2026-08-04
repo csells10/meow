@@ -6,7 +6,7 @@
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Current status:** **GATE G COMPLETE — GATE H REMEDIATION PROVEN IN DEV — NEW PRODUCTION CANDIDATE PENDING**
+**Current status:** **GATE H REPAIRED REVISION LIVE — FIRST AUTOMATIC PRODUCTION RUN PENDING**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -165,7 +165,7 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 | E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
 | F | Candidate UI preview | **Complete — GO** | Current revision 100% | Preview auth, `/me`, `/games`, non-final `/game`, logs, and live-site comparison passed |
 | G | Promotion window | **Complete — GO** | Candidate `00146-meq` 100% | Rollback anchor rechecked, controlled promotion completed, live smoke tests passed, and Scheduler resumed |
-| H | Remediation rollout and repaired scheduled run | **Remediation proven in dev — new candidate pending** | Current production revision remains live | Repaired production ETL proof recorded and release method decided |
+| H | Remediation rollout and repaired scheduled run | **Repaired revision live — first automatic run pending** | `00148-vew` 100% | Scheduler, Cloud Run, ETL, backlog, and frontend evidence pass after the next normal run |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
 
@@ -1439,7 +1439,7 @@ review and commit the Gate H evidence
 
 Do not manually invoke production `POST /`. Do not assume the current Scheduler or production revision state from this document; inspect both immediately before transferring the proven history to `main`.
 
-Until the new production candidate is deployed and validated, describe the release precisely as:
+At this checkpoint, before the production candidate was deployed, the precise release state was:
 
 ```text
 Gate G complete
@@ -1449,4 +1449,101 @@ production remediation candidate pending
 Gate H incomplete
 ```
 
-Do not remove the no-traffic/tag release flags. Resume with a fresh Git and production-state inspection, execute one bounded step at a time, and stop at every authorization boundary.
+That checkpoint is now historical and is superseded by the production promotion record below.
+
+
+---
+
+## 20. Gate H repaired production promotion checkpoint — 2026-08-04
+
+The repaired revision is now live. Gate H remains open only until the first normal automatic Scheduler execution proves the repaired daily production path.
+
+### Build and isolated candidate evidence
+
+```text
+Approved main commit: 05a34ab30b7c4ea9e149505cccf295bbcb872655
+Cloud Build ID: 1ad3a96d-0668-4a86-b9bd-a0026ff7aa82
+Cloud Build result: SUCCESS
+Candidate revision: nfl-games-app-main-00148-vew
+Candidate tag: packet4-candidate
+Candidate image digest: sha256:a2411a8c22720b1b6134b5aee01a3a3e04d86b240da60456f5bc587ed6e9a071
+Candidate memory: 4Gi
+Candidate timeout: 900s
+Previous serving revision: nfl-games-app-main-00146-meq
+Traffic during candidate validation: 00146-meq 100%; 00148-vew 0% normal traffic
+```
+
+The candidate passed the bounded production checks:
+
+| Check | Result |
+|---|---|
+| Candidate readiness | Ready and container healthy |
+| `GET /health` | `200`, `{"status":"ok"}` |
+| Unauthenticated `GET /games` | Intentional `401` |
+| Unauthenticated `GET /game/{gameID}` | Intentional `401` |
+| GameLens `OPTIONS /game/{gameID}` | `200`; exact origin, `Authorization`, `Content-Type`, and `GET` allowed |
+| Authenticated `GET /games?date=2026-08-06` | `200`; returned scheduled `20260806_CAR@ARI` |
+| Authenticated non-final `GET /game/20260806_CAR@ARI` | `200`; safe early-season fallback with no ranking rows |
+| Candidate log review | Only the two deliberate unauthenticated `401` warnings; no unexpected warning, exception, or `5xx` |
+| Candidate writes | None; the tested game was `Scheduled` and production `POST /` was not called |
+
+### Promotion evidence
+
+At approximately `2026-08-04T20:27:58Z`, normal service traffic was deliberately moved to the tested candidate:
+
+```text
+Live revision: nfl-games-app-main-00148-vew
+Traffic after promotion: 00148-vew 100%
+Rollback revision preserved: nfl-games-app-main-00146-meq
+Normal production /health: 200
+Post-promotion log proof: GET /health reached 00148-vew and returned 200
+Unexpected post-promotion warnings/errors: none observed
+```
+
+The `packet4-candidate` tag remains as an alternate URL for the same live revision. Its presence does not mean traffic is split.
+
+### Scheduler state at the stopping point
+
+```text
+Job: Get-NFL-Schedule
+State: ENABLED
+Target: https://nfl-games-app-main-362530996210.us-central1.run.app/
+Method: POST
+Schedule: 00 8 * * *
+Time zone: America/New_York
+Attempt deadline: 900s
+Automatic retries: remain deliberately controlled
+```
+
+The Scheduler targets the normal service URL, so its next request should follow the 100% traffic assignment to `00148-vew`.
+
+### Next required observation
+
+Wait for the normal Scheduler execution on **2026-08-05 at 8:00 a.m. Eastern** (`12:00Z`). Do not manually run Scheduler and do not call production `POST /`.
+
+After the run, verify and record:
+
+1. Scheduler emitted an attempt start and finish for the expected scheduled time.
+2. `POST /` reached `nfl-games-app-main-00148-vew`.
+3. The request returned a truthful status and completed within the `900s` deadline.
+4. Schedule reported checked dates, dates with games/no games, insert/update counts, and failures.
+5. Stats and Scores reported accepted/rejected/skipped or truthful no-op counts.
+6. Facts, Windowed Metrics, and Rankings either completed in order for accepted Stats games or truthfully skipped when no games were accepted.
+7. No exception, timeout, OOM, unsafe duplicate, or unexpected warning occurred.
+8. Stats and Scores backlog views match the expected post-run state.
+9. `/games` and one upcoming/non-final `/game` remain usable after the run.
+
+A no-op is a successful result when no game is eligible for Stats or Scores. Gate H closes only after this automatic production evidence is reviewed and documented.
+
+### Precise current release state
+
+```text
+Gate G complete
+Gate H remediation proven in dev
+Repaired production revision 00148-vew live at 100%
+Scheduler enabled for the normal 8:00 a.m. Eastern run
+First automatic repaired production run pending
+Gate H incomplete
+```
+
+Do not remove the no-traffic/tag release flags or change the retry policy before the first repaired automatic production run is proven.
