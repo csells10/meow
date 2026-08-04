@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import utils.helper as helper
 from utils.helper import fetch_and_validate_api_data
 
 
@@ -13,7 +14,7 @@ class FetchAndValidateApiDataTests(unittest.TestCase):
         response.text = ""
         return response
 
-    @patch("utils.helper.requests.get")
+    @patch.object(helper.requests, "get")
     def test_empty_list_body_is_rejected_by_default(self, get):
         get.return_value = self._response({"body": []})
 
@@ -21,7 +22,7 @@ class FetchAndValidateApiDataTests(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch("utils.helper.requests.get")
+    @patch.object(helper.requests, "get")
     def test_empty_list_body_is_allowed_only_when_requested(self, get):
         payload = {"body": []}
         get.return_value = self._response(payload)
@@ -35,7 +36,7 @@ class FetchAndValidateApiDataTests(unittest.TestCase):
 
         self.assertEqual(result, payload)
 
-    @patch("utils.helper.requests.get")
+    @patch.object(helper.requests, "get")
     def test_missing_body_remains_invalid_when_empty_is_allowed(self, get):
         get.return_value = self._response({})
 
