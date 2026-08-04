@@ -65,7 +65,7 @@ These values form one safety system. A correct code revision can still affect th
 
 ## 3. Current dev configuration snapshot
 
-Observed on 2026-08-04 for ready revision nfl-games-app-dev-00075-jsd:
+Observed after restoration on 2026-08-04 for ready revision nfl-games-app-dev-00078-ngp:
 
 | Setting | Current value | Purpose |
 |---|---|---|
@@ -237,7 +237,7 @@ cloudbuild-dev.yaml deploys a new image to nfl-games-app-dev with 4Gi memory and
 
 The variables live on the Cloud Run service template and are read by each new revision. Therefore, verify them after every dev deployment rather than assuming the build file defines or repairs them.
 
-A documentation-only commit with [skip ci] is intended to avoid triggering the regional dev Cloud Build trigger. It changes GitHub documentation only; it does not change the live service configuration or replace revision nfl-games-app-dev-00075-jsd.
+A documentation-only commit with [skip ci] is intended to avoid triggering the regional dev Cloud Build trigger. It changes GitHub documentation only; it does not change the live service configuration or create a Cloud Run revision.
 
 ---
 
@@ -264,32 +264,52 @@ Never interpret dev or test as cannot write.
 
 ---
 
-## 11. Current Gate H checkpoint
+## 11. Gate H dev remediation evidence — 2026-08-04
 
-As of this document:
+The Schedule no-game correction and combined branch were proven through the real dev cloud path before any transfer to `main`.
 
 ~~~text
-Code commit deployed: aabdd8f
-Dev revision: nfl-games-app-dev-00075-jsd
-Revision health: ready
-Dev traffic: 100%
-Memory: 4Gi
-Timeout: 900s
-Environment: dev
+Combined dev commit: 2d72dbd1c762b6ebae238ab40615a82142a8db47
+No-game correction commit: aabdd8f
+Focused regression tests: 35 passed
+Temporary daily revision: nfl-games-app-dev-00077-c8j
+Temporary run mode: daily
+Temporary active season: 2026
+Temporary replay date: unset
+Dev datasets and raw bucket: isolated dev targets
+~~~
+
+The successful daily request produced:
+
+~~~text
+HTTP status: 200
+Schedule status: success
+Dates checked: 4
+Dates with games: 1
+Dates with no games: 3
+Schedule failures: 0
+Inserted game: 20260806_CAR@ARI
+Stats: no_op — no eligible games
+Scores: no_op — no eligible games
+Metric pipeline: skipped — no accepted stats games
+Overall application status: no_op
+~~~
+
+The overall `no_op` is expected: Schedule completed successfully, but the future game was not eligible for Stats or Scores.
+
+An unusually close manual rerun temporarily returned HTTP 500 because the newly streamed August 6 Schedule row was still in BigQuery's streaming buffer. The row remained present exactly once with `boxscore_loaded=false` and `score_loaded=false`. After the buffer cleared, one approved rerun returned the successful HTTP 200 result above. No code or data repair was required.
+
+Dev was then restored:
+
+~~~text
+Restored revision: nfl-games-app-dev-00078-ngp
+Image commit: 2d72dbd1c762b6ebae238ab40615a82142a8db47
+Traffic: 100%
 Run mode: controlled_replay
+Active season: 2025
 Replay date: 2025-09-18
-Production change from this documentation step: none
-Cloud request after this documentation step: not yet run
 ~~~
 
-Next decision:
+This completes the dev proof of the Gate H remediation. It does not complete Gate H in production.
 
-~~~text
-Choose and review a temporary dev-only daily-mode configuration
-→ prove the isolated targets and backlog state again
-→ make one approved POST /
-→ verify HTTP 200 and truthful no-game/no-op logs
-→ restore the recorded controlled-replay configuration
-~~~
-
-Do not invoke the existing revision expecting it to exercise the Schedule empty-response fix. In controlled replay mode, Schedule is intentionally skipped.
+The next authorization boundary is documentation review followed by a fresh Git and production-state inspection. Only then may the proven history move to `main`, create a new no-traffic production candidate, and proceed through candidate validation and deliberate promotion.
