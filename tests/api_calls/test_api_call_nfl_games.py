@@ -90,6 +90,26 @@ class ScheduleTransformTests(unittest.TestCase):
         self.assertEqual(result, [{"gameID": "game-1"}])
         self.assertEqual(fetch.call_args.args[2], {"gameDate": "20260806"})
 
+    def test_explicit_empty_body_is_valid_no_game_response(self):
+        with patch.object(
+            games,
+            "fetch_and_validate_api_data",
+            return_value={"body": []},
+        ) as fetch:
+            result = games.fetch_games_for_date(
+                "https://example.test",
+                {"header": "value"},
+                "20260804",
+            )
+
+        self.assertEqual(result, [])
+        fetch.assert_called_once_with(
+            "https://example.test",
+            {"header": "value"},
+            {"gameDate": "20260804"},
+            allow_empty_body=True,
+        )
+
     def test_missing_response_body_is_rejected(self):
         with patch.object(
             games,

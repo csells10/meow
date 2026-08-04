@@ -154,7 +154,12 @@ def fetch_games_for_date(api_url, headers, game_date):
     Step 3: Make API call to fetch games for a given date.
     """
     query = {"gameDate": game_date}
-    games = fetch_and_validate_api_data(api_url, headers, query)
+    games = fetch_and_validate_api_data(
+        api_url,
+        headers,
+        query,
+        allow_empty_body=True,
+    )
     if not games or "body" not in games:
         raise ValueError(f"No valid response for date {game_date}")
     return games["body"]

@@ -65,7 +65,13 @@ def insert_into_bigquery(table_id, rows_to_insert):
     errors = client.insert_rows_json(table_id, rows_to_insert)
     if errors:
         raise RuntimeError(f"Encountered errors while inserting rows: {errors}")
-def fetch_and_validate_api_data(url, headers, querystring, context=None):
+def fetch_and_validate_api_data(
+    url,
+    headers,
+    querystring,
+    context=None,
+    allow_empty_body=False,
+):
     """
     Fetches and validates data from an API, ensuring it's a valid JSON response.
     
@@ -74,6 +80,7 @@ def fetch_and_validate_api_data(url, headers, querystring, context=None):
     - headers: The request headers (e.g., API key).
     - querystring: The query parameters for the API call.
     - context: Optional string for logging/debugging context (e.g., which API or date)
+    - allow_empty_body: Permit an explicit empty list body for endpoints where no rows is valid.
 
     Returns:
     - Parsed JSON response if successful.
@@ -107,10 +114,13 @@ def fetch_and_validate_api_data(url, headers, querystring, context=None):
     except Exception as e:
         print("Failed to log debug event:", e)
 
-    # Check if the 'body' field exists and contains data
-    if 'body' not in data or not data['body']:
-        # Optionally raise an error or just return None
-        # raise ValueError("Missing or empty 'body' in response")
+    # A missing body is always invalid. An explicit empty list is valid only
+    # when the caller opts in (the schedule endpoint uses this for no-game dates).
+    if 'body' not in data:
+        return None
+
+    body = data['body']
+    if not body and not (allow_empty_body and isinstance(body, list)):
         return None
 
     return data  # Return the parsed JSON
