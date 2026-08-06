@@ -556,6 +556,7 @@ Work:
 - expose the existing Level 4 worker through a callable function while retaining its CLI;
 - process one stable `learning_run_id` at a time;
 - record row/game counts with every recommendation;
+- materialize one immutable weekly lens snapshot so changes grouped by `lens_tags` can be compared without re-reading logs or rewriting prior weeks;
 - generate one plain-language weekly “What did we learn?” record containing:
   - games expected, captured, graded, validated, and unavailable;
   - matchup-lean accuracy and confidence calibration, kept separate from claim validation;
@@ -568,6 +569,44 @@ Work:
 - keep every result advisory and disallow automatic runtime language/confidence changes; and
 - test empty, small-sample, delayed-game, repeat-run, and missing-capture behavior.
 
+### Required weekly lens metadata
+
+`lens_tags` are registry-owned labels attached to metrics. The tag names themselves are not expected to “learn” or change every week. What changes is the pregame-safe team evidence, ranking movement, and later claim health grouped under those tags.
+
+Packet 6 should create one small table, provisionally:
+
+```text
+Analytics.gamelens_weekly_lens_snapshot
+```
+
+Its grain is one row per:
+
+```text
+season + season_type + week + team_id + window_type + lens_tag + ruleset_version
+```
+
+The table is an immutable weekly snapshot linked to the weekly report. Week 2 reads Week 1 for comparison; it never updates Week 1 to make the trend look cleaner.
+
+| Field group | Required metadata | Purpose |
+|---|---|---|
+| Identity | `weekly_report_id`, season, season type, week, team, window type, `lens_tag`, ruleset/formula version, generated timestamp | Reproduce the exact weekly view |
+| Coverage | source metric count, eligible metric count, captured game count, data-quality watch/exclude count | Prevent a thin or questionable lens from looking authoritative |
+| Movement | current lens summary, prior completed-week summary, week-over-week delta, movement label | Show rising, falling, steady, new, or insufficient evidence |
+| Claim health | claim rows, validated rows, validation rate, neutral/mixed rate when the claim can be traced to the tag | Connect Level 4 learning to the lens without pretending it is winner accuracy |
+| Evidence state | `complete`, `insufficient_evidence`, or `unavailable`, plus a plain reason | Keep Week 1 and sparse tags honest |
+
+The first implementation should favor direct, explainable counts and normalized ranking movement. Do not invent one opaque “lens score.” If an aggregate score is later useful, its formula and weights must be versioned and the source metric members retained.
+
+This table supports Admin questions such as:
+
+- Which team lenses moved most since the prior completed week?
+- Which tags appeared most often in frozen pregame evidence?
+- Which lens groups have enough validated claims to discuss?
+- Did a tag become more common without becoming more trustworthy?
+- Which movements are likely data-quality noise?
+
+The weekly prose may summarize these rows, but it must not invent a conclusion that the stored rows cannot support. The snapshot remains discovery/QA metadata and cannot automatically change Matchup Lean, confidence, Model Trust, or frontend copy.
+
 Exit evidence:
 
 - repeatable Level 4 and weekly-summary output;
@@ -576,7 +615,8 @@ Exit evidence:
 - small samples are labeled, not promoted;
 - the Calibrated Matchup Lean runtime rule remains a separately approved release, not an automatic weekly mutation;
 - no matchup-lean direction, confidence rule, Model Trust, or frontend copy changes automatically; and
-- `/admin` can explain every weekly statement from canonical rows.
+- `/admin` can explain every weekly statement from canonical rows; and
+- Admin can show week-over-week lens movement from the immutable snapshot without changing prior-week rows.
 
 ### Packet 7 — Production wiring, last
 
@@ -665,6 +705,7 @@ The learning loop is production-ready only when:
 - Level 3 inputs are proven pregame-only;
 - Level 4 runs once per completed regular-season week with visible sample sizes;
 - each completed week produces an immutable, source-backed “What did we learn?” summary, including an honest insufficient-evidence result when appropriate;
+- each completed week preserves one immutable team-by-`lens_tag` snapshot with coverage, movement, evidence status, and traceable claim-health metadata where available;
 - top-level and per-game statuses follow the documented existing result pattern;
 - blank upstream data cannot erase prior good data;
 - game calibration and claim health remain separate;
