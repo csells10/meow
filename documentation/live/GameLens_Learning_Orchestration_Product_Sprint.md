@@ -1,9 +1,12 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Fifth-pass architecture consolidated; second-pass document review complete; implementation not started  
+**Document status:** Execution plan approved for a hobby-paced 2026 rollout; implementation not started  
 **Created:** 2026-08-06  
+**Updated:** 2026-08-06  
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
+**Active development branch:** `dev`  
+**Regular-season safety deadline:** before the first Week 1 kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern  
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
@@ -55,6 +58,37 @@ The existing 8:00 a.m. Eastern production run remains the daily trigger. When le
 Level 4 is not part of every daily run. It runs later as a controlled weekly or evidence-threshold batch.
 
 This order matters: completed historical evidence is refreshed first, older games finish learning second, and only then are new pregame reads frozen. If the current metric rebuild fails, do not freeze a new snapshot from a potentially mixed table state.
+
+### Branch policy
+
+Keep the Git workflow intentionally small:
+
+- `main` is the stable branch;
+- `dev` is the one long-lived active-work branch;
+- packet work is committed directly to `dev` after its focused checks pass;
+- documentation-only commits use `[skip ci]`; implementation commits do not skip CI;
+- `dev` moves to `main` only at an explicit release gate; and
+- do not create a new branch for every packet unless recovery from a risky experiment genuinely requires one.
+
+### Hobby-paced delivery timeline
+
+There are almost five weeks from this update to the first regular-season game. The large Sunday slate begins September 13, but the actual safety deadline is the Patriots–Seahawks opener on **Wednesday, September 9 at 8:20 p.m. Eastern**. The goal is to finish normal work by September 6 and keep September 7–8 as recovery room, not planned build time.
+
+| Dates | Product focus | Target outcome |
+|---|---|---|
+| Aug 6–9 | Packet 0 plus Packet 1 | Freeze this plan; define capture timing, preseason exclusion, identities, denylist, readiness gates, and reused functions |
+| Aug 10–16 | Packet 2 | Use preseason only as a dev/shadow rehearsal for empty days, retries, timing, payload capture, and orchestration; produce no production learning evidence |
+| Aug 17–23 | Packet 3 plus Calibrated Matchup Lean parity | Make Level 1 game-scoped/idempotent; place the existing Core Area durability confidence rule behind one shared helper; prove Admin and `/game` agree without changing the pick or lean direction |
+| Aug 24–30 | Packet 4 | Reuse the frozen read to grade Model Outcome/Trust, then run Levels 2–3 only after final score plus accepted Facts |
+| Aug 31–Sep 6 | Packets 5–6 and end-to-end dev rehearsal | Reconcile Admin/ledger counts; rehearse Level 4 and the weekly “What did we learn?” output against historical evidence; prove no-op, partial failure, retry, and kill-switch behavior |
+| Sep 7–8 | Packet 7 release gate | Small production wiring change, shadow/read-only check, one deliberate activation, and rollback proof |
+| Sep 9 before 8:20 p.m. ET | Week 1 protection point | The first regular-season snapshot can be captured safely, or learning remains disabled while the existing ETL and frontend continue unchanged |
+| After Week 1 completes | First weekly learning cycle | Once Monday’s game and accepted Stats/Facts are available, run the first weekly summary; expect limited evidence and say so |
+| Week 2 onward | Normal weekly rhythm | Run Level 4 once per completed NFL week and publish the plain-language “What did we learn?” summary after its evidence is complete |
+
+**Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–6 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
+
+Official date reference: [NFL 2026 Week 1 schedule](https://www.nfl.com/schedules/2026/by-week/week-1).
 
 ---
 
@@ -127,6 +161,20 @@ If the daily run accepted no new Stats, the last known healthy metric tables may
 7. Let `/admin` read the updated canonical game-outcome and claim tables; do not add a duplicate refresh job.
 8. Let Level 4 run later, after a meaningful sample exists.
 
+### Preseason rehearsal rule
+
+The current `/game` code does **not** filter preseason out. `queries/game_queries.py::select_window_type(...)` explicitly selects `preseason_to_date` for a preseason game, while the metric query still enforces `data_date < game_date`. That behavior can be useful for QA, but it is not regular-season learning evidence.
+
+The production learning boundary is therefore explicit:
+
+- preseason may exercise Schedule/Stats/Scores ingestion, Facts, windowed metrics, rankings, `/game`, and conductor behavior;
+- dev/shadow may save temporary preseason snapshots or stage results only in isolated, disposable storage;
+- production Level 1 capture, Level 2 validation, Level 3 enrichment, Level 4 calibration, Admin learning cohorts, and the weekly learning report must reject preseason rows;
+- the skip reason is visible as `preseason_shadow_only`; and
+- no preseason result may enter or influence the `2026_regular_season_<ruleset>` cohort.
+
+A successful preseason rehearsal proves plumbing and edge-case behavior. It does not count toward training coverage, confidence calibration, or “What did we learn?” evidence.
+
 ---
 
 ## 4. Frontend lifecycle and Levels 1–4
@@ -186,6 +234,41 @@ The following work remains useful and is not discarded:
 - Core Area durability/calibration research.
 
 These are pregame-safe feature or calibration ingredients. Some are already visible as metadata. None should silently become winner logic.
+
+### Calibrated Matchup Lean is a required carry-forward
+
+Do not lose the already-audited `core_area_durability_context_v0` update inside the broader Levels 1–4 work. Its product-facing name remains **Calibrated Matchup Lean**, but its behavior is confidence calibration:
+
+```text
+if outcome_confidence == "High" and core_gap < 0.45:
+    calibrated_confidence = "Medium"
+else:
+    calibrated_confidence = outcome_confidence
+```
+
+The rule preserves the winner pick, matchup-lean direction, `profile_type`, Model Outcome, Model Trust, and underlying metrics. It changes only how loudly the pregame read speaks.
+
+The pooled 2023–2025 audit found:
+
+| Measure | Current | Calibrated preview |
+|---|---:|---:|
+| High-confidence games | 110 | 47 |
+| High-confidence correct rate | 65.14% | 76.60% |
+| Medium-confidence games | 276 | 339 |
+| Medium-confidence correct rate | 64.86% | 63.31% |
+| Low-confidence games | 421 | 421 |
+| Low-confidence correct rate | 53.99% | 53.99% |
+
+Current state: Admin already exposes the calibrated preview, while `/game` remains unchanged. The sprint must finish the originally intended parity path:
+
+1. place the rule in one shared calibration helper;
+2. have Admin preview and `/game` call that same helper;
+3. preserve the current Week 1–2 Low-confidence cap in `services/game_service.py`;
+4. recollect into a new QA `run_id`;
+5. reconcile `/game`, BigQuery, and Admin counts; and
+6. capture the first regular-season snapshot only after parity is proven or the feature is deliberately disabled with a documented reason.
+
+This is an approved, audit-backed pregame product requirement. It is not permission for each new Level 4 batch to rewrite runtime confidence automatically.
 
 ---
 
@@ -256,11 +339,11 @@ Do not build a generic workflow engine for two conductors. Match the existing re
 Recommended cohort separation:
 
 ```text
-2026_preseason_shadow_<ruleset>
+dev_only_2026_preseason_shadow_<ruleset>
 2026_regular_season_<ruleset>
 ```
 
-Never mix preseason rehearsal rows into the regular-season Admin cohort. Never reuse the historical QA run IDs.
+The preseason identifier is dev/shadow evidence only. It must not be created as a production claim-training, validation, feature, calibration, Admin, or weekly-report cohort. Never mix preseason rehearsal rows into the regular-season Admin cohort. Never reuse the historical QA run IDs.
 
 The daily `pipeline_run_id` changes, but it does not create a new learning cohort. Every saved claim must trace back to `pipeline_run_id`, `learning_run_id`, `capture_id`, and `claim_key`.
 
@@ -456,9 +539,16 @@ Exit evidence:
 - counts reconcile at each grain; and
 - no duplicate Admin summary warehouse or refresh job was added.
 
-### Packet 6 — Level 4 controlled batch
+### Packet 6 — Level 4 controlled batch and weekly “What did we learn?”
 
-**Why this is important:** calibration needs enough evidence to avoid reacting to one game or one tiny bucket.
+**Why this is important:** calibration needs enough evidence to avoid reacting to one game or one tiny bucket, while the weekly output turns the evidence into something understandable and enjoyable to revisit.
+
+Trigger:
+
+- run once after the final game of an NFL week has a final score and the corresponding Stats/Facts have been accepted;
+- normally this means the Tuesday daily run after Monday Night Football;
+- wait visibly for delayed or incomplete games rather than publishing a partial “final” summary; and
+- never include preseason.
 
 Work:
 
@@ -466,15 +556,27 @@ Work:
 - expose the existing Level 4 worker through a callable function while retaining its CLI;
 - process one stable `learning_run_id` at a time;
 - record row/game counts with every recommendation;
+- generate one plain-language weekly “What did we learn?” record containing:
+  - games expected, captured, graded, validated, and unavailable;
+  - matchup-lean accuracy and confidence calibration, kept separate from claim validation;
+  - strongest and weakest claim categories/Core Areas;
+  - notable feature or context observations;
+  - surprises worth watching next week;
+  - insufficient-evidence warnings; and
+  - advisory follow-ups, never automatic rule changes;
+- preserve the Week 1 report even when its main conclusion is “not enough evidence yet”;
 - keep every result advisory and disallow automatic runtime language/confidence changes; and
-- test empty, small-sample, and repeat-run behavior.
+- test empty, small-sample, delayed-game, repeat-run, and missing-capture behavior.
 
 Exit evidence:
 
-- repeatable summary output;
+- repeatable Level 4 and weekly-summary output;
+- Week 1 renders a truthful small-sample report instead of pretending a trend exists;
+- Week 2 and later reports compare against prior completed weeks without rewriting them;
 - small samples are labeled, not promoted;
-- no matchup-lean, confidence, Model Trust, or frontend copy changes; and
-- `/admin` can explain the evidence.
+- the Calibrated Matchup Lean runtime rule remains a separately approved release, not an automatic weekly mutation;
+- no matchup-lean direction, confidence rule, Model Trust, or frontend copy changes automatically; and
+- `/admin` can explain every weekly statement from canonical rows.
 
 ### Packet 7 — Production wiring, last
 
@@ -561,11 +663,13 @@ The learning loop is production-ready only when:
 - Level 1 is game-scoped and idempotent;
 - Levels 2–3 run only for games with a final score and accepted postgame Facts;
 - Level 3 inputs are proven pregame-only;
-- Level 4 runs in controlled batches with visible sample sizes;
+- Level 4 runs once per completed regular-season week with visible sample sizes;
+- each completed week produces an immutable, source-backed “What did we learn?” summary, including an honest insufficient-evidence result when appropriate;
 - top-level and per-game statuses follow the documented existing result pattern;
 - blank upstream data cannot erase prior good data;
 - game calibration and claim health remain separate;
-- preseason and regular-season cohorts remain separate;
+- preseason is excluded from production Levels 1–4, Admin learning cohorts, and weekly reports; any rehearsal evidence remains isolated in dev/shadow;
+- Calibrated Matchup Lean uses one shared helper across Admin preview and `/game`, preserves the pick and lean direction, and reconciles on a new QA run before Week 1 capture;
 - `/admin` populations reconcile;
 - the existing game service, claim extractor, Level workers, metric registry, and Admin queries remain the single calculation paths;
 - the existing daily Scheduler remains the only daily trigger;
@@ -591,7 +695,7 @@ If the first 2026 game reaches kickoff before Packet 2 exists, record it as `cap
 
 Use this exact handoff in a fresh chat:
 
-> Continue GameLens from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`. Treat its second-pass review as the execution plan and `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` as the canonical architecture. Confirm current `main` and Gate H evidence first. Start Packet 1 only: define the pregame capture contract, the two postgame readiness gates, and the exact existing functions each new step will reuse. Do not change production behavior, do not wire `app.py`, and stop after the Packet 1 evidence and commit.
+> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`. Treat this dated timeline as the execution plan and `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` as the canonical architecture. Confirm `dev` contains `main`, record the current Gate H evidence, and start Packet 1 only. Define the pregame capture contract, explicitly exclude preseason from production Levels 1–4, preserve the Calibrated Matchup Lean shared-helper requirement, define the two postgame readiness gates, and map every new step to an existing reusable function. Do not change production behavior, do not wire `app.py`, and stop after Packet 1 evidence and its commit on `dev`.
 
 ---
 
@@ -616,6 +720,7 @@ Use this exact handoff in a fresh chat:
 - current `main` `services/game_service.py`
 - current `main` Admin route/service implementation
 - current Level 1–4 worker locations
+- official [NFL 2026 Week 1 schedule](https://www.nfl.com/schedules/2026/by-week/week-1)
 - supplied `/game`, Model Trust, metric-builder, and claim-validation source references
 
 Four requested uploads were unavailable as attachments:
