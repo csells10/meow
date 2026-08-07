@@ -18,8 +18,27 @@ def use_windowed_metrics_for_game() -> bool:
 
 
 def select_window_type(header: dict) -> str:
-    game_week = str(header.get("game_week") or "").strip().lower()
+    season_type = " ".join(
+        str(header.get("season_type") or "").strip().casefold().split()
+    )
+    game_week = " ".join(
+        str(header.get("game_week") or "").strip().casefold().split()
+    )
 
+    # season_type is the authoritative phase field. game_week remains useful
+    # only for the Wild Card boundary within the postseason.
+    if season_type == "preseason":
+        return "preseason_to_date"
+
+    if season_type == "postseason":
+        if game_week in {"wild card", "wildcard", "wild card round"}:
+            return "regular_season_to_date"
+        return "regular_plus_postseason_to_date"
+
+    if season_type == "regular season":
+        return "regular_season_to_date"
+
+    # Compatibility fallback for older/incomplete headers without season_type.
     if game_week.startswith("preseason"):
         return "preseason_to_date"
 
@@ -30,7 +49,7 @@ def select_window_type(header: dict) -> str:
     }:
         return "regular_plus_postseason_to_date"
 
-    # Regular season and Wild Card should default here.
+    # Regular season, Wild Card, and unknown legacy labels default here.
     return "regular_season_to_date"
 
 
