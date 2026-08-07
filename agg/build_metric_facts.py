@@ -105,75 +105,45 @@ OUTPUT_COLUMNS = [
 # Schedule phase normalization
 # -----------------------------------------------------------------------------
 
-def normalize_game_week(game_week: Optional[str]) -> Dict[str, Any]:
-    """Normalize League.schedule.gameWeek into sortable phase fields.
+def normalize_game_week(
+    game_week: Optional[str],
+    season_type: Optional[str],
+) -> Dict[str, Any]:
+    """Use seasonType for phase and treat gameWeek as descriptive metadata."""
+    lowered = (game_week or "").strip().lower()
+    normalized_season_type = re.sub(
+        r"\s+", " ", (season_type or "").strip().lower()
+    )
 
-    Expected examples:
-      - Preseason Week 1
-      - Week 1
-      - Week 18
-      - Wild Card
-      - Divisional Round
-      - Conference Championship
-      - Super Bowl
-    """
-    raw = (game_week or "").strip()
-    lowered = raw.lower()
+    phase_map = {
+        "preseason": "preseason",
+        "regular season": "regular_season",
+        "postseason": "postseason",
+    }
+    season_phase = phase_map.get(normalized_season_type, "unknown")
+    phase_week: Optional[int] = None
 
-    preseason_match = re.search(r"preseason\s+week\s+(\d+)", lowered)
-    if preseason_match:
-        week = int(preseason_match.group(1))
-        return {
-            "season_phase": "preseason",
-            "phase_week": week,
-            "global_week_order": week,
-            "is_preseason": True,
-            "is_regular_season": False,
-            "is_postseason": False,
-            "is_playoff_game": False,
-        }
-
-    regular_match = re.fullmatch(r"week\s+(\d+)", lowered)
-    if regular_match:
-        week = int(regular_match.group(1))
-        return {
-            "season_phase": "regular_season",
-            "phase_week": week,
-            "global_week_order": 100 + week,
-            "is_preseason": False,
-            "is_regular_season": True,
-            "is_postseason": False,
-            "is_playoff_game": False,
-        }
+    week_match = re.search(r"(?:preseason\s+)?week\s+(\d+)", lowered)
+    if week_match and season_phase in {"preseason", "regular_season"}:
+        phase_week = int(week_match.group(1))
 
     postseason_map = {
-        "wild card": (1, 201),
-        "wildcard": (1, 201),
-        "divisional round": (2, 202),
-        "conference championship": (3, 203),
-        "super bowl": (4, 204),
+        "wild card": 1,
+        "wildcard": 1,
+        "divisional round": 2,
+        "conference championship": 3,
+        "super bowl": 4,
     }
-
-    if lowered in postseason_map:
-        phase_week, global_week_order = postseason_map[lowered]
-        return {
-            "season_phase": "postseason",
-            "phase_week": phase_week,
-            "global_week_order": global_week_order,
-            "is_preseason": False,
-            "is_regular_season": False,
-            "is_postseason": True,
-            "is_playoff_game": True,
-        }
+    if season_phase == "postseason":
+        phase_week = postseason_map.get(lowered)
 
     return {
-        "season_phase": "unknown",
-        "phase_week": None,
-        "global_week_order": None,
-        "is_preseason": False,
-        "is_regular_season": False,
-        "is_postseason": False,
-        "is_playoff_game": False,
+        "season_phase": season_phase,
+        "phase_week": phase_week,
+        "is_preseason": season_phase == "preseason",
+        "is_regular_season": season_phase == "regular_season",
+        "is_postseason": season_phase == "postseason",
+        "is_playoff_game": season_phase == "postseason",
     }
 
 
@@ -256,10 +226,37 @@ def attach_team_type(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def attach_phase_fields(df: pd.DataFrame) -> pd.DataFrame:
-    """Attach normalized phase fields from game_week."""
+    """Attach phase fields and a non-null chronological ordering key."""
     df = df.copy()
-    phase_rows = df["game_week"].apply(normalize_game_week).apply(pd.Series)
-    return pd.concat([df, phase_rows], axis=1)
+    phase_rows = df.apply(
+        lambda row: normalize_game_week(
+            row.get("game_week"),
+            row.get("season_type"),
+        ),
+        axis=1,
+    ).apply(pd.Series)
+    df = pd.concat([df, phase_rows], axis=1)
+
+    # An unfamiliar display label may not contain a numbered week. Keep that
+    # metadata nullable instead of treating a valid game as invalid.
+    df["phase_week"] = pd.to_numeric(
+        df["phase_week"], errors="coerce"
+    ).astype("Int64")
+
+    # Kickoff time is authoritative for chronology. game_date is the safe
+    # fallback when the source omits a kickoff timestamp.
+    game_datetime = pd.to_datetime(
+        df["game_datetime_raw"], errors="coerce", utc=True
+    )
+    game_date_fallback = pd.to_datetime(
+        df["game_date"], errors="coerce", utc=True
+    )
+    chronology = game_datetime.fillna(game_date_fallback)
+    df["global_week_order"] = chronology.map(
+        lambda value: None if pd.isna(value) else int(value.timestamp())
+    ).astype("Int64")
+
+    return df
 
 
 def attach_registry_metadata(df: pd.DataFrame) -> pd.DataFrame:
@@ -348,6 +345,9 @@ def validate_fact_df(df: pd.DataFrame, season: str) -> None:
         "season",
         "game_id",
         "game_date",
+        "season_type",
+        "season_phase",
+        "global_week_order",
         "team_id",
         "team_abv",
         "metric",
@@ -408,18 +408,35 @@ def validate_fact_df(df: pd.DataFrame, season: str) -> None:
         )
         raise ValueError("Duplicate fact-table grain remains after dedupe.")
 
-    unknown_phase_count = int((df["season_phase"] == "unknown").sum())
-    if unknown_phase_count:
+    unknown_phase_rows = df[df["season_phase"] == "unknown"]
+    if not unknown_phase_rows.empty:
         log_event(
-            "warning",
-            "unknown_game_week_phase_seen",
-            rows=unknown_phase_count,
-            game_weeks=sorted(
-                df.loc[df["season_phase"] == "unknown", "game_week"]
+            "error",
+            "unknown_season_type_seen",
+            rows=len(unknown_phase_rows),
+            season_types=sorted(
+                unknown_phase_rows["season_type"]
                 .dropna()
                 .unique()
                 .tolist()
             ),
+        )
+        raise ValueError("Fact rows contain an unsupported season_type.")
+
+    missing_phase_week_rows = df[df["phase_week"].isna()]
+    if not missing_phase_week_rows.empty:
+        labels = (
+            missing_phase_week_rows[["season_type", "game_week"]]
+            .drop_duplicates()
+            .fillna("<NULL>")
+            .to_dict(orient="records")
+        )
+        log_event(
+            "warning",
+            "unrecognized_game_week_label_seen",
+            rows=len(missing_phase_week_rows),
+            labels=labels,
+            action="continued_using_season_type_and_game_chronology",
         )
 
     log_event("info", "fact_df_validation_passed", season=season, rows=len(df))

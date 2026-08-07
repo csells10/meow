@@ -204,17 +204,42 @@ def dedupe_fact_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 def pivot_fact_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Pivot long metric facts to one row per team/game."""
+    df = df.copy()
+
+    # Optional descriptive fields must not be pivot keys. Pandas drops rows
+    # whose pivot index contains nulls, which erased valid unnumbered games.
     index_cols = [
         "season",
         "team_id",
         "team_abv",
         "game_id",
         "game_date",
-        "game_week",
         "season_phase",
-        "phase_week",
         "global_week_order",
     ]
+
+    df["global_week_order"] = pd.to_numeric(
+        df["global_week_order"], errors="coerce"
+    )
+
+    null_index_counts = df[index_cols].isna().sum()
+    bad_index_nulls = null_index_counts[null_index_counts > 0]
+    if not bad_index_nulls.empty:
+        sample = df[df[index_cols].isna().any(axis=1)].head(20)
+        log_event(
+            "error",
+            "windowed_pivot_required_keys_missing",
+            null_counts=bad_index_nulls.to_dict(),
+            sample=sample.to_dict(orient="records"),
+        )
+        raise ValueError(
+            "Windowed pivot rows have nulls in required keys: "
+            f"{bad_index_nulls.to_dict()}"
+        )
+
+    expected_rows = len(
+        df[["season", "team_id", "game_id"]].drop_duplicates()
+    )
 
     pivot = (
         df.pivot_table(
@@ -230,9 +255,12 @@ def pivot_fact_rows(df: pd.DataFrame) -> pd.DataFrame:
     pivot.columns.name = None
 
     pivot["game_date"] = pd.to_datetime(pivot["game_date"])
-    pivot["global_week_order"] = pd.to_numeric(
-        pivot["global_week_order"], errors="coerce"
-    )
+
+    if len(pivot) != expected_rows:
+        raise ValueError(
+            "Windowed pivot lost team/game rows: "
+            f"expected={expected_rows}, actual={len(pivot)}"
+        )
 
     log_event(
         "info",
