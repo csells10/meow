@@ -1,12 +1,12 @@
 # GameLens Controlled Production Cutover Plan
 
 **Created:** 2026-08-02
-**Last execution update:** 2026-08-04
+**Last execution update:** 2026-08-05
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
-**Current status:** **GATE H REPAIRED REVISION LIVE — FIRST AUTOMATIC PRODUCTION RUN PENDING**
+**Current status:** **GATE H COMPLETE — AUTOMATIC PRODUCTION RUN PASSED**
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
@@ -165,7 +165,7 @@ The current serving revision is the runtime rollback anchor. Reconfirm its name 
 | E | Candidate API tests | Complete | Current revision 100% | Health, CORS, auth, `/games`, non-final `/game`, and logs pass |
 | F | Candidate UI preview | **Complete — GO** | Current revision 100% | Preview auth, `/me`, `/games`, non-final `/game`, logs, and live-site comparison passed |
 | G | Promotion window | **Complete — GO** | Candidate `00146-meq` 100% | Rollback anchor rechecked, controlled promotion completed, live smoke tests passed, and Scheduler resumed |
-| H | Remediation rollout and repaired scheduled run | **Repaired revision live — first automatic run pending** | `00148-vew` 100% | Scheduler, Cloud Run, ETL, backlog, and frontend evidence pass after the next normal run |
+| H | Remediation rollout and repaired scheduled run | **Complete — GO** | Repaired production revision 100% | Automatic Scheduler request returned `200`; expected schedule data and backups completed successfully |
 
 No gate is implied. Record the evidence and make an explicit go/no-go decision before moving forward.
 
@@ -563,6 +563,14 @@ The next bounded action is to observe the first automatic scheduled run on Augus
 
 Do not manually force the Scheduler job merely to accelerate Gate H. If the automatic run fails or its result is ambiguous, preserve logs and evidence before retrying, rolling back, or repairing data.
 
+
+---
+
+## 5D. Gate H automatic production run completion — 2026-08-05
+
+The normal 8:00 a.m. Eastern Scheduler execution reached Cloud Run at approximately `12:00:08 UTC` and returned HTTP `200`. The run processed the expected 2026-08-06 schedule data, preserved the raw GCS backup, completed the protected delete/insert path, and reported top-level `success`. No timeout, OOM, permission, or dataset-routing failure was found in the reviewed evidence.
+
+This closed the production-readiness dependency for the learning sprint. It did not run Levels 1–4 and did not authorize a production learning write.
 
 ---
 

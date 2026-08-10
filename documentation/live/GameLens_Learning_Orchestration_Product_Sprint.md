@@ -1,8 +1,8 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Execution plan approved for a hobby-paced 2026 rollout; implementation not started  
+**Document status:** Packet 1 complete; Packet 2 shadow capture is next  
 **Created:** 2026-08-06  
-**Updated:** 2026-08-06  
+**Updated:** 2026-08-10  
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Active development branch:** `dev`  
@@ -418,6 +418,8 @@ Exit evidence:
 
 ### Packet 1 — Define the pregame capture contract
 
+**Status:** Complete on 2026-08-10. See [GameLens Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md).
+
 **Why this is important:** Level 1 is only trustworthy if the system can prove what it knew before kickoff.
 
 Work:
@@ -447,6 +449,8 @@ Exit evidence:
 - contract and unit tests pass;
 - no BigQuery/GCS production write; and
 - no `app.py` change.
+
+Completion evidence: `services/gamelens_learning_contract.py` now holds the pure timing, phase, denylist, identity, canonical-capture, no-op, and postgame-readiness rules. `tests/services/test_gamelens_learning_contract.py` passed all 14 focused tests. No Flask or Google Cloud dependency is imported; no production write or behavior change occurred.
 
 ### Packet 2 — Shadow pregame capture
 
@@ -720,15 +724,15 @@ The learning loop is production-ready only when:
 
 ---
 
-## 13. First implementation decision
+## 13. Next implementation decision
 
 Do not begin by wiring all Levels into `app.py`.
 
-Begin with **Packet 1: the pregame capture contract and its tests**.
+Packet 1 is complete. Begin with **Packet 2: shadow pregame capture**.
 
-Before Packet 1 code begins, confirm and document the final Gate H automatic-run evidence. The reviewed `main` baseline still describes that observation as pending.
+Implement around the pure Packet 1 contract, call `services/game_service.py` in-process with explicit read-only behavior, write only to isolated dev/shadow storage, and prove one game plus its exact replay produce one canonical snapshot. Do not wire `app.py`, write Level 1 rows, or change the frontend.
 
-If the first 2026 game reaches kickoff before Packet 2 exists, record it as `capture_missing`. Do not rebuild a fake Level 1 snapshot afterward.
+If a regular-season game reaches kickoff before Packet 2 captures it, record it as `capture_missing`. Do not rebuild a fake Level 1 snapshot afterward.
 
 ---
 
@@ -736,7 +740,7 @@ If the first 2026 game reaches kickoff before Packet 2 exists, record it as `cap
 
 Use this exact handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`. Treat this dated timeline as the execution plan and `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` as the canonical architecture. Confirm `dev` contains `main`, record the current Gate H evidence, and start Packet 1 only. Define the pregame capture contract, explicitly exclude preseason from production Levels 1–4, preserve the Calibrated Matchup Lean shared-helper requirement, define the two postgame readiness gates, and map every new step to an existing reusable function. Do not change production behavior, do not wire `app.py`, and stop after Packet 1 evidence and its commit on `dev`.
+> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md` and the completed `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`. Confirm `dev` contains `main` and start Packet 2 only. Implement the read-only shadow pregame capture service around `services/gamelens_learning_contract.py`; call `services/game_service.py` in-process rather than the public HTTP route or a second payload builder; use isolated dev/shadow storage; preserve preseason isolation and the Calibrated Matchup Lean requirement; and prove one eligible game plus its exact retry produces one canonical payload and manifest with no Model Outcome write. Do not wire `app.py`, do not write Level 1 or production learning rows, do not change `/game` or the frontend, and stop after Packet 2 evidence and its commit on `dev`.
 
 ---
 
@@ -764,11 +768,4 @@ Use this exact handoff in a fresh chat:
 - official [NFL 2026 Week 1 schedule](https://www.nfl.com/schedules/2026/by-week/week-1)
 - supplied `/game`, Model Trust, metric-builder, and claim-validation source references
 
-Four requested uploads were unavailable as attachments:
-
-- `api_call_nfl_stats.py`
-- `api_call_nfl_scores.py`
-- `api_call_nfl_games.py`
-- `config.py`
-
-Their current `main` versions were retrieved through GitHub and inspected during this second pass, so the failed attachments no longer block the architecture review. Packet 1 must still reread current `main` before implementation in case the interfaces change.
+Packet 1 re-read the current repository versions and the newly supplied copies of `api_call_nfl_stats.py`, `api_call_nfl_scores.py`, `api_call_nfl_games.py`, and `config.py`. The earlier attachment gap is closed.
