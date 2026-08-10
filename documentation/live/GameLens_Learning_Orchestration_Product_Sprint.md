@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packet 1 complete; Packet 2 shadow capture is next  
+**Document status:** Packet 1 rulebook reviewed; Packet 2 shadow snapshot plan is next; no game has been captured yet  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-10  
 **Owner:** GameLens product stewardship  
@@ -52,7 +52,7 @@ The existing 8:00 a.m. Eastern production run remains the daily trigger. When le
 | 1 | Refresh Schedule, Stats, and Scores | Existing | Learn what games exist and which older games have finished |
 | 2 | Rebuild Facts, Windowed Metrics, and Rankings when Stats were accepted | Existing metric conductor | Refresh the historical evidence used by GameLens |
 | 3 | Finish older-game learning | New conductor calling existing workers | Grade frozen game reads, validate claims, and attach Level 3 context for ready final games |
-| 4 | Freeze eligible future games | New conductor calling existing `/game` and Level 1 logic | Save the upcoming pregame read before kickoff |
+| 4 | Freeze eligible future games | New Learning Pipeline calling the canonical game service and Level 1 extractor | Save the upcoming pregame read before kickoff; the public `/game` route does not do this work |
 | 5 | Return one truthful run summary | Existing summary pattern, extended | Show what succeeded, skipped, failed, or had nothing to do |
 
 Level 4 is not part of every daily run. It runs later as a controlled weekly or evidence-threshold batch.
@@ -161,7 +161,9 @@ If the daily run accepted no new Stats, the last known healthy metric tables may
 7. Let `/admin` read the updated canonical game-outcome and claim tables; do not add a duplicate refresh job.
 8. Let Level 4 run later, after a meaningful sample exists.
 
-### Preseason rehearsal rule
+### Season-phase and preseason rehearsal rule
+
+Production snapshot eligibility covers **regular season and postseason**. Postseason is kept in its own stable phase/ruleset cohort and includes Wild Card, Divisional Round, Conference Championship, and Super Bowl. An unknown season phase is a visible safe skip, not a crash or an accidental production cohort.
 
 The current `/game` code does **not** filter preseason out. `queries/game_queries.py::select_window_type(...)` explicitly selects `preseason_to_date` for a preseason game, while the metric query still enforces `data_date < game_date`. That behavior can be useful for QA, but it is not regular-season learning evidence.
 
@@ -309,7 +311,9 @@ Do not build a generic workflow engine for two conductors. Match the existing re
 | Production-safe Level 1 adapter | Pass one approved capture through the existing extractor and MERGE by a deterministic game-scoped key |
 | Callable worker entry points | Move CLI orchestration into reusable functions for Levels 2–4 while keeping the current CLIs as thin wrappers |
 | Learning conductor | Select eligible games and call pregame, outcome, Level 2, Level 3, and batch workers with explicit gates and truthful summaries |
-| Minimal learning ledger, only if needed | Extend the current run evidence with stage status, reason, counts, errors, and identifiers; do not duplicate Admin metrics |
+| BigQuery pregame snapshot table | Store one canonical game row with the full payload plus searchable capture metadata for `/game`, Level 1, and Admin |
+| GCS immutable capture copy | Preserve raw `payload.json` and `manifest.json` audit evidence without becoming the normal frontend serving path |
+| Minimal BigQuery learning-run ledger | Store one run summary with stage status, reason, counts, errors, and identifiers so Admin does not depend on log searches; do not duplicate football metrics |
 | Focused tests | Prove timing, no-op, retry, partial-failure, and leakage behavior |
 
 ### Do not build yet
@@ -399,6 +403,37 @@ If no valid pregame snapshot was saved before kickoff, record `capture_missing`.
 
 This is one product epic delivered as one documentation gate plus seven implementation packets. Packet 0 and Packets 1–7 are eight review checkpoints; each gets its own evidence, commit, and stop/go decision.
 
+### Packet review and documentation rule
+
+Every packet gets a plain-English companion document that is reviewed **before**
+production behavior is changed and updated again when the packet finishes.
+
+Each companion document must answer:
+
+- What are we trying to make true?
+- What already exists and will be reused?
+- What will change, and what will not change?
+- Where will the data be saved?
+- What can Christian inspect in the dev frontend and Admin view?
+- Which blank/no-game/retry/partial-failure cases are tested?
+- What evidence makes the packet GO?
+- What is the single next packet?
+
+| Packet | Companion document |
+|---|---|
+| Packet 0 | This Product Sprint and the architecture handoff |
+| Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
+| Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
+| Packet 3 | `GameLens_Packet_3_Production_Level_1.md` — create and review before Packet 3 code |
+| Packet 4 | `GameLens_Packet_4_Postgame_Learning.md` — create and review before Packet 4 code |
+| Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
+| Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
+| Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
+
+A future packet document should not pretend exact functions or schemas are
+settled before current code is inspected. It starts as a readable plan and ends
+as the durable evidence record.
+
 ### Packet 0 — Freeze the architecture
 
 **Why this is important:** prevents another reinterpretation while implementation begins.
@@ -418,7 +453,7 @@ Exit evidence:
 
 ### Packet 1 — Define the pregame capture contract
 
-**Status:** Complete on 2026-08-10. See [GameLens Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md).
+**Status:** Rulebook written and tested on 2026-08-10; Christian's review clarified postseason eligibility, BigQuery serving, and Admin visibility. No game has been captured. See [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md).
 
 **Why this is important:** Level 1 is only trustworthy if the system can prove what it knew before kickoff.
 
@@ -450,28 +485,40 @@ Exit evidence:
 - no BigQuery/GCS production write; and
 - no `app.py` change.
 
-Completion evidence: `services/gamelens_learning_contract.py` now holds the pure timing, phase, denylist, identity, canonical-capture, no-op, and postgame-readiness rules. `tests/services/test_gamelens_learning_contract.py` passed all 14 focused tests. No Flask or Google Cloud dependency is imported; no production write or behavior change occurred.
+Completion evidence: `services/gamelens_learning_contract.py` now holds the pure timing, denylist, identity, canonical-capture, no-op, and postgame-readiness rules. Fourteen focused tests passed. Christian's review found one required follow-up before Packet 2 receives GO: expand the tested phase rule from regular-season-only to regular season plus postseason, with preseason shadow-only and unknown phases skipped visibly. No Flask or Google Cloud dependency is imported; no production write or behavior change occurred.
 
 ### Packet 2 — Shadow pregame capture
 
-**Why this is important:** proves the system can safely preserve real 2026 pregame evidence before claim rows are written.
+**Planning document:** [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md).
+
+**Why this is important:** proves the system can safely preserve real 2026
+pregame evidence before claim rows are written.
 
 Work:
 
+- first amend the pure phase contract/tests so regular season and postseason are
+  production eligible, preseason is shadow-only, and unknown phases skip safely;
 - implement the read-only capture service;
-- call `services/game_service.py` in-process rather than making an HTTP request or rebuilding its payload;
-- run in dev/shadow mode for one game;
-- save payload plus manifest to isolated storage;
-- verify timestamps, status, versions, and missing-data reasons; and
+- call `services/game_service.py` in-process rather than making an HTTP request
+  or rebuilding its payload;
+- define and create the dev BigQuery snapshot/run-summary tables;
+- store the complete serving payload plus searchable metadata in BigQuery;
+- save immutable payload and manifest copies to isolated dev GCS;
+- run in dev/shadow mode for one preseason game;
+- prove a dev snapshot-reading path can return the saved response without
+  running Level 1 or recomputing GameLens; and
 - replay the same capture.
 
 Exit evidence:
 
-- one valid immutable pregame snapshot;
+- one valid immutable preseason-shadow snapshot;
+- one searchable BigQuery snapshot row and one run-summary row;
+- one GCS payload and manifest pair;
+- dev frontend/response preview reads the saved payload;
 - zero postgame fields populated;
 - zero model-outcome persistence side effects;
-- duplicate replay creates no second canonical capture; and
-- `/game` frontend response is unchanged.
+- duplicate replay creates no second canonical row or object; and
+- production `/game` and the live frontend remain unchanged.
 
 ### Packet 3 — Production-safe Level 1
 
@@ -528,8 +575,8 @@ Exit evidence:
 
 Work:
 
-- first determine whether the current top-level run summary can carry the needed evidence;
-- add one minimal run/stage ledger only for evidence that must survive beyond logs and the HTTP response;
+- extend the minimal `Analytics.gamelens_learning_pipeline_runs` record introduced in shadow storage so evidence survives beyond logs and the HTTP response;
+- keep the ledger operational only: identities, stage states, counts, reasons, and errors;
 - let the current protected Admin service continue reading canonical outcome, claim, feature, and calibration tables;
 - expose operational stage counts beside Admin only if the existing endpoint needs them;
 - reconcile captured games, Level 1 games, game grades, Level 2 labels, and Level 3 features; and
@@ -728,9 +775,9 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packet 1 is complete. Begin with **Packet 2: shadow pregame capture**.
+Packet 1 established the rulebook but did not capture a game. Review [Packet 2's plain-English shadow plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md), then begin **Packet 2: shadow pregame capture**.
 
-Implement around the pure Packet 1 contract, call `services/game_service.py` in-process with explicit read-only behavior, write only to isolated dev/shadow storage, and prove one game plus its exact replay produce one canonical snapshot. Do not wire `app.py`, write Level 1 rows, or change the frontend.
+Start by correcting and testing postseason eligibility. Then call `services/game_service.py` in-process with explicit read-only behavior, save the serving snapshot and run summary in isolated dev BigQuery, keep immutable raw copies in dev GCS, and prove one preseason game plus its exact replay produce one canonical snapshot. Do not wire `app.py`, write production Level 1 rows, or change the live frontend.
 
 If a regular-season game reaches kickoff before Packet 2 captures it, record it as `capture_missing`. Do not rebuild a fake Level 1 snapshot afterward.
 
@@ -740,7 +787,7 @@ If a regular-season game reaches kickoff before Packet 2 captures it, record it 
 
 Use this exact handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md` and the completed `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`. Confirm `dev` contains `main` and start Packet 2 only. Implement the read-only shadow pregame capture service around `services/gamelens_learning_contract.py`; call `services/game_service.py` in-process rather than the public HTTP route or a second payload builder; use isolated dev/shadow storage; preserve preseason isolation and the Calibrated Matchup Lean requirement; and prove one eligible game plus its exact retry produces one canonical payload and manifest with no Model Outcome write. Do not wire `app.py`, do not write Level 1 or production learning rows, do not change `/game` or the frontend, and stop after Packet 2 evidence and its commit on `dev`.
+> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`, `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`, and `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`. Confirm `dev` contains `main` and start Packet 2 only. Before writing storage code, update and test the pure phase rule so regular season and postseason are production eligible, preseason is dev/shadow only, and unknown phases skip safely. Implement one read-only shadow capture through `services/game_service.py` in-process; store the complete serving payload and searchable metadata in isolated dev BigQuery; store immutable payload/manifest copies in dev GCS; record a small learning-run summary for Admin; and prove one preseason game plus its exact retry produces one canonical snapshot that the dev read path can return without running Level 1 or writing Model Outcome. Preserve Calibrated Matchup Lean and `lens_tags`. Do not wire `app.py`, do not write production Level 1 rows, do not change production `/game` or the live frontend, and stop after Packet 2 evidence and its commit on `dev`.
 
 ---
 
