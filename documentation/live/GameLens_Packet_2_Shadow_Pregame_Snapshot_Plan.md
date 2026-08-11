@@ -2,7 +2,7 @@
 
 **Status:** Planning review revised; no implementation started  
 **Created:** 2026-08-10  
-**Revised:** 2026-08-10  
+**Revised:** 2026-08-11  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No
@@ -12,9 +12,11 @@
 Packet 1 wrote and tested the safety rulebook. Packet 2 is the first time we
 build the machinery that follows that rulebook.
 
-Packet 2 will take an eligible scheduled game, build the normal pregame
-GameLens response once, save it, read it back, and prove that an identical
-retry does not create a second copy.
+Packet 2 will use one Snapshot Capture coordinator invocation to find the
+eligible uncaptured slate, load shared evidence once, and build each normal
+pregame GameLens response directly through the shared Python builder. It will
+save and release one matchup payload at a time, read each saved result back,
+and prove that an identical retry does not create a second copy.
 
 The saved response is the important part. When `/game` eventually uses this
 system, opening the frontend must **not** start Level 1 or rebuild the matchup.
@@ -100,9 +102,23 @@ belongs to a later explicit production release step.
 example, one passing metric can carry `passing-efficiency`, `explosiveness`,
 and `strong-signal` together.
 
+The existing metric path is already authoritative and usable:
+
+```text
+metric_registry.py
+→ Facts (`REPEATED STRING`)
+→ Windowed Metrics (reattached from the registry)
+→ Rankings (preserved)
+```
+
+The live `/game` response exposes tags only for its featured metric subset, so
+Snapshot Capture must not treat the public response as the complete tag source.
+It reuses the `lens_tags` arrays on the ranking/metric evidence already loaded
+for the slate; it does not run a separate tag query per game or per metric.
+
 Packet 2 must:
 
-- preserve each metric's `lens_tags` inside the frozen response;
+- preserve each relevant metric's existing `lens_tags` inside the frozen response;
 - save a de-duplicated snapshot-level `lens_tags` array for simple BigQuery
   filtering and later Admin/frontend exploration;
 - preserve the established shape: Python `list[str]`, BigQuery
@@ -142,7 +158,8 @@ overlapping evidence—for example, the header is loaded directly and can be
 loaded again while fetching metrics and rankings.
 
 Packet 2 must not simply place that current query stack inside a loop and call
-it once per game.
+it once per game. It also must not make one internal HTTP request to `/game`
+for every matchup. The Flask route is a serving boundary, not the batch engine.
 
 The capture design must separate **loading evidence** from **building the
 response**:
@@ -152,11 +169,13 @@ response**:
    doing expensive response work.
 3. Load reusable schedule, metric, and ranking evidence in bounded batch
    queries for the remaining games/teams.
-4. Pass the loaded header, metrics, rankings, and other pregame-safe context to
-   the existing response-building logic in an explicit pregame-capture mode.
-5. Build each game's response in memory without hidden re-fetches of the same
-   evidence.
-6. Save the snapshot, tags, manifest, and stage receipt.
+4. Pass the loaded header, metrics, rankings, `lens_tags`, and other
+   pregame-safe context directly to the shared Python response-building logic
+   in an explicit pregame-capture mode—without Flask, authentication, network
+   calls, or HTTP `/game` requests.
+5. Build one game's response in memory without hidden re-fetches, then save it,
+   verify it, and release that completed payload before building the next game.
+6. After all games are attempted, save the overall pipeline/stage receipts.
 
 This remains one canonical response builder. Packet 2 may add an evidence
 loader/context object and allow the current service functions to accept
@@ -182,6 +201,7 @@ For both the one-game proof and the rehearsal slate, record:
 - response-build time;
 - save/read-back time;
 - total run duration; and
+- peak memory for the one-game proof and slate rehearsal; and
 - Cloud Run memory/timeout outcome when the rehearsal runs there.
 
 The acceptance rule is not an invented fixed query number. The evidence must
@@ -189,7 +209,8 @@ show that repeated header/evidence lookups were removed and that query growth
 is batch-oriented, rather than multiplying the full current query stack by
 every additional game.
 
-The shadow runner must not execute inside a user's `/game` request. Thursday's
+The shadow runner must not execute inside a user's `/game` request and must
+make zero internal HTTP `/game` calls. Thursday's
 rehearsal may be launched manually against dev, where timing can be observed
 without changing production traffic. The later production trigger will run
 after the daily data/metric work and before users request the saved result.
@@ -279,6 +300,10 @@ be unavailable. That is acceptable when the saved response explains why.
 After the one-game proof passes, run the same selection/loading path for the
 eligible Thursday slate or a read-only equivalent. Confirm that:
 
+- one coordinator invocation handles the eligible uncaptured slate;
+- each game is built and saved sequentially through the shared Python builder,
+  with no internal HTTP `/game` calls and no collection of all finished
+  payloads retained in memory;
 - each eligible uncaptured game receives one independent snapshot result;
 - one game's missing data does not stop the other games;
 - reusable evidence is loaded in batches rather than re-fetched through each
@@ -346,8 +371,14 @@ Packet 2 receives GO only when Christian can answer yes to all of these:
 - Is preseason clearly excluded from production evidence?
 - Are regular season and postseason captured by one system but reviewed
   separately for learning?
-- Are `lens_tags` preserved as arrays and easy to inspect?
+- Are the existing Facts/Windowed/Rankings `lens_tags` reused without a
+  separate per-game tag retrieval path, preserved as arrays, and easy to
+  inspect?
 - Can I see Metric Pipeline and Snapshot Capture receipts in `stage_runs`?
+- Did one coordinator process the slate through the shared Python builder with
+  zero internal HTTP `/game` calls?
+- Were responses saved and released one at a time instead of retaining the
+  completed slate in memory?
 - Did the implementation remove repeated evidence/header fetches rather than
   postpone that work?
 - Can I see query count, bytes processed, and runtime for one game and the
