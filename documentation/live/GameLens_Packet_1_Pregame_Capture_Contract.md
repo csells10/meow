@@ -115,14 +115,17 @@ clear enough. The target is now explicit:
 
 | Location | What is saved there | Why |
 |---|---|---|
-| **BigQuery — `Analytics.gamelens_pregame_snapshots`** | One searchable row per canonical game snapshot, including the full pregame payload, identity, phase, timestamps, source dates, versions, state/reason, payload hash, and GCS object locations | Fast lookup by `/game`, Level 1, and Admin |
-| **GCS — `gamelens_learning/<environment>/<learning_run_id>/<game_id>/<capture_id>/`** | Immutable `payload.json` and `manifest.json` copies | Raw audit/backup evidence that cannot be silently replaced |
-| **BigQuery — `Analytics.gamelens_learning_pipeline_runs`** | One small summary row per Learning Pipeline execution, with stage counts, statuses, and plain reasons | Lets Admin show what ran without requiring a log search |
+| **BigQuery — `GameLens_dev.pregame_snapshots`** during Packet 2 shadow work; eventual production `GameLens.pregame_snapshots` only after release approval | One searchable row per canonical game snapshot, with the exact `response_payload` stored separately from richer `evidence_context`, plus identity, phase, timestamps, source dates, versions, state/reason, hashes, `lens_tags`, and GCS object locations | Fast lookup by `/game`, Level 1, and Admin without placing learning tables in `Analytics` |
+| **GCS — `gamelens_learning/<environment>/<learning_run_id>/<game_id>/<capture_id>/`** | Immutable `payload.json`, `evidence_context.json`, and `manifest.json` copies | Raw audit/backup evidence that cannot be silently replaced |
+| **BigQuery — `GameLens_dev.pipeline_runs` and `GameLens_dev.stage_runs`** during Packet 2 shadow work; eventual production equivalents only after release approval | One summary per Learning Pipeline attempt plus readable stage receipts for Metric Pipeline, Snapshot Capture, and Levels 1–4 | Lets Admin show what ran, waited, skipped, or failed without requiring a log search |
 | **Existing BigQuery claim table** | Level 1 claim rows linked back to the saved `capture_id` | Feeds Levels 2–4 without creating a second claim system |
 
-The exact BigQuery field list and partitioning are Packet 2 design details, but
-the responsibility is decided: **BigQuery is the normal serving and monitoring
-source; GCS is the immutable raw copy.**
+The exact BigQuery field list, response/evidence separation, save-finalization
+protocol, and partitioning are Packet 2 design details, but the responsibility
+is decided: **BigQuery is the normal serving and monitoring source; GCS is the
+immutable raw copy.** Packet 2's `GameLens_dev` locations supersede the earlier
+provisional `Analytics.gamelens_*` names without changing Packet 1's safety
+contract.
 
 A retry with the same identity and identical payload becomes a clean no-op. A
 different payload trying to replace the already-frozen game is quarantined and
