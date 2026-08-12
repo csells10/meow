@@ -76,13 +76,16 @@ Packet 2 is complete only when all of the following are true:
    preserving relevant `lens_tags` as arrays.
 8. A saved response can be read back and compared with the canonical builder
    output without running Level 1.
-9. An identical retry is detected before response rebuilding and creates no
-   second canonical snapshot.
-10. A simple Snapshot Capture stage receipt explains success, no-op, waiting,
+9. During the crossover period, that saved `response_payload` is semantically
+   identical to the live `/game/<game_id>` JSON body for the same scheduled
+   game and same pregame evidence.
+10. An identical retry is detected before response rebuilding and creates no
+    second canonical snapshot.
+11. A simple Snapshot Capture stage receipt explains success, no-op, waiting,
     partial failure, or failure.
-11. The one-game proof and slate rehearsal record enough runtime/memory evidence
+12. The one-game proof and slate rehearsal record enough runtime/memory evidence
     to judge whether the design is safe.
-12. No production table, route, frontend, scheduler, Level 1, or outcome behavior
+13. No production table, route, frontend, scheduler, Level 1, or outcome behavior
     changes.
 
 ### Optional production-hardening track
@@ -341,7 +344,47 @@ For both the one-game proof and rehearsal slate, record:
 - confirmation of zero internal HTTP `/game` calls;
 - total run duration;
 - peak memory or the best available observed memory evidence; and
-- Cloud Run memory/timeout outcome if the rehearsal runs there.
+- Cloud Run memory/timeout outcome if the rehearsal runs there; and
+- live `/game` crossover parity result: matched or mismatched, with a
+  field-level diff when mismatched.
+
+#### Required crossover response parity
+
+Until the live `/game` route reads `GameLens_dev.pregame_snapshots`, two
+paths temporarily exist:
+
+1. the current live API path calls `get_game_details(game_id)`; and
+2. Snapshot Capture calls the shared Python builder with already-loaded
+   pregame evidence and saves its result.
+
+For the same scheduled game, same pregame cutoff, and same underlying evidence,
+the saved `response_payload` must be semantically identical to the JSON body
+returned by `GET /game/<game_id>`.
+
+The comparison must include every product field, value, null, list, and nested
+section—including the header, Game Profile, Core Area Comparison, Matchup Lean,
+Model Trust, Team Comparison, ranking context, claim-language context, and
+matchup breakdown. The capture path may avoid the live path's final-score query,
+but for a scheduled pregame it must still emit the same pregame response shape
+and values, including the same `final_score` and `model_outcome` null or
+unavailable representation.
+
+Only transport differences may be ignored: HTTP status/headers, JSON object key
+ordering, and whitespace/serialization formatting. `evidence_context` and the
+snapshot-level `lens_tags` column are stored beside `response_payload`; they
+must not be injected into the frontend response merely to satisfy this test.
+
+Required proof has two layers:
+
+- a deterministic focused test feeds the same fixed evidence into the live and
+  capture entry paths and requires exact semantic JSON equality; and
+- the dev rehearsal captures one scheduled game, immediately obtains the live
+  dev `/game` JSON while the evidence is unchanged, and records an exact
+  semantic comparison plus field-level diff.
+
+Any product-field mismatch blocks Packet 2 GO. The response builder must be
+reconciled; the test must not hide a difference with broad field exclusions or
+approximate numeric tolerances.
 
 The following measurements are useful but **optional** for Packet 2 completion:
 
@@ -498,10 +541,13 @@ be unavailable. That is acceptable when the saved response explains why.
    or equivalent inspection path.
 8. Compare the saved `response_payload` with the canonical response builder
    output and inspect the separate `evidence_context`.
-9. Repeat the capture and prove the retry performs no rebuild and creates no
-   second canonical BigQuery row.
-10. Review the simple stage receipt and required runtime/memory evidence.
-11. If optional GCS hardening is attempted, test it only after the BigQuery proof
+9. Immediately obtain the live dev `/game/<game_id>` JSON while the pregame
+   evidence is unchanged and require exact semantic equality with the saved
+   `response_payload`; save a field-level diff if it does not match.
+10. Repeat the capture and prove the retry performs no rebuild and creates no
+    second canonical BigQuery row.
+11. Review the simple stage receipt and required runtime/memory/parity evidence.
+12. If optional GCS hardening is attempted, test it only after the BigQuery proof
     is already passing.
 
 ### Slate-shaped proof
@@ -528,6 +574,7 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 | Required saved-response read-back | The exact saved pregame sections, including honest unavailable explanations |
 | Required BigQuery snapshot row | Game identity, phase, timestamps, state, source references, `lens_tags`, `response_payload`, and `evidence_context` |
 | Required stage receipt | Metric Pipeline reference and Snapshot Capture status, counts, timing, and plain reason |
+| Required live-API parity evidence | Saved `response_payload` and live dev `/game` JSON match exactly by semantic content for the same pregame evidence |
 | Required retry evidence | Same capture identity, zero rebuild work, and unchanged canonical-row count |
 | Optional GCS inspection | Immutable payload, evidence context, and manifest when that hardening track is implemented |
 | Optional frontend/Admin view | A richer human inspection surface after the simple read-back proof works |
@@ -557,6 +604,11 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 - BigQuery streaming-buffer restriction stops as `waiting/retryable` without
   an immediate mutation or blind Metric Pipeline rerun;
 - saved `response_payload` reads back equal to the canonical builder output;
+- fixed-evidence live and capture paths produce semantically identical response
+  JSON;
+- one real scheduled dev capture matches the immediately obtained live dev
+  `/game` JSON, with any mismatch producing a field-level diff and blocking
+  GO;
 - simple `stage_runs` receipt is understandable; and
 - no production table, route, scheduler, Level, outcome, or frontend change.
 
@@ -609,6 +661,9 @@ Packet 2 receives GO when Christian can answer yes to every **required** questio
 - Are `response_payload` and `evidence_context` separate?
 - Did relevant `lens_tags` survive as arrays without a new per-game tag path?
 - Can the saved payload be read back without running Level 1?
+- For the same game and pregame evidence, does the saved `response_payload`
+  exactly match the semantic JSON content returned by the live `/game` path,
+  with no excluded product fields or approximate-value tolerance?
 - Did an identical retry skip before rebuilding and create zero duplicate
   canonical rows?
 - Did a partial upstream state or BigQuery buffer restriction stop safely
@@ -639,7 +694,8 @@ and retry evidence rather than assumptions.
 ## Documentation handoff
 
 When Packet 2 is implemented, this file must be updated with exact files,
-schemas, required focused tests, observed runtime/memory and row counts,
-optional hardening completed or deferred, production impact, commit, and the
+schemas, required focused tests, live-API parity evidence, observed
+runtime/memory and row counts, optional hardening completed or deferred,
+production impact, commit, and the
 one next packet. Packet 3
 does not begin until that review is understandable.
