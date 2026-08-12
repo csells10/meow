@@ -351,10 +351,10 @@ The following measurements are useful but **optional** for Packet 2 completion:
 - response-build time; and
 - save/read-back time.
 
-The acceptance rule is not an invented fixed query number. The evidence must
-show that repeated header/evidence lookups were removed and that query growth
-is batch-oriented, rather than multiplying the full current query stack by
-every additional game.
+The acceptance rule is not an invented fixed query number. Focused tests must
+show that shared evidence is loaded once per coordinator/slate context and that
+per-game builders do not secretly re-fetch it. Observed query-job growth is
+useful optional confirmation, not a fixed Packet 2 completion threshold.
 
 The shadow runner must not execute inside a user's `/game` request and must
 make zero internal HTTP `/game` calls. Thursday's
@@ -461,7 +461,6 @@ One row is one stage receipt. The minimum fields are:
 - status;
 - input/output row or game counts;
 - started/finished timestamps and duration;
-- query count and bytes processed when the stage queried BigQuery;
 - upstream run/stage reference; and
 - plain warning, waiting, skip, or failure reason.
 
@@ -519,8 +518,8 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 - reusable evidence is loaded in batches rather than re-fetched through each
   game's helper stack;
 - the overall result can be success, no-op, partial failure, or failure; and
-- the recorded query/runtime evidence is understandable before any production
-  sizing decision.
+- the required runtime/memory evidence is understandable before any production
+  sizing decision; detailed query-cost evidence is reviewed when collected.
 
 ## What Christian should be able to inspect
 
