@@ -1,6 +1,6 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** Scope reviewed; required Packet 2 proof separated from optional production hardening  
+**Status:** Local implementation complete; development-cloud proof awaiting review
 **Created:** 2026-08-10  
 **Revised:** 2026-08-12  
 **Branch:** `dev`  
@@ -26,6 +26,155 @@ the saved result and return it.
 Preseason is useful for this first rehearsal because it lets us test the
 plumbing and honest missing-data states without allowing preseason results to
 enter production learning.
+
+## Local implementation checkpoint — 2026-08-12
+
+The required Packet 2 foundation is implemented and locally tested on `dev` in
+commit `28ffd4c` (`Implement Packet 2 shadow capture foundation`). This is a
+review checkpoint, not Packet 2 GO. No BigQuery dataset/table was created, no
+Cloud Run revision was deployed, and no real scheduled-game rehearsal ran.
+
+### Files implemented
+
+- `services/gamelens_learning_contract.py` now enforces the exact
+  `seasonType` rules and keeps `gameWeek` descriptive.
+- `services/game_service.py` now separates evidence loading from the one shared
+  response builder and adds fail-closed read-only pregame mode. The public
+  `get_game_details(game_id)` signature and `/game` route are unchanged.
+- `queries/game_queries.py` exposes mapping-only metric/ranking helpers so the
+  batch path reuses the existing evidence shapes and `lens_tags` contract.
+- `queries/gamelens_snapshot_queries.py` adds candidate discovery, immediate
+  schedule recheck, and slate-shaped metric/ranking reads with the same strict
+  pregame cutoffs as the live path.
+- `services/gamelens_snapshot_capture.py` adds the thin sequential coordinator,
+  upstream-summary readiness gate, stable retry check, exact field-level JSON
+  diff, response/evidence split, tag validation, read-back verification, and
+  readable stage result.
+- `services/gamelens_snapshot_storage.py` adds the append-only development
+  storage adapter and treats a BigQuery streaming-buffer restriction as
+  `waiting/retryable`.
+- `setup_gamelens_snapshot_tables.py` adds the dev-only idempotent
+  create/verification path. It has been tested with fakes but deliberately not
+  run against Google Cloud.
+- Focused coverage is in
+  `tests/_gcp_stubs.py`,
+  `tests/services/test_gamelens_learning_contract.py`,
+  `tests/services/test_game_service_pregame_capture.py`,
+  `tests/queries/test_gamelens_snapshot_queries.py`,
+  `tests/services/test_gamelens_snapshot_capture.py`, and
+  `tests/services/test_gamelens_snapshot_storage.py`.
+
+### Required development schemas implemented locally
+
+`GameLens_dev.pregame_snapshots`:
+
+```text
+capture_id STRING REQUIRED
+game_id STRING REQUIRED
+environment STRING REQUIRED
+season STRING
+season_type STRING
+game_week STRING
+game_status STRING
+scheduled_kickoff TIMESTAMP REQUIRED
+captured_at TIMESTAMP REQUIRED
+capture_status STRING REQUIRED
+payload_sha256 STRING REQUIRED
+response_payload JSON REQUIRED
+evidence_context JSON REQUIRED
+lens_tags STRING REPEATED
+ranking_context_available BOOLEAN
+ranking_context_reason STRING
+metric_source_date DATE
+ranking_as_of_date DATE
+metric_pipeline_run_id STRING
+model_version STRING
+ruleset_version STRING
+```
+
+The table is configured for daily partitioning on `captured_at` and clustering
+by `game_id`, then `season_type`.
+
+`GameLens_dev.stage_runs`:
+
+```text
+attempt_id STRING REQUIRED
+stage_name STRING REQUIRED
+status STRING REQUIRED
+game_id STRING
+season STRING
+season_type STRING
+input_count INTEGER
+output_count INTEGER
+started_at TIMESTAMP REQUIRED
+finished_at TIMESTAMP REQUIRED
+duration_ms INTEGER
+upstream_run_id STRING
+reason STRING
+```
+
+### Local evidence completed
+
+- 42 focused Packet 2 tests pass.
+- 97 existing and new `unittest` regression tests pass with cloud clients
+  replaced by local mocks; failures: 0, errors: 0.
+- The deterministic parity test feeds identical fixed evidence to the live and
+  capture entry paths and requires exact Python/JSON semantic equality across
+  the complete response. No product fields or numeric differences are ignored.
+- Pregame mode tests prove no final-score query and no outcome-writer call,
+  even if final-score evidence and a final game status are supplied directly.
+- A two-game loader test performs one metric query and one league-wide ranking
+  query for the shared season/window group. The ranking cutoff preserves the
+  live query's exact league-wide `as_of_date` selection order.
+- Coordinator tests prove pre-build retry no-op, one-at-a-time
+  build/save/read-back order, zero internal `/game` HTTP calls, independent
+  per-game failure, schedule identity recheck, malformed-tag failure,
+  saved-payload field-level diff, readable receipts, and safe
+  `waiting/retryable` buffer handling without a Metric Pipeline rerun.
+- The setup test proves repeat execution uses `exists_ok=True`, verifies the
+  schemas, preserves matching objects, and refuses production before any
+  create call.
+- Python compilation and `git diff --check` pass.
+
+### Review findings and deliberately deferred work
+
+The response-building seam is `GameDetailsEvidence` →
+`build_game_details_from_evidence(...)`. Both live and capture entry paths call
+that builder; no football, matchup, claim-language, or response logic was
+copied. The batch loader reuses the canonical row-to-evidence mapping helpers
+and retrieves `lens_tags` only through the existing rankings evidence.
+
+The optional production-hardening track remains unimplemented: no GCS
+manifests or cross-store recovery, concurrency coordination, quarantine
+machinery, readiness polling/backoff, generalized `pipeline_runs`, Admin,
+frontend, production scheduler, production dataset, or production route work
+was added.
+
+### Remaining required work before Packet 2 GO
+
+1. Review and approve the local code/schema checkpoint.
+2. Deliberately run the setup path against development and verify a second run
+   is a non-destructive verification. Do not create `GameLens` production
+   resources.
+3. Use an observed successful Facts → Windowed Metrics → Rankings summary and
+   verify the actual development evidence is readable and internally
+   consistent. A failed/partial summary or buffer restriction must stop the
+   rehearsal; it must not trigger a blind pipeline rerun.
+4. Capture one real scheduled development game, read the row back, and compare
+   every saved `response_payload` field immediately with the live dev
+   `/game/<game_id>` JSON while evidence is unchanged. Any mismatch blocks GO
+   and must retain its field-level diff.
+5. Repeat the identical capture and record the same identity, zero response
+   rebuild, and unchanged canonical-row count.
+6. Run the eligible rehearsal slate and record counts, receipt, duration, best
+   available peak-memory evidence, zero internal HTTP calls, and sequential
+   per-game outcomes.
+7. Add the real row counts, parity result, runtime/memory result, setup/rehearsal
+   commits, and final GO/NO-GO decision here.
+
+Production behavior remains unchanged. Packet 3 (Level 1 claim extraction)
+remains the next packet and must not begin until these required Packet 2 gates
+are reviewed and pass.
 
 ## What Packet 2 is not
 
