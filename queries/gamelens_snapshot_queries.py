@@ -13,7 +13,7 @@ from queries.game_queries import (
     build_team_rankings_from_rows,
     select_window_type,
 )
-from runtime_config import RuntimeConfig
+from runtime_config import PRODUCTION_DATASETS, RuntimeConfig
 from services.game_service import GameDetailsEvidence
 
 
@@ -28,6 +28,13 @@ RANKING_COLUMNS = """
     tier_label, teams_ranked, ranking_kind, rank_direction,
     rank_interpretation, rank_tie_method
 """
+
+EVIDENCE_SOURCE_CONFIGURED = "configured"
+EVIDENCE_SOURCE_PRODUCTION = "production"
+ALLOWED_EVIDENCE_SOURCES = {
+    EVIDENCE_SOURCE_CONFIGURED,
+    EVIDENCE_SOURCE_PRODUCTION,
+}
 
 
 def _as_date(value) -> date:
@@ -89,12 +96,59 @@ class BigQuerySlateEvidenceLoader:
         *,
         client: bigquery.Client,
         runtime_config: RuntimeConfig,
+        evidence_source: str = EVIDENCE_SOURCE_CONFIGURED,
     ):
+        evidence_source = str(evidence_source or "").strip().lower()
+        if evidence_source not in ALLOWED_EVIDENCE_SOURCES:
+            raise ValueError(
+                "evidence_source must be configured or production"
+            )
+        if (
+            evidence_source == EVIDENCE_SOURCE_PRODUCTION
+            and not runtime_config.is_dev
+        ):
+            raise ValueError(
+                "Explicit production evidence is allowed only for dev shadow capture"
+            )
         self.client = client
         self.runtime_config = runtime_config
+        self.evidence_source = evidence_source
+
+    def _league_table(self, table_name: str) -> str:
+        dataset = (
+            PRODUCTION_DATASETS["league"]
+            if self.evidence_source == EVIDENCE_SOURCE_PRODUCTION
+            else self.runtime_config.league_dataset
+        )
+        return f"{self.runtime_config.project_id}.{dataset}.{table_name}"
+
+    def _analytics_table(self, table_name: str) -> str:
+        dataset = (
+            PRODUCTION_DATASETS["analytics"]
+            if self.evidence_source == EVIDENCE_SOURCE_PRODUCTION
+            else self.runtime_config.analytics_dataset
+        )
+        return f"{self.runtime_config.project_id}.{dataset}.{table_name}"
+
+    def evidence_lineage(self) -> dict:
+        """Describe the read-only source retained beside the saved response."""
+        return {
+            "source_environment": self.evidence_source,
+            "schedule_dataset": (
+                PRODUCTION_DATASETS["league"]
+                if self.evidence_source == EVIDENCE_SOURCE_PRODUCTION
+                else self.runtime_config.league_dataset
+            ),
+            "analytics_dataset": (
+                PRODUCTION_DATASETS["analytics"]
+                if self.evidence_source == EVIDENCE_SOURCE_PRODUCTION
+                else self.runtime_config.analytics_dataset
+            ),
+            "access_mode": "read_only",
+        }
 
     def fetch_candidates(self, *, start_date: date, end_date: date) -> List[dict]:
-        schedule = self.runtime_config.league_table("schedule")
+        schedule = self._league_table("schedule")
         teams = f"{self.runtime_config.project_id}.Teams.team_logos"
         query = f"""
             SELECT
@@ -120,7 +174,7 @@ class BigQuerySlateEvidenceLoader:
         return [_candidate_from_row(row) for row in rows]
 
     def recheck_candidate(self, game_id: str) -> dict:
-        schedule = self.runtime_config.league_table("schedule")
+        schedule = self._league_table("schedule")
         teams = f"{self.runtime_config.project_id}.Teams.team_logos"
         query = f"""
             SELECT
@@ -230,7 +284,7 @@ class BigQuerySlateEvidenceLoader:
         team_ids: Sequence[str],
         max_game_date: date,
     ) -> List[dict]:
-        table = self.runtime_config.analytics_table(
+        table = self._analytics_table(
             f"team_metrics_windowed_{season}"
         )
         query = f"""
@@ -259,7 +313,7 @@ class BigQuerySlateEvidenceLoader:
         window_type: str,
         max_game_date: date,
     ) -> List[dict]:
-        table = self.runtime_config.analytics_table(
+        table = self._analytics_table(
             f"team_metric_rankings_{season}"
         )
         query = f"""

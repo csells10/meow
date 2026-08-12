@@ -72,6 +72,69 @@ class FakeClient:
 
 
 class TestSlateEvidenceLoader(unittest.TestCase):
+    def test_production_evidence_is_explicit_read_only_and_dev_only(self):
+        loader = BigQuerySlateEvidenceLoader(
+            client=FakeClient([[]]),
+            runtime_config=runtime_config(),
+            evidence_source="production",
+        )
+
+        loader.fetch_candidates(
+            start_date=date(2026, 8, 13),
+            end_date=date(2026, 8, 13),
+        )
+
+        self.assertIn(
+            "`nfl-stream-406420.League.schedule`",
+            loader.client.queries[0][0],
+        )
+        self.assertEqual(
+            loader.evidence_lineage(),
+            {
+                "source_environment": "production",
+                "schedule_dataset": "League",
+                "analytics_dataset": "Analytics",
+                "access_mode": "read_only",
+            },
+        )
+
+        production_config = RuntimeConfig(
+            project_id="nfl-stream-406420",
+            environment="production",
+            run_mode="daily",
+            active_season="2026",
+            league_dataset="League",
+            scores_dataset="Scores",
+            analytics_dataset="Analytics",
+            raw_response_bucket="xtra_point",
+        )
+        with self.assertRaisesRegex(ValueError, "dev shadow capture"):
+            BigQuerySlateEvidenceLoader(
+                client=FakeClient([]),
+                runtime_config=production_config,
+                evidence_source="production",
+            )
+
+    def test_production_evidence_uses_production_analytics_tables(self):
+        item = candidate("20260813_A1@H2", "1", "2")
+        client = FakeClient([[], []])
+        loader = BigQuerySlateEvidenceLoader(
+            client=client,
+            runtime_config=runtime_config(),
+            evidence_source="production",
+        )
+
+        loader.load_slate_evidence([item])
+
+        self.assertIn(
+            "`nfl-stream-406420.Analytics.team_metrics_windowed_2026`",
+            client.queries[0][0],
+        )
+        self.assertIn(
+            "`nfl-stream-406420.Analytics.team_metric_rankings_2026`",
+            client.queries[1][0],
+        )
+
     def test_two_game_slate_uses_one_metric_and_one_ranking_query(self):
         items = [
             candidate("20260813_A1@H2", "1", "2"),

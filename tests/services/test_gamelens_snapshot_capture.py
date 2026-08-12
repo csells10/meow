@@ -300,6 +300,71 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["games_checked"], 0)
         self.assertEqual(storage.receipts[0]["status"], "no_op")
 
+    def test_one_game_proof_restricts_capture_before_evidence_load(self):
+        items = [
+            candidate("20260813_A1@H2", "1", "2"),
+            candidate("20260813_A3@H4", "3", "4"),
+        ]
+        loader = FakeLoader(items)
+        loader.evidence_lineage = lambda: {
+            "source_environment": "production",
+            "schedule_dataset": "League",
+            "analytics_dataset": "Analytics",
+            "access_mode": "read_only",
+        }
+        storage = FakeStorage()
+        builds = []
+        coordinator = self._coordinator(
+            loader,
+            storage,
+            lambda game_id, *, evidence: (
+                builds.append(game_id)
+                or payload_for(next(i for i in items if i["game_id"] == game_id))
+            ),
+        )
+
+        result = coordinator.run(
+            start_date=date(2026, 8, 13),
+            end_date=date(2026, 8, 15),
+            ruleset_version="v1",
+            model_version="game_service_v1",
+            game_id=items[1]["game_id"],
+        )
+
+        self.assertEqual(result["games_discovered"], 2)
+        self.assertEqual(result["games_checked"], 1)
+        self.assertEqual(result["games_captured"], 1)
+        self.assertEqual(builds, [items[1]["game_id"]])
+        self.assertEqual(len(storage.rows), 1)
+        saved_row = next(iter(storage.rows.values()))
+        self.assertEqual(
+            saved_row["evidence_context"]["source_lineage"],
+            loader.evidence_lineage(),
+        )
+
+    def test_one_game_proof_missing_game_is_safe_no_op(self):
+        loader = FakeLoader([candidate("20260813_A1@H2", "1", "2")])
+        storage = FakeStorage()
+        coordinator = self._coordinator(
+            loader,
+            storage,
+            lambda *args, **kwargs: self.fail("builder should not run"),
+        )
+
+        result = coordinator.run(
+            start_date=date(2026, 8, 13),
+            end_date=date(2026, 8, 15),
+            ruleset_version="v1",
+            model_version="game_service_v1",
+            game_id="20260813_MISSING",
+        )
+
+        self.assertEqual(result["status"], "no_op")
+        self.assertEqual(result["reason"], "requested_game_not_found")
+        self.assertEqual(result["games_checked"], 0)
+        self.assertEqual(loader.load_calls, 0)
+        self.assertEqual(storage.rows, {})
+
     def test_slate_builds_saves_reads_and_releases_sequentially(self):
         events = []
         items = [

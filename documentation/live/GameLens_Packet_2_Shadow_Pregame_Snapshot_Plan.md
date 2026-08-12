@@ -7,6 +7,26 @@
 **Production behavior changed:** No  
 **Production data written:** No
 
+### Approved one-game development evidence boundary — 2026-08-12
+
+The first real one-game proof may explicitly read the existing production
+`League.schedule`, `Analytics.team_metrics_windowed_2026`, and
+`Analytics.team_metric_rankings_2026` evidence while writing only to
+`GameLens_dev`. This is a read-production/write-development shadow boundary,
+not a production capture release.
+
+The production evidence option is scoped to the read-only Snapshot evidence
+loader and is accepted only when the capture runtime remains `dev`.
+`BigQuerySnapshotStorage` remains independently locked to `GameLens_dev`.
+The saved `evidence_context.source_lineage` records the schedule dataset,
+Analytics dataset, source environment, and read-only access mode for QA.
+
+The one-game proof also requires an explicit `game_id`. Candidate discovery may
+still observe the full today-plus-two-day window, but only the requested game
+may proceed to canonical lookup, evidence loading, response building, or save.
+A requested game that is absent from the window stops as a safe no-op. The
+slate-shaped proof remains a later, separate invocation without that filter.
+
 ## Packet 2 in plain English
 
 Packet 1 wrote and tested the safety rulebook. Packet 2 is the first time we
@@ -140,6 +160,12 @@ reason STRING
   per-game failure, schedule identity recheck, malformed-tag failure,
   saved-payload field-level diff, readable receipts, and safe
   `waiting/retryable` buffer handling without a Metric Pipeline rerun.
+- Focused shadow-boundary tests prove an explicit production evidence source
+  reads the production Schedule and Analytics tables only from a dev capture
+  runtime, records that lineage beside the response, and cannot be enabled as
+  a production capture mode. One-game tests prove that an explicit `game_id`
+  reduces a larger discovered window to exactly one checked/built/saved game
+  before evidence loading; a missing requested game is a safe no-op.
 - The setup test proves repeat execution uses `exists_ok=True`, verifies the
   schemas, preserves matching objects, and refuses production before any
   create call.
@@ -165,14 +191,16 @@ was added.
 2. Deliberately run the setup path against development and verify a second run
    is a non-destructive verification. Do not create `GameLens` production
    resources.
-3. Use an observed successful Facts → Windowed Metrics → Rankings summary and
-   verify the actual development evidence is readable and internally
-   consistent. A failed/partial summary or buffer restriction must stop the
-   rehearsal; it must not trigger a blind pipeline rerun.
-4. Capture one real scheduled development game, read the row back, and compare
-   every saved `response_payload` field immediately with the live dev
-   `/game/<game_id>` JSON while evidence is unchanged. Any mismatch blocks GO
-   and must retain its field-level diff.
+3. Use the observed successful production Facts → Windowed Metrics → Rankings
+   summary and verify the explicitly selected read-only production evidence is
+   readable and internally consistent. A failed/partial summary or buffer
+   restriction must stop the rehearsal; it must not trigger a blind pipeline
+   rerun or write to a production source table.
+4. Capture one explicitly requested real scheduled game into `GameLens_dev`,
+   read the row back, and compare every saved `response_payload` field
+   immediately with the live `/game/<game_id>` JSON reading the same production
+   evidence while it is unchanged. Any mismatch blocks GO and must retain its
+   field-level diff.
 5. Repeat the identical capture and record the same identity, zero response
    rebuild, and unchanged canonical-row count.
 6. Run the eligible rehearsal slate and record counts, receipt, duration, best
@@ -734,7 +762,7 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 | View | Evidence |
 |---|---|
 | Required saved-response read-back | The exact saved pregame sections, including honest unavailable explanations |
-| Required BigQuery snapshot row | `learning_run_id`, game/capture identity, phase, timestamps, state, source references, `lens_tags`, `response_payload`, and `evidence_context` |
+| Required BigQuery snapshot row | `learning_run_id`, game/capture identity, phase, timestamps, state, source references, read-only source lineage, `lens_tags`, `response_payload`, and `evidence_context` |
 | Required stage receipt | Metric Pipeline reference and Snapshot Capture status, counts, timing, and plain reason |
 | Required live-API parity evidence | Saved `response_payload` and live dev `/game` JSON match exactly by semantic content for the same pregame evidence |
 | Required retry evidence | Same capture identity, zero rebuild work, and unchanged canonical-row count |

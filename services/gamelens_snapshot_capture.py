@@ -196,10 +196,12 @@ def build_evidence_context(
     evidence: GameDetailsEvidence,
     *,
     upstream_run_id: Optional[str],
+    source_lineage: Optional[Mapping[str, Any]] = None,
 ) -> dict:
     """Keep rich lineage beside, never inside, the frontend response."""
     return {
         "upstream_metric_pipeline_run_id": upstream_run_id,
+        "source_lineage": dict(source_lineage or {}),
         "ranking_context": evidence.ranking_context,
         "away_metrics": evidence.away_metrics,
         "home_metrics": evidence.home_metrics,
@@ -259,6 +261,7 @@ class SnapshotCaptureCoordinator:
         end_date: date,
         ruleset_version: str,
         model_version: str,
+        game_id: Optional[str] = None,
     ) -> dict:
         started_at = self.now()
         started_clock = perf_counter()
@@ -266,13 +269,24 @@ class SnapshotCaptureCoordinator:
             f"snapshot_{started_at.strftime('%Y%m%dT%H%M%SZ')}_"
             f"{uuid4().hex[:8]}"
         )
+        requested_game_id = str(game_id or "").strip() or None
         discovery_error = None
         try:
-            candidates = self.evidence_loader.fetch_candidates(
+            discovered_candidates = self.evidence_loader.fetch_candidates(
                 start_date=start_date,
                 end_date=end_date,
             )
+            candidates = (
+                [
+                    candidate
+                    for candidate in discovered_candidates
+                    if str(candidate.get("game_id")) == requested_game_id
+                ]
+                if requested_game_id
+                else discovered_candidates
+            )
         except Exception as exc:
+            discovered_candidates = []
             candidates = []
             discovery_error = str(exc)
         result = {
@@ -281,8 +295,12 @@ class SnapshotCaptureCoordinator:
             "reason": (
                 f"candidate_discovery_failed:{discovery_error}"
                 if discovery_error
+                else "requested_game_not_found"
+                if requested_game_id and not candidates
                 else "no_games_scheduled" if not candidates else None
             ),
+            "requested_game_id": requested_game_id,
+            "games_discovered": len(discovered_candidates),
             "games_checked": len(candidates),
             "games_eligible": 0,
             "games_captured": 0,
@@ -517,6 +535,11 @@ class SnapshotCaptureCoordinator:
                 context = build_evidence_context(
                     evidence,
                     upstream_run_id=readiness.get("upstream_run_id"),
+                    source_lineage=(
+                        self.evidence_loader.evidence_lineage()
+                        if hasattr(self.evidence_loader, "evidence_lineage")
+                        else None
+                    ),
                 )
                 captured_at = self.now()
                 manifest = build_capture_manifest(
