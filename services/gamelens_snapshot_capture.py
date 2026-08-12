@@ -335,6 +335,7 @@ class SnapshotCaptureCoordinator:
         }
 
         uncaptured = []
+        existing_upstream_run_ids = set()
         for candidate in candidates:
             preparation = self._prepare_candidate(
                 candidate,
@@ -384,6 +385,11 @@ class SnapshotCaptureCoordinator:
                         "rebuilt": False,
                     })
                     continue
+                existing_upstream_run_id = str(
+                    existing.get("metric_pipeline_run_id") or ""
+                ).strip()
+                if existing_upstream_run_id:
+                    existing_upstream_run_ids.add(existing_upstream_run_id)
                 result["games_skipped"] += 1
                 result["game_results"].append({
                     **preparation,
@@ -393,6 +399,9 @@ class SnapshotCaptureCoordinator:
                 })
                 continue
             uncaptured.append({**candidate, **preparation})
+
+        if len(existing_upstream_run_ids) == 1:
+            result["upstream_run_id"] = next(iter(existing_upstream_run_ids))
 
         if uncaptured:
             try:
@@ -409,6 +418,10 @@ class SnapshotCaptureCoordinator:
                     "status": "blocked",
                     "reason": f"upstream_readiness_failed:{exc}",
                 }
+            result["upstream_run_id"] = (
+                readiness.get("upstream_run_id")
+                or result.get("upstream_run_id")
+            )
             if not readiness.get("ready"):
                 waiting = readiness.get("status") == "waiting"
                 result["status"] = "waiting" if waiting else "failure"
@@ -668,7 +681,17 @@ class SnapshotCaptureCoordinator:
             result["reason"] = None
         elif result["games_checked"]:
             result["status"] = "no_op"
-            result["reason"] = result.get("reason") or "no_eligible_uncaptured_games"
+            game_reasons = {
+                str(game_result.get("reason") or "").strip()
+                for game_result in result.get("game_results", [])
+                if str(game_result.get("reason") or "").strip()
+            }
+            if not result.get("reason"):
+                result["reason"] = (
+                    next(iter(game_reasons))
+                    if len(game_reasons) == 1
+                    else "no_eligible_uncaptured_games"
+                )
 
 
 def _latest_metric_source_date(evidence: GameDetailsEvidence) -> Optional[str]:

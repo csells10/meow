@@ -197,20 +197,36 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
             "learning_run_id": learning_run_id,
             "response_payload": existing_payload,
             "payload_sha256": payload_sha256(existing_payload),
+            "metric_pipeline_run_id": "metric_20260813",
         }
         builds = []
-        result = self._run(
-            self._coordinator(
-                loader,
-                storage,
-                lambda *args, **kwargs: builds.append(args) or {},
-            )
+        result = self._coordinator(
+            loader,
+            storage,
+            lambda *args, **kwargs: builds.append(args) or {},
+        ).run(
+            start_date=date(2026, 8, 13),
+            end_date=date(2026, 8, 15),
+            ruleset_version="v1",
+            model_version="game_service_v1",
+            game_id=item["game_id"],
         )
         self.assertEqual(result["status"], "no_op")
+        self.assertEqual(result["reason"], "canonical_capture_exists")
         self.assertEqual(result["games_skipped"], 1)
         self.assertEqual(loader.load_calls, 0)
         self.assertEqual(builds, [])
         self.assertEqual(len(storage.rows), 1)
+        self.assertEqual(storage.receipts[0]["game_id"], item["game_id"])
+        self.assertEqual(storage.receipts[0]["season_type"], "Preseason")
+        self.assertEqual(
+            storage.receipts[0]["upstream_run_id"],
+            "metric_20260813",
+        )
+        self.assertEqual(
+            storage.receipts[0]["reason"],
+            "canonical_capture_exists",
+        )
 
     def test_corrupt_existing_capture_fails_without_rebuilding(self):
         item = candidate("20260813_A1@H2", "1", "2")
