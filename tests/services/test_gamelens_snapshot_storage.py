@@ -8,6 +8,7 @@ from runtime_config import RuntimeConfig
 from services.gamelens_snapshot_storage import (
     BigQueryBufferPending,
     BigQuerySnapshotStorage,
+    pregame_snapshot_schema,
 )
 from setup_gamelens_snapshot_tables import ensure_gamelens_snapshot_tables
 
@@ -111,6 +112,12 @@ class TestSnapshotStorage(unittest.TestCase):
 
 
 class TestSnapshotTableSetup(unittest.TestCase):
+    def test_snapshot_schema_requires_explicit_learning_run_identity(self):
+        fields = {field.name: field for field in pregame_snapshot_schema()}
+        self.assertIn("learning_run_id", fields)
+        self.assertEqual(fields["learning_run_id"].field_type, "STRING")
+        self.assertEqual(fields["learning_run_id"].mode, "REQUIRED")
+
     def test_setup_is_idempotent_and_non_destructive(self):
         client = SetupClient()
         first = ensure_gamelens_snapshot_tables(

@@ -194,6 +194,7 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         existing_payload = payload_for(item)
         storage.rows[capture_id] = {
             "capture_id": capture_id,
+            "learning_run_id": learning_run_id,
             "response_payload": existing_payload,
             "payload_sha256": payload_sha256(existing_payload),
         }
@@ -227,6 +228,7 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         )
         storage.rows[capture_id] = {
             "capture_id": capture_id,
+            "learning_run_id": learning_run_id,
             "response_payload": payload_for(item),
             "payload_sha256": "not-the-payload-hash",
         }
@@ -242,6 +244,44 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
 
         self.assertEqual(result["status"], "failure")
         self.assertIn("payload_hash_mismatch", result["game_results"][0]["reason"])
+        self.assertEqual(loader.load_calls, 0)
+        self.assertEqual(builds, [])
+
+    def test_existing_capture_without_learning_lineage_fails_without_rebuilding(self):
+        item = candidate("20260813_A1@H2", "1", "2")
+        loader = FakeLoader([item])
+        storage = FakeStorage()
+        learning_run_id = build_learning_run_id(
+            season="2026",
+            season_type="Preseason",
+            ruleset_version="v1",
+        )
+        capture_id = build_capture_id(
+            learning_run_id=learning_run_id,
+            game_id=item["game_id"],
+            scheduled_kickoff=item["scheduled_kickoff"],
+        )
+        existing_payload = payload_for(item)
+        storage.rows[capture_id] = {
+            "capture_id": capture_id,
+            "response_payload": existing_payload,
+            "payload_sha256": payload_sha256(existing_payload),
+        }
+        builds = []
+
+        result = self._run(
+            self._coordinator(
+                loader,
+                storage,
+                lambda *args, **kwargs: builds.append(args) or {},
+            )
+        )
+
+        self.assertEqual(result["status"], "failure")
+        self.assertIn(
+            "learning_run_identity_mismatch",
+            result["game_results"][0]["reason"],
+        )
         self.assertEqual(loader.load_calls, 0)
         self.assertEqual(builds, [])
 
@@ -295,6 +335,10 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(loader.load_calls, 1)
         self.assertEqual(storage.receipts[0]["status"], "success")
         for row in storage.rows.values():
+            self.assertEqual(
+                row["learning_run_id"],
+                "gamelens_2026_preseason_v1",
+            )
             self.assertEqual(
                 row["lens_tags"],
                 ["efficiency", "strong-signal"],

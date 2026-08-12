@@ -31,6 +31,7 @@ def _is_streaming_buffer_error(value: Any) -> bool:
 def pregame_snapshot_schema():
     return [
         bigquery.SchemaField("capture_id", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("learning_run_id", "STRING", mode="REQUIRED"),
         bigquery.SchemaField("game_id", "STRING", mode="REQUIRED"),
         bigquery.SchemaField("environment", "STRING", mode="REQUIRED"),
         bigquery.SchemaField("season", "STRING"),

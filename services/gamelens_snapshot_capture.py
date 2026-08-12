@@ -132,6 +132,7 @@ def verify_saved_snapshot(
     saved: Mapping[str, Any],
     *,
     expected_capture_id: str,
+    expected_learning_run_id: Optional[str] = None,
     expected_payload: Optional[Mapping[str, Any]] = None,
 ) -> list:
     """Verify identity/hash and optionally exact builder-output parity."""
@@ -142,6 +143,17 @@ def verify_saved_snapshot(
             "expected": expected_capture_id,
             "actual": saved.get("capture_id"),
             "reason": "capture_identity_mismatch",
+        })
+    if (
+        expected_learning_run_id is not None
+        and str(saved.get("learning_run_id") or "")
+        != str(expected_learning_run_id)
+    ):
+        differences.append({
+            "path": "$.learning_run_id",
+            "expected": expected_learning_run_id,
+            "actual": saved.get("learning_run_id"),
+            "reason": "learning_run_identity_mismatch",
         })
     saved_payload = saved.get("response_payload")
     if not isinstance(saved_payload, Mapping):
@@ -317,6 +329,7 @@ class SnapshotCaptureCoordinator:
                 existing_differences = verify_saved_snapshot(
                     existing,
                     expected_capture_id=preparation["capture_id"],
+                    expected_learning_run_id=preparation["learning_run_id"],
                 )
                 if existing_differences:
                     result["games_failed"] += 1
@@ -522,6 +535,7 @@ class SnapshotCaptureCoordinator:
                 )
                 row = {
                     "capture_id": manifest["capture_id"],
+                    "learning_run_id": manifest["learning_run_id"],
                     "game_id": game_id,
                     "environment": self.runtime_config.environment,
                     "season": manifest["season"],
@@ -554,6 +568,7 @@ class SnapshotCaptureCoordinator:
                 differences = verify_saved_snapshot(
                     saved,
                     expected_capture_id=manifest["capture_id"],
+                    expected_learning_run_id=manifest["learning_run_id"],
                     expected_payload=response_payload,
                 )
                 if differences:

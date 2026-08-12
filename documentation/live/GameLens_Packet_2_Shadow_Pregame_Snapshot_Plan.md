@@ -61,7 +61,8 @@ Cloud Run revision was deployed, and no real scheduled-game rehearsal ran.
   `tests/services/test_gamelens_learning_contract.py`,
   `tests/services/test_game_service_pregame_capture.py`,
   `tests/queries/test_gamelens_snapshot_queries.py`,
-  `tests/services/test_gamelens_snapshot_capture.py`, and
+  `tests/services/test_gamelens_snapshot_capture.py`,
+  `tests/services/test_gamelens_snapshot_handoff.py`, and
   `tests/services/test_gamelens_snapshot_storage.py`.
 
 ### Required development schemas implemented locally
@@ -70,6 +71,7 @@ Cloud Run revision was deployed, and no real scheduled-game rehearsal ran.
 
 ```text
 capture_id STRING REQUIRED
+learning_run_id STRING REQUIRED
 game_id STRING REQUIRED
 environment STRING REQUIRED
 season STRING
@@ -115,12 +117,19 @@ reason STRING
 
 ### Local evidence completed
 
-- 42 focused Packet 2 tests pass.
-- 97 existing and new `unittest` regression tests pass with cloud clients
-  replaced by local mocks; failures: 0, errors: 0.
+- 45 focused Packet 2 tests pass for the corrected local implementation.
+- The preceding foundation checkpoint recorded 97 existing and new `unittest`
+  regression tests with cloud clients replaced by local mocks; failures: 0,
+  errors: 0. The two focused corrections are covered by the current 45-test
+  Packet 2 suite.
 - The deterministic parity test feeds identical fixed evidence to the live and
   capture entry paths and requires exact Python/JSON semantic equality across
   the complete response. No product fields or numeric differences are ignored.
+- A populated handoff-contract test passes representative registry-backed
+  evidence through the shared builder, JSON save/read-back shape, and the
+  existing Level 1 extractor. It verifies the six historical claim types,
+  populated Core Areas/categories, complete `lens_tags`, and explicit
+  `learning_run_id` lineage without running Levels 1–4 or calling BigQuery.
 - Pregame mode tests prove no final-score query and no outcome-writer call,
   even if final-score evidence and a final game status are supplied directly.
 - A two-game loader test performs one metric query and one league-wide ranking
@@ -615,18 +624,22 @@ conditions belongs to the optional hardening track.
 
 One row represents one canonical game snapshot. It should contain:
 
-- `capture_id` and `game_id`; optional `learning_run_id` and `pipeline_run_id` when available;
+- required `learning_run_id`, `capture_id`, and `game_id`, plus the observed
+  upstream Metric Pipeline run identity;
 - environment, season, exact `season_type`, game week, and scheduled kickoff;
-- candidate-discovery timestamp, capture-policy decision, capture timestamp, and state;
+- capture timestamp and canonical capture state;
 - exact ready-to-serve `response_payload` in a BigQuery JSON field;
-- separate internal `evidence_context` JSON with source lineage, available metric/ranking evidence, and per-metric tags;
+- separate internal `evidence_context` JSON with source lineage, available
+  metric/ranking evidence, and per-metric tags;
 - de-duplicated snapshot-level `lens_tags` as `REPEATED STRING`;
 - metric/ranking source dates and ranking availability;
 - Facts, Windowed Metrics, and Rankings source/run references when available;
 - available model/ruleset/feature/formula versions;
 - a stable response-payload hash for retry comparison;
 - optional evidence/manifest hashes and GCS object locations; and
-- a plain skip, waiting, conflict, or error reason when appropriate.
+- successful-capture metadata only. Attempt timing, counts, and plain skip,
+  waiting, or error reasons belong in the required `stage_runs` receipt rather
+  than creating incomplete snapshot rows for games that were not captured.
 
 The table's game/capture identity must prevent duplicate canonical rows.
 
@@ -721,7 +734,7 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 | View | Evidence |
 |---|---|
 | Required saved-response read-back | The exact saved pregame sections, including honest unavailable explanations |
-| Required BigQuery snapshot row | Game identity, phase, timestamps, state, source references, `lens_tags`, `response_payload`, and `evidence_context` |
+| Required BigQuery snapshot row | `learning_run_id`, game/capture identity, phase, timestamps, state, source references, `lens_tags`, `response_payload`, and `evidence_context` |
 | Required stage receipt | Metric Pipeline reference and Snapshot Capture status, counts, timing, and plain reason |
 | Required live-API parity evidence | Saved `response_payload` and live dev `/game` JSON match exactly by semantic content for the same pregame evidence |
 | Required retry evidence | Same capture identity, zero rebuild work, and unchanged canonical-row count |
@@ -743,6 +756,9 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 - first preseason game with honest missing prior-team evidence;
 - expected missing rankings differs from failed/partial upstream work;
 - `lens_tags` remain arrays in `evidence_context` and the snapshot-level field;
+- populated shared-builder evidence survives JSON save/read-back and remains
+  compatible with the existing Level 1 extractor across Core Area, category,
+  metric, Game Profile, and Team Comparison claim types;
 - malformed tags or payload fail only the affected game with a plain reason;
 - pregame mode performs no final-score query and no Model Outcome write;
 - one coordinator uses shared evidence and makes zero internal HTTP `/game`
