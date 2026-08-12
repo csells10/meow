@@ -27,6 +27,16 @@ may proceed to canonical lookup, evidence loading, response building, or save.
 A requested game that is absent from the window stops as a safe no-op. The
 slate-shaped proof remains a later, separate invocation without that filter.
 
+The first cloud capture attempt safely stopped before creating a canonical
+snapshot because the BigQuery streaming insert API rejected Python mappings
+for the native `JSON` columns (`response_payload is not a record`). The failure
+receipt was saved, the one-game restriction held, and no internal `/game` HTTP
+call occurred. The storage adapter now serializes both native JSON documents at
+the streaming boundary and continues to normalize them back to Python/JSON
+objects on read-back. A focused storage test covers the real insert shape so
+the fake client cannot hide this API boundary again. Cloud rerun/read-back
+proof remains pending.
+
 ## Packet 2 in plain English
 
 Packet 1 wrote and tested the safety rulebook. Packet 2 is the first time we

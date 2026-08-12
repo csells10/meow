@@ -82,6 +82,20 @@ def _json_value(value: Any) -> Any:
     return value
 
 
+def _json_insert_value(value: Any) -> str:
+    """Encode a native BigQuery JSON value for the streaming insert API."""
+    if isinstance(value, str):
+        # Preserve already-serialized JSON, but fail locally on invalid text.
+        json.loads(value)
+        return value
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+
+
 class BigQuerySnapshotStorage:
     """Required Packet 2 persistence: insert once, then read and verify."""
 
@@ -127,9 +141,12 @@ class BigQuerySnapshotStorage:
 
     def save_snapshot(self, row: Mapping[str, Any]) -> None:
         try:
+            insert_row = dict(row)
+            for field in ("response_payload", "evidence_context"):
+                insert_row[field] = _json_insert_value(insert_row[field])
             errors = self.client.insert_rows_json(
                 self.snapshots_table,
-                [dict(row)],
+                [insert_row],
                 row_ids=[str(row["capture_id"])],
             )
         except Exception as exc:

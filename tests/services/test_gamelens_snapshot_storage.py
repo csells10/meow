@@ -1,4 +1,6 @@
+import json
 import unittest
+from datetime import date
 
 from tests._gcp_stubs import install_bigquery_stub
 
@@ -42,11 +44,13 @@ class StorageClient:
     def __init__(self):
         self.query_rows = []
         self.insert_errors = []
+        self.insert_calls = []
 
     def query(self, query, job_config=None):
         return QueryResult(self.query_rows)
 
     def insert_rows_json(self, table, rows, **kwargs):
+        self.insert_calls.append((table, rows, kwargs))
         return self.insert_errors
 
 
@@ -91,7 +95,11 @@ class TestSnapshotStorage(unittest.TestCase):
             runtime_config=config(),
         )
         with self.assertRaises(BigQueryBufferPending):
-            storage.save_snapshot({"capture_id": "capture_1"})
+            storage.save_snapshot({
+                "capture_id": "capture_1",
+                "response_payload": {},
+                "evidence_context": {},
+            })
 
     def test_readback_normalizes_json_and_repeated_tags(self):
         client = StorageClient()
@@ -109,6 +117,40 @@ class TestSnapshotStorage(unittest.TestCase):
         self.assertEqual(row["response_payload"], {"header": {}})
         self.assertEqual(row["evidence_context"], {"rankings": []})
         self.assertEqual(row["lens_tags"], ["efficiency"])
+
+    def test_save_serializes_native_json_fields_for_streaming_insert(self):
+        client = StorageClient()
+        storage = BigQuerySnapshotStorage(
+            client=client,
+            runtime_config=config(),
+        )
+        row = {
+            "capture_id": "capture_1",
+            "response_payload": {"header": {"game_id": "game_1"}},
+            "evidence_context": {
+                "source_lineage": {"access_mode": "read_only"},
+                "as_of_date": date(2026, 8, 6),
+            },
+        }
+
+        storage.save_snapshot(row)
+
+        inserted = client.insert_calls[0][1][0]
+        self.assertIsInstance(inserted["response_payload"], str)
+        self.assertIsInstance(inserted["evidence_context"], str)
+        self.assertEqual(
+            json.loads(inserted["response_payload"]),
+            row["response_payload"],
+        )
+        self.assertEqual(
+            json.loads(inserted["evidence_context"]),
+            {
+                "source_lineage": {"access_mode": "read_only"},
+                "as_of_date": "2026-08-06",
+            },
+        )
+        self.assertIsInstance(row["response_payload"], dict)
+        self.assertIsInstance(row["evidence_context"], dict)
 
 
 class TestSnapshotTableSetup(unittest.TestCase):
