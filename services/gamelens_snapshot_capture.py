@@ -232,6 +232,29 @@ def _same_schedule_identity(original: Mapping, refreshed: Mapping) -> bool:
     )
 
 
+def _shared_season_type(candidates: Sequence[Mapping]) -> Optional[str]:
+    """Return the common season type only when every candidate provides it."""
+    if not candidates:
+        return None
+    season_types = []
+    for candidate in candidates:
+        header = candidate.get("header") or {}
+        season_type = str(
+            candidate.get("season_type")
+            or header.get("season_type")
+            or ""
+        ).strip()
+        if not season_type:
+            return None
+        season_types.append(season_type)
+    first = season_types[0]
+    return (
+        first
+        if all(value.casefold() == first.casefold() for value in season_types)
+        else None
+    )
+
+
 class SnapshotCaptureCoordinator:
     """Coordinate one bounded slate without HTTP calls or outcome work."""
 
@@ -414,9 +437,9 @@ class SnapshotCaptureCoordinator:
             "attempt_id": attempt_id,
             "stage_name": "snapshot_capture",
             "status": result["status"],
-            "game_id": None,
+            "game_id": requested_game_id,
             "season": self.runtime_config.active_season,
-            "season_type": None,
+            "season_type": _shared_season_type(candidates),
             "input_count": result["games_checked"],
             "output_count": result["games_captured"],
             "started_at": result["started_at"],

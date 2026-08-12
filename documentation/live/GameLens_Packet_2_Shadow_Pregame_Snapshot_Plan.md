@@ -707,6 +707,12 @@ One row is one stage receipt. The minimum fields are:
 - upstream run/stage reference; and
 - plain warning, waiting, skip, or failure reason.
 
+For an explicitly restricted one-game attempt, the receipt records that
+requested `game_id`. For a slate attempt, `game_id` remains null because the
+receipt summarizes multiple games. `season_type` is recorded only when every
+checked candidate supplies the same value; mixed or unavailable season types
+remain null rather than being guessed.
+
 Packet 2 writes the upstream Metric Pipeline reference and Snapshot Capture
 receipt. Query-cost columns and the generalized Levels 1–4/Admin shape are
 optional and may remain null or be deferred.

@@ -336,6 +336,8 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["games_captured"], 1)
         self.assertEqual(builds, [items[1]["game_id"]])
         self.assertEqual(len(storage.rows), 1)
+        self.assertEqual(storage.receipts[0]["game_id"], items[1]["game_id"])
+        self.assertEqual(storage.receipts[0]["season_type"], "Preseason")
         saved_row = next(iter(storage.rows.values()))
         self.assertEqual(
             saved_row["evidence_context"]["source_lineage"],
@@ -364,6 +366,8 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["games_checked"], 0)
         self.assertEqual(loader.load_calls, 0)
         self.assertEqual(storage.rows, {})
+        self.assertEqual(storage.receipts[0]["game_id"], "20260813_MISSING")
+        self.assertIsNone(storage.receipts[0]["season_type"])
 
     def test_slate_builds_saves_reads_and_releases_sequentially(self):
         events = []
@@ -399,6 +403,8 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         )
         self.assertEqual(loader.load_calls, 1)
         self.assertEqual(storage.receipts[0]["status"], "success")
+        self.assertIsNone(storage.receipts[0]["game_id"])
+        self.assertEqual(storage.receipts[0]["season_type"], "Preseason")
         for row in storage.rows.values():
             self.assertEqual(
                 row["learning_run_id"],
@@ -410,6 +416,29 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
             )
             self.assertNotIn("away_rankings", row["response_payload"])
             self.assertIn("away_rankings", row["evidence_context"])
+
+    def test_mixed_season_slate_does_not_invent_receipt_season_type(self):
+        items = [
+            candidate("20260813_A1@H2", "1", "2"),
+            candidate("20260813_A3@H4", "3", "4"),
+        ]
+        items[1]["header"]["season_type"] = "Regular Season"
+        items[1]["header"]["game_week"] = "Week 1"
+        loader = FakeLoader(items)
+        storage = FakeStorage()
+        coordinator = self._coordinator(
+            loader,
+            storage,
+            lambda game_id, *, evidence: payload_for(
+                next(item for item in items if item["game_id"] == game_id)
+            ),
+        )
+
+        result = self._run(coordinator)
+
+        self.assertEqual(result["status"], "success")
+        self.assertIsNone(storage.receipts[0]["game_id"])
+        self.assertIsNone(storage.receipts[0]["season_type"])
 
     def test_one_game_failure_does_not_discard_the_other(self):
         items = [
