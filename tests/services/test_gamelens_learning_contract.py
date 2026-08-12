@@ -71,6 +71,58 @@ class TestPregameCaptureContract(unittest.TestCase):
             )["eligible"]
         )
 
+    def test_postseason_is_production_eligible(self):
+        game = {**GAME, "season_type": "Postseason"}
+        self.assertEqual(
+            evaluate_capture_candidate(
+                game, captured_at=NOW, scheduled_kickoff=KICKOFF
+            ),
+            {"eligible": True, "reason": None},
+        )
+
+    def test_blank_and_unknown_season_types_skip_in_every_environment(self):
+        for season_type, reason in (
+            ("", "season_type_blank"),
+            (None, "season_type_blank"),
+            ("Kickoff Classic", "season_type_unknown"),
+        ):
+            for production in (True, False):
+                with self.subTest(
+                    season_type=season_type,
+                    production=production,
+                ):
+                    game = {**GAME, "season_type": season_type}
+                    self.assertEqual(
+                        evaluate_capture_candidate(
+                            game,
+                            captured_at=NOW,
+                            scheduled_kickoff=KICKOFF,
+                            production=production,
+                        ),
+                        {"eligible": False, "reason": reason},
+                    )
+
+    def test_game_week_is_descriptive_and_does_not_change_phase(self):
+        for season_type, game_week, production in (
+            ("Preseason", "Igloo Interception Tournament", False),
+            ("Regular Season", "Kickoff Classic", True),
+            ("Postseason", "Brand New Playoff Name", True),
+        ):
+            with self.subTest(season_type=season_type, game_week=game_week):
+                game = {
+                    **GAME,
+                    "season_type": season_type,
+                    "game_week": game_week,
+                }
+                self.assertTrue(
+                    evaluate_capture_candidate(
+                        game,
+                        captured_at=NOW,
+                        scheduled_kickoff=KICKOFF,
+                        production=production,
+                    )["eligible"]
+                )
+
     def test_postgame_fields_are_rejected_when_populated(self):
         payload = {
             "final_score": {"away": {"total": 20}, "home": {"total": 17}},

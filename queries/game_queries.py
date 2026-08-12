@@ -140,6 +140,51 @@ def get_game_header(game_id: str) -> dict:
     }
 
 
+def build_team_metrics_from_rows(
+    rows,
+    *,
+    header: dict,
+    window_type: str,
+):
+    """Map already-loaded windowed rows into the canonical service shape."""
+    away_team_id = header["away_team"]["id"]
+    home_team_id = header["home_team"]["id"]
+    season = str(header["season"])[:4]
+    away_metrics = {}
+    home_metrics = {}
+
+    for raw_row in rows:
+        row = dict(raw_row)
+        category = row.get("category")
+        metric = row.get("metric")
+        team_id = row.get("team_id")
+
+        if not category or not metric or not team_id:
+            continue
+
+        metric_key = f"{category}::{metric}"
+        metric_payload = {
+            "value": row.get("value"),
+            "metric": metric,
+            "category": category,
+            "core_area": row.get("core_area"),
+            "data_date": str(row.get("data_date")) if row.get("data_date") else None,
+            "team_id": team_id,
+            "team_abv": row.get("team_abv"),
+            "window_type": window_type,
+            "source_table": RUNTIME_CONFIG.analytics_object(
+                f"team_metrics_windowed_{season}"
+            ),
+        }
+
+        if str(team_id) == str(away_team_id):
+            away_metrics[metric_key] = metric_payload
+        elif str(team_id) == str(home_team_id):
+            home_metrics[metric_key] = metric_payload
+
+    return away_metrics, home_metrics
+
+
 def get_team_metrics(game_id: str):
     """
     Fetch pregame-safe windowed team metrics for the away/home teams.
@@ -228,39 +273,11 @@ def get_team_metrics(game_id: str):
 
     rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
 
-    away_metrics = {}
-    home_metrics = {}
-
-    for row in rows:
-        category = row.get("category")
-        metric = row.get("metric")
-        team_id = row.get("team_id")
-
-        if not category or not metric or not team_id:
-            continue
-
-        metric_key = f"{category}::{metric}"
-
-        metric_payload = {
-            "value": row.get("value"),
-            "metric": metric,
-            "category": category,
-            "core_area": row.get("core_area"),
-            "data_date": str(row.get("data_date")) if row.get("data_date") else None,
-            "team_id": team_id,
-            "team_abv": row.get("team_abv"),
-            "window_type": window_type,
-            "source_table": RUNTIME_CONFIG.analytics_object(
-                f"team_metrics_windowed_{season}"
-            ),
-        }
-
-        if str(team_id) == str(away_team_id):
-            away_metrics[metric_key] = metric_payload
-        elif str(team_id) == str(home_team_id):
-            home_metrics[metric_key] = metric_payload
-
-    return away_metrics, home_metrics
+    return build_team_metrics_from_rows(
+        rows,
+        header=header,
+        window_type=window_type,
+    )
 
 
 def get_game_profile(game_id: str):
@@ -433,6 +450,122 @@ def get_final_score(game_id: str):
             "total": home_row.get("homePts", 0),
         },
     }
+
+
+def build_team_rankings_from_rows(
+    rows,
+    *,
+    header: dict,
+    window_type: str,
+    game_id: str,
+):
+    """Map already-loaded ranking rows into the canonical service shape."""
+    away_team_id = str(header["away_team"]["id"])
+    home_team_id = str(header["home_team"]["id"])
+    game_date = header["game_date"]
+    season = str(header["season"])[:4]
+    rows = [dict(row) for row in rows]
+
+    if not rows:
+        return {}, {}, {
+            "available": False,
+            "reason": "no_ranking_rows_found",
+            "game_id": game_id,
+            "game_date": game_date,
+            "season": season,
+            "window_type": window_type,
+        }
+
+    away_rankings = {}
+    home_rankings = {}
+    as_of_dates = set()
+    source_data_dates = set()
+    data_lag_days = []
+
+    for row in rows:
+        metric = row.get("metric")
+        team_id = str(row.get("team_id"))
+
+        if not metric or not team_id:
+            continue
+
+        if row.get("as_of_date"):
+            as_of_dates.add(str(row.get("as_of_date")))
+        if row.get("source_data_date"):
+            source_data_dates.add(str(row.get("source_data_date")))
+        if row.get("data_lag_days") is not None:
+            try:
+                data_lag_days.append(int(row.get("data_lag_days")))
+            except (TypeError, ValueError):
+                pass
+
+        payload = {
+            "season": row.get("season"),
+            "as_of_date": str(row.get("as_of_date")) if row.get("as_of_date") else None,
+            "source_data_date": (
+                str(row.get("source_data_date"))
+                if row.get("source_data_date")
+                else None
+            ),
+            "data_lag_days": row.get("data_lag_days"),
+            "window_type": row.get("window_type"),
+            "team_id": row.get("team_id"),
+            "team_abv": row.get("team_abv"),
+            "metric": metric,
+            "value": row.get("value"),
+            "label": row.get("label"),
+            "definition": row.get("definition"),
+            "category": row.get("category"),
+            "core_area": row.get("core_area"),
+            "comparison_direction": row.get("comparison_direction"),
+            "higher_is_better": row.get("higher_is_better"),
+            "raw_or_derived": row.get("raw_or_derived"),
+            "aggregation_method": row.get("aggregation_method"),
+            "numerator": row.get("numerator"),
+            "denominator": row.get("denominator"),
+            "format": row.get("format"),
+            "decimals": row.get("decimals"),
+            "notes": row.get("notes"),
+            "ranking_usage": row.get("ranking_usage"),
+            "signal_strength": row.get("signal_strength"),
+            "edge_language_allowed": row.get("edge_language_allowed"),
+            "include_in_core_area_advantage": row.get("include_in_core_area_advantage"),
+            "confidence_eligible": row.get("confidence_eligible"),
+            "data_quality_status": row.get("data_quality_status"),
+            "lens_tags": row.get("lens_tags") or [],
+            "league_rank": row.get("league_rank"),
+            "league_percentile": row.get("league_percentile"),
+            "tier": row.get("tier"),
+            "tier_label": row.get("tier_label"),
+            "teams_ranked": row.get("teams_ranked"),
+            "ranking_kind": row.get("ranking_kind"),
+            "rank_direction": row.get("rank_direction"),
+            "rank_interpretation": row.get("rank_interpretation"),
+            "rank_tie_method": row.get("rank_tie_method"),
+        }
+
+        if team_id == away_team_id:
+            away_rankings[metric] = payload
+        elif team_id == home_team_id:
+            home_rankings[metric] = payload
+
+    ranking_meta = {
+        "available": bool(away_rankings or home_rankings),
+        "game_id": game_id,
+        "game_date": game_date,
+        "season": season,
+        "window_type": window_type,
+        "as_of_date": sorted(as_of_dates)[-1] if as_of_dates else None,
+        "source_data_dates": sorted(source_data_dates),
+        "max_data_lag_days": max(data_lag_days) if data_lag_days else None,
+        "away_team_id": away_team_id,
+        "home_team_id": home_team_id,
+        "away_metric_count": len(away_rankings),
+        "home_metric_count": len(home_rankings),
+    }
+    return away_rankings, home_rankings, ranking_meta
+
+
 def get_team_rankings_for_game(
     game_id: str,
     window_type=None,
@@ -558,109 +691,9 @@ def get_team_rankings_for_game(
 
     rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
 
-    if not rows:
-        return {}, {}, {
-            "available": False,
-            "reason": "no_ranking_rows_found",
-            "game_id": game_id,
-            "game_date": game_date,
-            "season": season,
-            "window_type": window_type,
-        }
-
-    away_rankings = {}
-    home_rankings = {}
-
-    as_of_dates = set()
-    source_data_dates = set()
-    data_lag_days = []
-
-    for row in rows:
-        metric = row.get("metric")
-        team_id = str(row.get("team_id"))
-
-        if not metric or not team_id:
-            continue
-
-        if row.get("as_of_date"):
-            as_of_dates.add(str(row.get("as_of_date")))
-
-        if row.get("source_data_date"):
-            source_data_dates.add(str(row.get("source_data_date")))
-
-        if row.get("data_lag_days") is not None:
-            try:
-                data_lag_days.append(int(row.get("data_lag_days")))
-            except (TypeError, ValueError):
-                pass
-
-        payload = {
-            "season": row.get("season"),
-            "as_of_date": str(row.get("as_of_date")) if row.get("as_of_date") else None,
-            "source_data_date": (
-                str(row.get("source_data_date"))
-                if row.get("source_data_date")
-                else None
-            ),
-            "data_lag_days": row.get("data_lag_days"),
-            "window_type": row.get("window_type"),
-
-            "team_id": row.get("team_id"),
-            "team_abv": row.get("team_abv"),
-
-            "metric": metric,
-            "value": row.get("value"),
-            "label": row.get("label"),
-            "definition": row.get("definition"),
-            "category": row.get("category"),
-            "core_area": row.get("core_area"),
-            "comparison_direction": row.get("comparison_direction"),
-            "higher_is_better": row.get("higher_is_better"),
-            "raw_or_derived": row.get("raw_or_derived"),
-            "aggregation_method": row.get("aggregation_method"),
-            "numerator": row.get("numerator"),
-            "denominator": row.get("denominator"),
-            "format": row.get("format"),
-            "decimals": row.get("decimals"),
-            "notes": row.get("notes"),
-
-            "ranking_usage": row.get("ranking_usage"),
-            "signal_strength": row.get("signal_strength"),
-            "edge_language_allowed": row.get("edge_language_allowed"),
-            "include_in_core_area_advantage": row.get("include_in_core_area_advantage"),
-            "confidence_eligible": row.get("confidence_eligible"),
-            "data_quality_status": row.get("data_quality_status"),
-            "lens_tags": row.get("lens_tags") or [],
-
-            "league_rank": row.get("league_rank"),
-            "league_percentile": row.get("league_percentile"),
-            "tier": row.get("tier"),
-            "tier_label": row.get("tier_label"),
-            "teams_ranked": row.get("teams_ranked"),
-            "ranking_kind": row.get("ranking_kind"),
-            "rank_direction": row.get("rank_direction"),
-            "rank_interpretation": row.get("rank_interpretation"),
-            "rank_tie_method": row.get("rank_tie_method"),
-        }
-
-        if team_id == away_team_id:
-            away_rankings[metric] = payload
-        elif team_id == home_team_id:
-            home_rankings[metric] = payload
-
-    ranking_meta = {
-        "available": bool(away_rankings or home_rankings),
-        "game_id": game_id,
-        "game_date": game_date,
-        "season": season,
-        "window_type": window_type,
-        "as_of_date": sorted(as_of_dates)[-1] if as_of_dates else None,
-        "source_data_dates": sorted(source_data_dates),
-        "max_data_lag_days": max(data_lag_days) if data_lag_days else None,
-        "away_team_id": away_team_id,
-        "home_team_id": home_team_id,
-        "away_metric_count": len(away_rankings),
-        "home_metric_count": len(home_rankings),
-    }
-
-    return away_rankings, home_rankings, ranking_meta
+    return build_team_rankings_from_rows(
+        rows,
+        header=header,
+        window_type=window_type,
+        game_id=game_id,
+    )

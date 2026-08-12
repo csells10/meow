@@ -17,7 +17,12 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 DEFAULT_LOOKAHEAD_DAYS = 2
 ELIGIBLE_GAME_STATUSES = frozenset({"scheduled"})
 FINAL_GAME_STATUSES = frozenset({"final", "final/ot"})
-REGULAR_SEASON_TYPES = frozenset({"regular", "regular season"})
+PRESEASON_TYPES = frozenset({"preseason"})
+REGULAR_SEASON_TYPES = frozenset({"regular season"})
+POSTSEASON_TYPES = frozenset({"postseason"})
+KNOWN_SEASON_TYPES = (
+    PRESEASON_TYPES | REGULAR_SEASON_TYPES | POSTSEASON_TYPES
+)
 PREGAME_CAPTURE_STATUS = "captured"
 
 # ``model_trust`` is intentionally not denied: it contains the pregame model
@@ -100,7 +105,7 @@ def evaluate_capture_candidate(
     scheduled_kickoff: datetime,
     production: bool = True,
 ) -> Dict[str, Any]:
-    """Apply the timing, status, and regular-season capture boundary."""
+    """Apply the timing, status, and exact season-phase capture boundary."""
     captured_at_utc = _utc(captured_at)
     kickoff_utc = _utc(scheduled_kickoff)
     status = _normalized_text(
@@ -114,7 +119,11 @@ def evaluate_capture_candidate(
         return {"eligible": False, "reason": "game_not_scheduled"}
     if captured_at_utc >= kickoff_utc:
         return {"eligible": False, "reason": "kickoff_reached"}
-    if production and season_type not in REGULAR_SEASON_TYPES:
+    if not season_type:
+        return {"eligible": False, "reason": "season_type_blank"}
+    if season_type not in KNOWN_SEASON_TYPES:
+        return {"eligible": False, "reason": "season_type_unknown"}
+    if production and season_type in PRESEASON_TYPES:
         return {"eligible": False, "reason": "preseason_shadow_only"}
     return {"eligible": True, "reason": None}
 
@@ -186,13 +195,14 @@ def build_capture_manifest(
     model_version: Any,
     ruleset_version: Any,
     source_dates: Optional[Mapping[str, Any]] = None,
+    production: bool = True,
 ) -> Dict[str, Any]:
     """Build auditable metadata only after eligibility and payload validation."""
     eligibility = evaluate_capture_candidate(
         game,
         captured_at=captured_at,
         scheduled_kickoff=scheduled_kickoff,
-        production=True,
+        production=production,
     )
     if not eligibility["eligible"]:
         raise ValueError(eligibility["reason"])
