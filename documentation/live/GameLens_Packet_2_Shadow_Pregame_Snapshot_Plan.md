@@ -1,8 +1,8 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** Planning review revised; no implementation started  
+**Status:** Scope reviewed; required Packet 2 proof separated from optional production hardening  
 **Created:** 2026-08-10  
-**Revised:** 2026-08-11  
+**Revised:** 2026-08-12  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No
@@ -39,9 +39,78 @@ Packet 2 does not:
 - run Levels 2–4; or
 - apply new calibration rules.
 
+## Packet 2 completion scope
+
+Packet 2 is intentionally a **small dev/shadow proof**, not the final production
+platform. This document preserves the production-hardening ideas already
+discussed, but separates them from the work required to finish Packet 2.
+
+| Track | Meaning | Can it block Packet 2 completion? |
+|---|---|---|
+| **Required — Packet 2 completion** | The minimum implementation and evidence needed to prove safe pregame snapshot capture for one game and a slate | Yes |
+| **Optional — production hardening** | Useful resilience, audit, cost, concurrency, Admin, and release work that may be attempted only after the required proof is stable | No |
+
+An optional item that is unfinished, skipped, or fails must be recorded for a
+later packet; it must not turn a successful required rehearsal into a Packet 2
+failure. Optional work must also not delay the one-game proof or expand Packet 2
+into production wiring.
+
+### Required implementation for Packet 2
+
+Packet 2 is complete only when all of the following are true:
+
+1. The Packet 1 phase rule accepts exact `Regular Season` and `Postseason`
+   production eligibility, keeps `Preseason` shadow-only, and safely skips
+   blank or unknown `seasonType` values.
+2. `GameLens_dev` and the required development tables can be created or
+   verified repeatably without destructive replacement.
+3. One coordinator invocation finds the eligible uncaptured slate and makes
+   zero internal HTTP calls to `/game`.
+4. The existing Python response logic builds in explicit read-only pregame mode,
+   without querying final scores or reaching any outcome writer.
+5. Shared schedule/metric/ranking evidence is reused across the slate rather
+   than running the existing helper/query stack independently for every game.
+6. Matchups are built, saved, verified, and released sequentially so the
+   completed slate is not retained in memory.
+7. BigQuery saves separate `response_payload` and `evidence_context`, while
+   preserving relevant `lens_tags` as arrays.
+8. A saved response can be read back and compared with the canonical builder
+   output without running Level 1.
+9. An identical retry is detected before response rebuilding and creates no
+   second canonical snapshot.
+10. A simple Snapshot Capture stage receipt explains success, no-op, waiting,
+    partial failure, or failure.
+11. The one-game proof and slate rehearsal record enough runtime/memory evidence
+    to judge whether the design is safe.
+12. No production table, route, frontend, scheduler, Level 1, or outcome behavior
+    changes.
+
+### Optional production-hardening track
+
+The following decisions remain preserved, but they are not Packet 2 completion
+gates:
+
+- immutable GCS `payload.json`, `evidence_context.json`, and
+  `manifest.json` copies;
+- hashes and cross-store GCS/BigQuery finalization;
+- resumable recovery after one store succeeds and the other fails;
+- simultaneous retry/concurrency protection;
+- quarantine handling for genuinely conflicting payloads;
+- automated bounded readiness polling and backoff;
+- complete postponed/rescheduled-game audit lifecycle;
+- detailed BigQuery bytes, slot-millisecond, and per-step timing accounting;
+- a generalized `pipeline_runs` ledger;
+- generalized `stage_runs` support for future Levels 1–4;
+- a real Admin or frontend inspection surface; and
+- production trigger, dataset, Cloud Run execution, and retention decisions.
+
+These items can be implemented during Packet 2 if they remain small and do not
+delay the required proof. Otherwise they move intact to a later hardening or
+release packet.
+
 ## Decisions agreed before implementation
 
-### 1. `seasonType` decides the season phase
+### 1. `seasonType` decides the season phase — Required
 
 The exact schedule values are:
 
@@ -66,7 +135,7 @@ Regular-season and postseason games use the same capture machinery. Every
 saved record retains `season_type`, so the learning reports can keep their
 conclusions separate without creating two competing pipelines.
 
-### 2. Candidate discovery is separate from capture permission
+### 2. Candidate discovery is separate from capture permission — Required minimum
 
 The today-plus-two-day Schedule window identifies games to inspect; it does not
 mean every discovered game should be frozen immediately. Packet 2 keeps three
@@ -82,14 +151,17 @@ kickoff. The eventual production capture time remains a later release decision.
 This prevents a Thursday game from accidentally becoming permanently canonical
 on Tuesday merely because it entered the lookahead window.
 
-Immediately before finalizing each snapshot, the coordinator must re-read or
-verify the authoritative Schedule identity and confirm that the game is still
-`Scheduled`, the current time is strictly before kickoff, and the kickoff has
-not changed. A postponed or rescheduled game keeps its old attempt as audit
-history and receives a new capture identity for the new schedule identity; the
-old snapshot must not be served as current.
+Immediately before saving each required proof snapshot, the coordinator must
+re-read or verify the authoritative Schedule identity and confirm that the game
+is still `Scheduled`, the current time is strictly before kickoff, and the
+kickoff has not changed. If any value changed, Packet 2 must skip safely and
+record the reason.
 
-### 3. GameLens receives its own BigQuery datasets
+Preserving complete audit history and automatically deriving the new current
+identity for postponed or rescheduled games remains an **optional
+production-hardening item**.
+
+### 3. GameLens receives its own BigQuery datasets — Required
 
 The new learning/snapshot tables will not be added to the increasingly busy
 `Analytics` dataset.
@@ -108,7 +180,7 @@ verify or preserve matching objects rather than destroy data.
 Packet 2 creates or uses only `GameLens_dev`. Creating or writing `GameLens`
 belongs to a later explicit production release step.
 
-### 4. BigQuery serves the saved result; GCS preserves the raw copy
+### 4. BigQuery serves the saved result — Required; GCS hardening — Optional
 
 BigQuery stores two related but deliberately separate JSON documents:
 
@@ -123,12 +195,16 @@ learning metadata. Packet 2 must compare the saved `response_payload` with the
 canonical pregame builder output; adding `evidence_context` must not quietly
 change the frontend response schema.
 
-GCS stores immutable `payload.json`, `evidence_context.json`, and
-`manifest.json` copies for audit and recovery. A capture becomes canonical
-only after all required objects exist, their recorded hashes match, and the
-final BigQuery row has been read back successfully.
+For Packet 2 completion, a capture becomes canonical after the BigQuery row is
+written once, read back successfully, and verified against the stable capture
+identity and `response_payload`. Packet 2 must not immediately update, delete,
+or replace that newly streamed row.
 
-The resumable save order is:
+#### Optional GCS and cross-store hardening
+
+GCS may also store immutable `payload.json`, `evidence_context.json`, and
+`manifest.json` copies for audit and recovery. When this optional track is
+implemented, the fuller resumable save order is:
 
 1. Derive the stable capture identity and hashes.
 2. Create the immutable GCS objects with no-overwrite/generation protection.
@@ -145,17 +221,22 @@ and is quarantined. Concurrent retries must use the same deterministic
 identity and no-overwrite checks so only one identical capture can become
 canonical.
 
-The first successful capture after the capture policy permits it is canonical.
-A retry checks for that complete canonical capture before rebuilding the
-response or writing another object. `/game` does not run Level 1 and does not
-rebuild the analysis because a user opened the page.
+The first successful BigQuery capture after the capture policy permits it is
+canonical for the required Packet 2 proof. A retry checks for that complete
+canonical capture before rebuilding the response or writing another row.
+`/game` does not run Level 1 and does not rebuild the analysis because a user
+opened the page.
 
-Packet 2 supersedes Packet 1's provisional `Analytics.gamelens_*` table
-locations with `GameLens_dev.pregame_snapshots`, `pipeline_runs`, and
-`stage_runs`. Packet 1 should later receive a matching documentation cleanup;
-this location change does not alter its safety rules.
+GCS presence, manifest verification, cross-store hashes, resumable recovery,
+concurrent retries, and conflict quarantine remain optional hardening and do
+not block Packet 2 completion.
 
-### 5. `lens_tags` is protected metadata
+Packet 2 and the aligned Packet 1 contract use
+`GameLens_dev.pregame_snapshots` and `GameLens_dev.stage_runs` for the
+required shadow proof. `pipeline_runs` is preserved as optional generalized
+run-ledger work. These locations do not alter Packet 1's safety rules.
+
+### 5. `lens_tags` is protected metadata — Required
 
 `lens_tags` is a useful product and learning contract, not decoration. For
 example, one passing metric can carry `passing-efficiency`, `explosiveness`,
@@ -177,7 +258,7 @@ for the slate; it does not run a separate tag query per game or per metric.
 
 Packet 2 must:
 
-- preserve each relevant metric's existing `lens_tags` inside the frozen response;
+- preserve each relevant metric's existing `lens_tags` inside `evidence_context`;
 - save a de-duplicated snapshot-level `lens_tags` array for simple BigQuery
   filtering and later Admin/frontend exploration;
 - preserve the established shape: Python `list[str]`, BigQuery
@@ -188,11 +269,11 @@ Packet 2 must:
 Packet 3 can attach the relevant tags to individual Level 1 claims. Later,
 Level 4 can compare tagged evidence week over week.
 
-### 6. Every stage leaves a readable receipt
+### 6. Snapshot Capture leaves a readable receipt — Required minimum
 
-`stage_runs` is the simple review surface for the Metric Pipeline, Snapshot
-Capture, and Levels 1–4. It should make the current state understandable
-without reading Cloud logs.
+`stage_runs` is the simple review surface for the upstream Metric Pipeline
+reference and Packet 2 Snapshot Capture result. It must make the required
+rehearsal understandable without reading Cloud logs.
 
 Example:
 
@@ -205,11 +286,14 @@ Level 3: waiting for Level 2
 Level 4: not scheduled
 ```
 
-Level 1 will later link back to the Metric Pipeline and snapshot records it
-used. It should not copy the full Facts, Windowed Metrics, and Rankings run
-report into every claim.
+For Packet 2, the receipt only needs the run/attempt identity, game when
+applicable, stage name, status, counts, timestamps/duration, upstream reference,
+and a plain reason. Generalizing this table for Levels 1–4, query-cost details,
+and a future Admin view remains optional. Level 1 will later link back to the
+Metric Pipeline and snapshot records it used rather than copying full upstream
+reports into every claim.
 
-### 7. Query reuse and cost control are Packet 2 work, not later cleanup
+### 7. Shared evidence and memory-safe slate processing — Required
 
 The current `get_game_details(game_id)` path is correct for one live request,
 but it was not designed as a slate-wide capture loop. Its helpers can fetch
@@ -248,20 +332,24 @@ mode should return the same pregame product sections while making the
 postgame-only path unreachable. This is both a safety boundary and one less
 unnecessary query during batch capture.
 
-#### Required cost and runtime evidence
+#### Required minimum runtime evidence
 
-For both the one-game proof and the rehearsal slate, record:
+For both the one-game proof and rehearsal slate, record:
 
 - eligible games found;
 - games skipped because a canonical snapshot already exists;
+- confirmation of zero internal HTTP `/game` calls;
+- total run duration;
+- peak memory or the best available observed memory evidence; and
+- Cloud Run memory/timeout outcome if the rehearsal runs there.
+
+The following measurements are useful but **optional** for Packet 2 completion:
+
 - BigQuery query-job count;
 - total bytes processed;
-- total slot milliseconds when available;
-- response-build time;
-- save/read-back time;
-- total run duration; and
-- peak memory for the one-game proof and slate rehearsal; and
-- Cloud Run memory/timeout outcome when the rehearsal runs there.
+- total slot milliseconds;
+- response-build time; and
+- save/read-back time.
 
 The acceptance rule is not an invented fixed query number. The evidence must
 show that repeated header/evidence lookups were removed and that query growth
@@ -274,21 +362,28 @@ rehearsal may be launched manually against dev, where timing can be observed
 without changing production traffic. The later production trigger will run
 after the daily data/metric work and before users request the saved result.
 
-### 8. Source readiness and BigQuery settling are explicit gates
+### 8. Source readiness and BigQuery buffer safety — Required minimum
 
 The existing Metric Pipeline is ordered Facts → Windowed Metrics → Rankings,
 but it is not transactional. A successful Facts write can remain even when a
 later stage fails. Snapshot Capture therefore must not treat “some rows exist”
 as proof that the pregame evidence is ready.
 
-Before building any response, the coordinator must verify that:
+Before building any required proof response, the coordinator must verify that:
 
-- the upstream Metric Pipeline run reports the required stages successful;
-- Facts, Windowed Metrics, and Rankings references/as-of dates belong to the
-  same accepted run state;
-- expected early-season absence is distinguishable from a failed or partial
-  upstream build; and
-- the observed table state stays consistent through a bounded readiness check.
+- the known upstream Metric Pipeline attempt did not end in a failed or partial
+  state;
+- the required Facts, Windowed Metrics, and Rankings evidence can be read
+  consistently for the rehearsal;
+- expected early-season absence is distinguishable from an upstream failure;
+  and
+- a BigQuery buffer restriction is treated as a safe `waiting/retryable`
+  result, never as permission for a blind full rerun.
+
+Automated same-run lineage reconciliation, repeated stability polling, bounded
+backoff, and detailed readiness-wait accounting remain optional production
+hardening. The required Packet 2 behavior may stop safely and tell Christian
+when to retry.
 
 Expected early-season missing rankings may produce an honest unavailable
 section. A failed, partial, or internally inconsistent Metric Pipeline must
@@ -311,23 +406,24 @@ Packet 2 must preserve that lesson:
   avoiding a stream-then-immediate-mutate design;
 - a BigQuery streaming-buffer restriction is recorded as
   `waiting/retryable`, not as corrupt data;
-- retry uses bounded backoff and rechecks the exact row/table condition before
-  continuing; it does not blindly rerun the whole Metric Pipeline or rebuild
-  an already-hashed response; and
-- the rehearsal records readiness-wait duration and retry count separately
-  from response-build time.
+- the required proof stops safely, reports `waiting/retryable`, and does not
+  blindly rerun the Metric Pipeline or rebuild an already-saved response;
+- automatic bounded backoff and exact condition rechecking are optional
+  hardening; and
+- detailed readiness-wait duration and retry-count reporting are optional
+  measurements.
 
-No arbitrary fixed sleep is considered proof of readiness. The implementation
-must wait on observable stage/table conditions and preserve a clear timeout
-that stops safely before kickoff.
+No arbitrary fixed sleep is considered proof of readiness. Required Packet 2
+behavior may stop safely before kickoff; automated waiting on observable
+conditions belongs to the optional hardening track.
 
 ## Proposed saved records
 
-### `GameLens_dev.pregame_snapshots`
+### `GameLens_dev.pregame_snapshots` — Required
 
 One row represents one canonical game snapshot. It should contain:
 
-- `capture_id`, `learning_run_id`, `pipeline_run_id`, and `game_id`;
+- `capture_id` and `game_id`; optional `learning_run_id` and `pipeline_run_id` when available;
 - environment, season, exact `season_type`, game week, and scheduled kickoff;
 - candidate-discovery timestamp, capture-policy decision, capture timestamp, and state;
 - exact ready-to-serve `response_payload` in a BigQuery JSON field;
@@ -335,14 +431,14 @@ One row represents one canonical game snapshot. It should contain:
 - de-duplicated snapshot-level `lens_tags` as `REPEATED STRING`;
 - metric/ranking source dates and ranking availability;
 - Facts, Windowed Metrics, and Rankings source/run references when available;
-- model, ruleset, feature, and formula versions;
-- response-payload hash, evidence-context hash, and manifest hash;
-- GCS payload/manifest object locations; and
-- a plain skip, quarantine, or error reason when appropriate.
+- available model/ruleset/feature/formula versions;
+- a stable response-payload hash for retry comparison;
+- optional evidence/manifest hashes and GCS object locations; and
+- a plain skip, waiting, conflict, or error reason when appropriate.
 
 The table's game/capture identity must prevent duplicate canonical rows.
 
-### `GameLens_dev.pipeline_runs`
+### `GameLens_dev.pipeline_runs` — Optional generalized ledger
 
 One row summarizes the whole shadow Learning Pipeline attempt:
 
@@ -354,7 +450,7 @@ One row summarizes the whole shadow Learning Pipeline attempt:
 - the upstream Metric Pipeline run reference; and
 - warnings plus a plain failure/no-op reason.
 
-### `GameLens_dev.stage_runs`
+### `GameLens_dev.stage_runs` — Required minimum receipt
 
 One row is one stage receipt. The minimum fields are:
 
@@ -369,11 +465,11 @@ One row is one stage receipt. The minimum fields are:
 - upstream run/stage reference; and
 - plain warning, waiting, skip, or failure reason.
 
-Packet 2 writes Metric Pipeline reference and Snapshot Capture receipts. The
-same shape is reserved for Levels 1–4 so Admin can eventually show every step
-consistently.
+Packet 2 writes the upstream Metric Pipeline reference and Snapshot Capture
+receipt. Query-cost columns and the generalized Levels 1–4/Admin shape are
+optional and may remain null or be deferred.
 
-### GCS raw copy
+### GCS raw copy — Optional production hardening
 
 Proposed location:
 
@@ -398,14 +494,16 @@ be unavailable. That is acceptable when the saved response explains why.
 3. Select one scheduled preseason game before kickoff.
 4. Build its response from explicitly loaded, read-only pregame evidence.
 5. Recheck status, kickoff, and schedule identity immediately before finalize.
-6. Save it through the resumable GCS-then-BigQuery protocol.
-7. Read it back through the dev snapshot-reading path.
+6. Save one canonical BigQuery row without immediately mutating it.
+7. Read it back through a simple dev snapshot-reading script, service function,
+   or equivalent inspection path.
 8. Compare the saved `response_payload` with the canonical response builder
    output and inspect the separate `evidence_context`.
 9. Repeat the capture and prove the retry performs no rebuild and creates no
-   second canonical row/object.
-10. Review stage receipts, readiness waits/retries, and query/runtime
-    measurements.
+   second canonical BigQuery row.
+10. Review the simple stage receipt and required runtime/memory evidence.
+11. If optional GCS hardening is attempted, test it only after the BigQuery proof
+    is already passing.
 
 ### Slate-shaped proof
 
@@ -428,40 +526,58 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 
 | View | Evidence |
 |---|---|
-| Dev frontend or saved-response preview | The exact saved pregame sections, including honest unavailable explanations |
-| BigQuery snapshot row | Game identity, phase, timestamps, state, source references, versions, `lens_tags`, payload, and GCS locations |
-| BigQuery pipeline/stage receipts | Metric Pipeline and Snapshot Capture status, counts, timing, query cost, and plain reasons |
-| GCS objects | One immutable payload and manifest for each successful canonical capture |
-| Retry evidence | Same capture identity, zero rebuild work, and unchanged row/object counts |
+| Required saved-response read-back | The exact saved pregame sections, including honest unavailable explanations |
+| Required BigQuery snapshot row | Game identity, phase, timestamps, state, source references, `lens_tags`, `response_payload`, and `evidence_context` |
+| Required stage receipt | Metric Pipeline reference and Snapshot Capture status, counts, timing, and plain reason |
+| Required retry evidence | Same capture identity, zero rebuild work, and unchanged canonical-row count |
+| Optional GCS inspection | Immutable payload, evidence context, and manifest when that hardening track is implemented |
+| Optional frontend/Admin view | A richer human inspection surface after the simple read-back proof works |
 
-## Required edge-case checks
+## Test procedures
 
-- no games scheduled;
-- games present but none eligible;
-- scheduled game before kickoff;
-- exactly-at-kickoff rejection;
-- candidate discovered before the capture policy permits freezing;
-- status/kickoff recheck immediately before canonical finalize;
-- postponed or rescheduled game retains audit history but uses a new current
-  capture identity;
+### Required Packet 2 tests
+
+- no games scheduled produces a successful no-op;
+- games present but none eligible produces a plain skip/no-op;
 - exact `Preseason`, `Regular Season`, and `Postseason` handling;
-- unfamiliar `gameWeek` label with a valid `seasonType`;
+- unfamiliar `gameWeek` with a valid `seasonType`;
 - blank/unknown `seasonType` safe skip;
-- first preseason game with no prior team evidence;
-- missing rankings caused by honest early-season absence;
-- partial or inconsistent Facts → Windowed Metrics → Rankings state blocks capture;
-- BigQuery streaming-buffer restriction produces bounded waiting/retry rather
-  than a blind full rerun;
-- missing or malformed `lens_tags`;
-- blank/malformed payload;
-- pregame mode performs no final-score query;
-- identical retry skipped before response rebuild;
-- GCS success followed by BigQuery-finalize failure resumes without rebuilding;
-- simultaneous identical retries produce one canonical capture;
-- conflicting retry quarantined;
-- one game failing without losing other slate results;
-- no Model Outcome write; and
-- no production table, route, or frontend change.
+- scheduled game strictly before kickoff;
+- exactly-at-kickoff rejection;
+- status/kickoff identity recheck immediately before saving;
+- first preseason game with honest missing prior-team evidence;
+- expected missing rankings differs from failed/partial upstream work;
+- `lens_tags` remain arrays in `evidence_context` and the snapshot-level field;
+- malformed tags or payload fail only the affected game with a plain reason;
+- pregame mode performs no final-score query and no Model Outcome write;
+- one coordinator uses shared evidence and makes zero internal HTTP `/game`
+  calls;
+- matchups build/save/release sequentially;
+- identical retry skips before rebuild and creates no duplicate canonical row;
+- one game failure does not discard other slate results;
+- BigQuery streaming-buffer restriction stops as `waiting/retryable` without
+  an immediate mutation or blind Metric Pipeline rerun;
+- saved `response_payload` reads back equal to the canonical builder output;
+- simple `stage_runs` receipt is understandable; and
+- no production table, route, scheduler, Level, outcome, or frontend change.
+
+### Optional hardening tests
+
+These tests remain documented but do not block Packet 2 completion:
+
+- postponed/rescheduled game preserves full audit history and derives the new
+  current capture identity;
+- GCS objects use no-overwrite/generation protection;
+- GCS success followed by BigQuery failure resumes without rebuilding;
+- BigQuery success followed by manifest failure resumes safely;
+- payload, evidence, and manifest hashes agree across stores;
+- simultaneous identical retries create one canonical capture;
+- genuinely conflicting retry is quarantined;
+- automated bounded readiness polling stops safely before kickoff;
+- query count, bytes processed, slot milliseconds, and per-step timings are
+  captured;
+- generalized `pipeline_runs` and Levels 1–4 receipts work; and
+- dev frontend/Admin inspection uses the saved snapshot.
 
 ## DRY boundary
 
@@ -480,39 +596,32 @@ Packet 1 identity/eligibility contract, configured environment clients, metric
 metadata, and summary patterns. It must not copy matchup, model, calibration,
 or claim logic.
 
-## Stop/go questions
+## Packet 2 completion decision
 
-Packet 2 receives GO only when Christian can answer yes to all of these:
+Packet 2 receives GO when Christian can answer yes to every **required** question:
 
-- Can I see when a game became a candidate, when capture was permitted, and exactly when it was frozen?
-- Can I open the saved payload without searching logs?
-- Can the dev preview/read path use the saved payload without running Level 1?
-- Did the retry skip before rebuilding and create zero duplicates?
-- Is `seasonType` authoritative even when `gameWeek` is unfamiliar?
-- Is preseason clearly excluded from production evidence?
-- Are regular season and postseason captured by one system but reviewed
-  separately for learning?
-- Are the exact `response_payload` and richer `evidence_context` stored
-  separately?
-- Are the existing Facts/Windowed/Rankings `lens_tags` reused without a
-  separate per-game tag retrieval path, preserved as arrays inside
-  `evidence_context`, and easy to inspect?
-- Can I see Metric Pipeline and Snapshot Capture receipts in `stage_runs`?
+- Did the phase tests pass, with preseason isolated from production evidence?
 - Did one coordinator process the slate through the shared Python builder with
   zero internal HTTP `/game` calls?
-- Were responses saved and released one at a time instead of retaining the
-  completed slate in memory?
-- Did the implementation remove repeated evidence/header fetches rather than
-  postpone that work?
-- Can I see query count, bytes processed, runtime, readiness-wait duration,
-  and retry count for one game and the rehearsal slate?
-- Did partial upstream data or a BigQuery streaming-buffer restriction stop
-  safely without freezing inconsistent evidence or blindly rerunning the
-  entire Metric Pipeline?
-- Can an interrupted GCS/BigQuery save resume to one verified canonical
-  snapshot?
-- Did the capture avoid every outcome write?
-- Is production still unchanged?
+- Were responses built, saved, verified, and released one at a time?
+- Did the implementation reuse shared evidence rather than repeat the full
+  helper/query stack for every matchup?
+- Did pregame mode avoid final-score queries and every outcome write?
+- Are `response_payload` and `evidence_context` separate?
+- Did relevant `lens_tags` survive as arrays without a new per-game tag path?
+- Can the saved payload be read back without running Level 1?
+- Did an identical retry skip before rebuilding and create zero duplicate
+  canonical rows?
+- Did a partial upstream state or BigQuery buffer restriction stop safely
+  without freezing inconsistent evidence or blindly rerunning the Metric
+  Pipeline?
+- Can Christian understand the simple Snapshot Capture receipt?
+- Did the one-game and slate proofs provide understandable runtime/memory
+  evidence?
+- Is production unchanged?
+
+The optional hardening checklist is reviewed separately. Unfinished optional
+items are recorded for later; they do not change a required GO into NO-GO.
 
 ## Decisions intentionally left for later release packets
 
@@ -531,6 +640,7 @@ and retry evidence rather than assumptions.
 ## Documentation handoff
 
 When Packet 2 is implemented, this file must be updated with exact files,
-schemas, focused tests, query-job/bytes/runtime measurements, observed
-row/object counts, production impact, commit, and the one next packet. Packet 3
+schemas, required focused tests, observed runtime/memory and row counts,
+optional hardening completed or deferred, production impact, commit, and the
+one next packet. Packet 3
 does not begin until that review is understandable.
