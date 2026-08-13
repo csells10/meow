@@ -10,8 +10,10 @@ from runtime_config import RuntimeConfig, load_runtime_config
 from services.gamelens_snapshot_storage import (
     GAMELENS_DEV_DATASET,
     PREGAME_SNAPSHOTS_TABLE,
+    STAGE_GAME_RESULTS_TABLE,
     STAGE_RUNS_TABLE,
     pregame_snapshot_schema,
+    stage_game_result_schema,
     stage_run_schema,
 )
 
@@ -45,6 +47,7 @@ def ensure_gamelens_snapshot_tables(
     table_specs = {
         PREGAME_SNAPSHOTS_TABLE: pregame_snapshot_schema(),
         STAGE_RUNS_TABLE: stage_run_schema(),
+        STAGE_GAME_RESULTS_TABLE: stage_game_result_schema(),
     }
     verified = []
     for table_name, expected_schema in table_specs.items():
@@ -56,6 +59,12 @@ def ensure_gamelens_snapshot_tables(
                 field="captured_at",
             )
             table.clustering_fields = ["game_id", "season_type"]
+        elif table_name == STAGE_GAME_RESULTS_TABLE:
+            table.time_partitioning = bigquery.TimePartitioning(
+                type_=bigquery.TimePartitioningType.DAY,
+                field="recorded_at",
+            )
+            table.clustering_fields = ["attempt_id", "game_id", "status"]
         client.create_table(table, exists_ok=True)
         actual = client.get_table(table_id)
         if _schema_signature(actual.schema) != _schema_signature(expected_schema):
