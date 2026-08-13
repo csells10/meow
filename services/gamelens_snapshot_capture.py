@@ -255,6 +255,63 @@ def _shared_season_type(candidates: Sequence[Mapping]) -> Optional[str]:
     )
 
 
+def build_stage_game_result_rows(
+    *,
+    attempt_id: str,
+    game_results: Sequence[Mapping[str, Any]],
+    candidates: Sequence[Mapping[str, Any]],
+    default_season: str,
+    upstream_run_id: Optional[str],
+    recorded_at: str,
+) -> list:
+    """Build the durable per-game audit complement to one stage receipt."""
+    candidates_by_game = {
+        str(candidate.get("game_id")): candidate
+        for candidate in candidates
+        if candidate.get("game_id")
+    }
+    rows = []
+    for game_result in game_results:
+        game_id = str(game_result.get("game_id") or "").strip()
+        if not game_id:
+            raise ValueError("stage_game_result_game_id_missing")
+        candidate = candidates_by_game.get(game_id) or {}
+        header = candidate.get("header") or {}
+        status = str(game_result.get("status") or "").strip()
+        eligible = game_result.get("eligible")
+        if eligible is None:
+            eligible = status != "skipped"
+        rows.append({
+            "attempt_id": attempt_id,
+            "stage_name": "snapshot_capture",
+            "game_id": game_id,
+            "capture_id": game_result.get("capture_id"),
+            "learning_run_id": game_result.get("learning_run_id"),
+            "season": (
+                game_result.get("season")
+                or candidate.get("season")
+                or header.get("season")
+                or default_season
+            ),
+            "season_type": (
+                game_result.get("season_type")
+                or candidate.get("season_type")
+                or header.get("season_type")
+            ),
+            "status": status,
+            "reason": game_result.get("reason"),
+            "eligible": bool(eligible),
+            "rebuilt": bool(game_result.get("rebuilt", False)),
+            "input_count": 1,
+            "output_count": 1 if status == "success" else 0,
+            "upstream_run_id": upstream_run_id,
+            "recorded_at": recorded_at,
+            "is_backfill": False,
+            "backfill_source": None,
+        })
+    return rows
+
+
 class SnapshotCaptureCoordinator:
     """Coordinate one bounded slate without HTTP calls or outcome work."""
 
@@ -424,11 +481,24 @@ class SnapshotCaptureCoordinator:
             )
             if not readiness.get("ready"):
                 waiting = readiness.get("status") == "waiting"
+                game_status = "waiting" if waiting else "failure"
+                game_reason = (
+                    readiness.get("reason") or "upstream_not_ready"
+                )
                 result["status"] = "waiting" if waiting else "failure"
-                result["reason"] = readiness.get("reason") or "upstream_not_ready"
+                result["reason"] = game_reason
                 result["games_waiting" if waiting else "games_failed"] += len(
                     uncaptured
                 )
+                result["game_results"].extend({
+                    "game_id": candidate["game_id"],
+                    "eligible": True,
+                    "capture_id": candidate["capture_id"],
+                    "learning_run_id": candidate["learning_run_id"],
+                    "status": game_status,
+                    "reason": game_reason,
+                    "rebuilt": False,
+                } for candidate in uncaptured)
             else:
                 self._capture_uncaptured(
                     uncaptured,
@@ -446,6 +516,36 @@ class SnapshotCaptureCoordinator:
             (perf_counter() - started_clock) * 1000
         )
         result["peak_memory_mb"] = _peak_memory_mb()
+        result["stage_game_results"] = "not_applicable"
+        try:
+            detail_rows = build_stage_game_result_rows(
+                attempt_id=attempt_id,
+                game_results=result["game_results"],
+                candidates=candidates,
+                default_season=self.runtime_config.active_season,
+                upstream_run_id=result.get("upstream_run_id"),
+                recorded_at=result["finished_at"],
+            )
+            if detail_rows:
+                detail_write = self.storage.write_stage_game_results(
+                    detail_rows
+                )
+                result["stage_game_results"] = "saved"
+                result["stage_game_result_counts"] = detail_write
+        except BigQueryBufferPending as exc:
+            result["stage_game_results"] = "waiting/retryable"
+            result["stage_game_results_reason"] = str(exc)
+            self._mark_observability_failure(
+                result,
+                reason="stage_game_results_waiting",
+            )
+        except Exception as exc:
+            result["stage_game_results"] = "failed"
+            result["stage_game_results_reason"] = str(exc)
+            self._mark_observability_failure(
+                result,
+                reason="stage_game_results_write_failed",
+            )
         receipt = {
             "attempt_id": attempt_id,
             "stage_name": "snapshot_capture",
@@ -471,6 +571,12 @@ class SnapshotCaptureCoordinator:
             result["stage_receipt"] = "failed"
             result["stage_receipt_reason"] = str(exc)
         return result
+
+    @staticmethod
+    def _mark_observability_failure(result: dict, *, reason: str) -> None:
+        if result["status"] in {"success", "no_op"}:
+            result["status"] = "partial_failure"
+            result["reason"] = reason
 
     def _prepare_candidate(
         self,
@@ -534,10 +640,28 @@ class SnapshotCaptureCoordinator:
         except BigQueryBufferPending as exc:
             result["games_waiting"] += len(uncaptured)
             result["reason"] = str(exc)
+            result["game_results"].extend({
+                "game_id": candidate["game_id"],
+                "eligible": True,
+                "capture_id": candidate["capture_id"],
+                "learning_run_id": candidate["learning_run_id"],
+                "status": "waiting",
+                "reason": f"bigquery_buffer:{exc}",
+                "rebuilt": False,
+            } for candidate in uncaptured)
             return
         except Exception as exc:
             result["games_failed"] += len(uncaptured)
             result["reason"] = f"slate_evidence_load_failed:{exc}"
+            result["game_results"].extend({
+                "game_id": candidate["game_id"],
+                "eligible": True,
+                "capture_id": candidate["capture_id"],
+                "learning_run_id": candidate["learning_run_id"],
+                "status": "failure",
+                "reason": result["reason"],
+                "rebuilt": False,
+            } for candidate in uncaptured)
             return
 
         for candidate in uncaptured:
@@ -638,6 +762,8 @@ class SnapshotCaptureCoordinator:
                 result["game_results"].append({
                     "game_id": game_id,
                     "capture_id": manifest["capture_id"],
+                    "learning_run_id": manifest["learning_run_id"],
+                    "eligible": True,
                     "status": "success",
                     "reason": None,
                     "rebuilt": True,
@@ -650,16 +776,22 @@ class SnapshotCaptureCoordinator:
                 result["game_results"].append({
                     "game_id": game_id,
                     "capture_id": candidate["capture_id"],
+                    "learning_run_id": candidate["learning_run_id"],
+                    "eligible": True,
                     "status": "waiting",
                     "reason": f"bigquery_buffer:{exc}",
+                    "rebuilt": False,
                 })
             except Exception as exc:
                 result["games_failed"] += 1
                 result["game_results"].append({
                     "game_id": game_id,
                     "capture_id": candidate["capture_id"],
+                    "learning_run_id": candidate["learning_run_id"],
+                    "eligible": True,
                     "status": "failure",
                     "reason": str(exc),
+                    "rebuilt": False,
                 })
 
     @staticmethod

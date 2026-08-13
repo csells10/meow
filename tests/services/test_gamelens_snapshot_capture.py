@@ -19,7 +19,10 @@ from services.gamelens_snapshot_capture import (
     readiness_from_metric_pipeline_summary,
     semantic_json_diff,
 )
-from services.gamelens_snapshot_storage import BigQueryBufferPending
+from services.gamelens_snapshot_storage import (
+    BigQueryBufferPending,
+    SnapshotStorageError,
+)
 
 
 NOW = datetime(2026, 8, 13, 16, 0, tzinfo=timezone.utc)
@@ -127,9 +130,11 @@ class FakeStorage:
     def __init__(self, events=None):
         self.rows = {}
         self.receipts = []
+        self.game_result_batches = []
         self.events = events if events is not None else []
         self.buffer_on_save = False
         self.mutate_readback = False
+        self.fail_game_result_write = False
 
     def find_capture(self, capture_id):
         self.events.append(f"find:{capture_id}")
@@ -151,6 +156,17 @@ class FakeStorage:
 
     def write_stage_receipt(self, receipt):
         self.receipts.append(dict(receipt))
+
+    def write_stage_game_results(self, rows):
+        if self.fail_game_result_write:
+            raise SnapshotStorageError("detail insert failed")
+        copied = [copy.deepcopy(dict(row)) for row in rows]
+        self.game_result_batches.append(copied)
+        return {
+            "input_count": len(copied),
+            "inserted_count": len(copied),
+            "existing_count": 0,
+        }
 
 
 class TestSnapshotCaptureCoordinator(unittest.TestCase):
@@ -227,6 +243,13 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
             storage.receipts[0]["reason"],
             "canonical_capture_exists",
         )
+        detail = storage.game_result_batches[0][0]
+        self.assertEqual(detail["attempt_id"], result["attempt_id"])
+        self.assertEqual(detail["game_id"], item["game_id"])
+        self.assertEqual(detail["capture_id"], capture_id)
+        self.assertEqual(detail["status"], "no_op")
+        self.assertFalse(detail["rebuilt"])
+        self.assertEqual(detail["output_count"], 0)
 
     def test_corrupt_existing_capture_fails_without_rebuilding(self):
         item = candidate("20260813_A1@H2", "1", "2")
@@ -315,6 +338,8 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["reason"], "no_games_scheduled")
         self.assertEqual(result["games_checked"], 0)
         self.assertEqual(storage.receipts[0]["status"], "no_op")
+        self.assertEqual(result["stage_game_results"], "not_applicable")
+        self.assertEqual(storage.game_result_batches, [])
 
     def test_one_game_proof_restricts_capture_before_evidence_load(self):
         items = [
@@ -421,6 +446,24 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(storage.receipts[0]["status"], "success")
         self.assertIsNone(storage.receipts[0]["game_id"])
         self.assertEqual(storage.receipts[0]["season_type"], "Preseason")
+        details = storage.game_result_batches[0]
+        self.assertEqual(len(details), 2)
+        self.assertEqual(
+            [detail["game_id"] for detail in details],
+            [item["game_id"] for item in items],
+        )
+        self.assertEqual(
+            {detail["attempt_id"] for detail in details},
+            {result["attempt_id"]},
+        )
+        self.assertEqual(
+            {detail["status"] for detail in details},
+            {"success"},
+        )
+        self.assertEqual(
+            {detail["output_count"] for detail in details},
+            {1},
+        )
         for row in storage.rows.values():
             self.assertEqual(
                 row["learning_run_id"],
@@ -474,6 +517,17 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["games_failed"], 1)
         self.assertEqual(result["games_captured"], 1)
         self.assertEqual(len(storage.rows), 1)
+        details = storage.game_result_batches[0]
+        self.assertEqual(
+            {
+                detail["game_id"]: detail["status"]
+                for detail in details
+            },
+            {
+                items[0]["game_id"]: "failure",
+                items[1]["game_id"]: "success",
+            },
+        )
 
     def test_streaming_buffer_is_waiting_and_does_not_rerun_upstream(self):
         item = candidate("20260813_A1@H2", "1", "2")
@@ -557,6 +611,9 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
         self.assertEqual(result["status"], "failure")
         self.assertEqual(result["reason"], "metric_pipeline_partial_failure")
         self.assertEqual(loader.load_calls, 0)
+        detail = result["game_results"][0]
+        self.assertEqual(detail["game_id"], item["game_id"])
+        self.assertEqual(detail["status"], "failure")
 
     def test_unknown_season_type_skips_without_loading_evidence(self):
         item = candidate("20260813_A1@H2", "1", "2")
@@ -575,6 +632,33 @@ class TestSnapshotCaptureCoordinator(unittest.TestCase):
             "season_type_unknown",
         )
         self.assertEqual(loader.load_calls, 0)
+        self.assertEqual(
+            result["game_results"][0]["status"],
+            "skipped",
+        )
+
+    def test_detail_write_failure_is_visible_in_attempt_receipt(self):
+        item = candidate("20260813_A1@H2", "1", "2")
+        loader = FakeLoader([item])
+        storage = FakeStorage()
+        storage.fail_game_result_write = True
+
+        result = self._run(
+            self._coordinator(
+                loader,
+                storage,
+                lambda game_id, *, evidence: payload_for(item),
+            )
+        )
+
+        self.assertEqual(result["games_captured"], 1)
+        self.assertEqual(result["status"], "partial_failure")
+        self.assertEqual(
+            result["reason"],
+            "stage_game_results_write_failed",
+        )
+        self.assertEqual(result["stage_game_results"], "failed")
+        self.assertEqual(storage.receipts[0]["status"], "partial_failure")
 
 
 class TestSnapshotHelpers(unittest.TestCase):
