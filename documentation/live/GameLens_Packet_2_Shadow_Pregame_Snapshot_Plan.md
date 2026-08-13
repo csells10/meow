@@ -1,6 +1,6 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** Snapshot correctness complete — capture/parity **GO retained**; the per-game observability amendment below is open before Packet 3 handoff
+**Status:** Snapshot correctness complete — capture/parity **GO retained**; per-game observability code is published and development-cloud migration/proof is pending
 **Created:** 2026-08-10  
 **Revised:** 2026-08-13  
 **Branch:** `dev`  
@@ -96,6 +96,49 @@ Packet 3 implementation remains paused until this amendment is proven in the
 development dataset. Its design may proceed against the already-established
 rule that only canonical pregame snapshots feed Level 1.
 
+## Observability implementation checkpoint — 2026-08-13
+
+The amendment is implemented on `dev` in deliberately separate commits:
+
+| Commit | Responsibility |
+|---|---|
+| `8f6a56a` | Reopen and define the Packet 2 observability gate |
+| `2d4a5bc` | Add the `stage_game_results` schema, setup, and idempotent storage contract |
+| `d1fcab2` | Persist every checked game's final coordinator outcome |
+| `c79e562` | Add the verified nine-row backfill and read-only coverage audit |
+| `15cee38` | Extend the populated snapshot handoff fixture to prove the new receipt contract |
+
+The relevant Packet 1/2 regression set passes **66 tests** across the learning
+contract, snapshot queries, canonical game-service capture, storage/setup,
+coordinator, populated handoff, historical backfill, and coverage
+classification. The repository currently has no GitHub Actions workflow, so
+there is no separate hosted CI result.
+
+No development-cloud migration has been claimed yet. Complete it as five
+separate stop-and-review gates; do not combine them into one shell block and do
+not invoke Snapshot Capture:
+
+1. Run `python setup_gamelens_snapshot_tables.py`. Require all three
+   `GameLens_dev` tables to be returned as `verified`.
+2. Run `python backfill_gamelens_stage_game_results.py` without
+   `--write`. Require four verified attempts, nine unique logical keys, six
+   verified canonical captures, and status counts of six success, two no-op,
+   and one failure.
+3. After reviewing that dry run, run
+   `python backfill_gamelens_stage_game_results.py --write`. Require nine
+   inserted rows and zero existing rows on the first write.
+4. Run the same `--write` command again. Require zero inserted rows and nine
+   existing rows; this is the cloud idempotency proof.
+5. Run
+   `python audit_gamelens_snapshot_coverage.py --start-date 2026-08-06 --end-date 2026-08-13`.
+   Require the six August 13 games to be `captured`; any August 6 scheduled
+   game without a snapshot must be `capture_missing /
+   before_packet_2_capture_program`, never retroactively captured.
+
+The runtime must remain `GAMELENS_ENVIRONMENT=dev`; production Schedule reads
+remain read-only and all writes remain locked to `GameLens_dev`. After each
+gate, retain the complete JSON output as evidence before proceeding.
+
 ### Approved one-game development evidence boundary — 2026-08-12
 
 The first real one-game proof may explicitly read the existing production
@@ -176,7 +219,7 @@ Current development state after the retry:
 
 ## Final development-cloud evidence checkpoint — 2026-08-13
 
-Packet 2 receives **GO**. The read-only preflight, full six-game shadow
+Packet 2's snapshot-correctness proof receives **GO**. The read-only preflight, full six-game shadow
 rehearsal, canonical snapshot audit, slate receipt inspection, and
 authenticated live-`/game` comparison all passed before kickoff.
 
@@ -1066,7 +1109,7 @@ Every required Packet 2 question is answered yes:
 The optional hardening track remains deferred by design. GCS redundancy,
 concurrency coordination, Admin/frontend inspection, production datasets,
 Scheduler wiring, route cutover, retention, and final Cloud Run sizing belong
-to later release work and do not weaken this Packet 2 GO.
+to later release work and do not weaken the Packet 2 snapshot-correctness GO.
 
 ## Decisions intentionally left for later release packets
 
