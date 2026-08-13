@@ -1,13 +1,13 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** Snapshot correctness complete — capture/parity **GO retained**; per-game observability code is published and development-cloud migration/proof is pending
+**Status:** Complete — **Packet 2 GO**; snapshot correctness, per-game observability, historical audit backfill, idempotency, and Schedule coverage proof all passed
 **Created:** 2026-08-10  
 **Revised:** 2026-08-13  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No\
 **Production data read:** Yes — explicitly read-only Schedule and Analytics evidence\
-**Development data written:** Yes — six canonical snapshots and append-only attempt receipts; the per-game result ledger is the open amendment
+**Development data written:** Yes — six canonical snapshots, four attempt receipts, and nine provenance-marked per-game audit rows
 
 ## Packet 2 observability amendment — 2026-08-13
 
@@ -92,9 +92,9 @@ Packet 2's observability amendment closes only when:
 6. all focused and Packet 2 regression tests pass; and
 7. the six existing snapshots, hashes, and payloads remain unchanged.
 
-Packet 3 implementation remains paused until this amendment is proven in the
-development dataset. Its design may proceed against the already-established
-rule that only canonical pregame snapshots feed Level 1.
+The amendment is now proven in the development dataset. Packet 3 may proceed
+against the established rule that only canonical `pregame_snapshots` feed
+Level 1; neither receipt table is prediction evidence.
 
 ## Observability implementation checkpoint — 2026-08-13
 
@@ -114,30 +114,27 @@ coordinator, populated handoff, historical backfill, and coverage
 classification. The repository currently has no GitHub Actions workflow, so
 there is no separate hosted CI result.
 
-No development-cloud migration has been claimed yet. Complete it as five
-separate stop-and-review gates; do not combine them into one shell block and do
-not invoke Snapshot Capture:
+The development-cloud migration and proof completed in five separate
+stop-and-review gates without invoking Snapshot Capture:
 
-1. Run `python setup_gamelens_snapshot_tables.py`. Require all three
-   `GameLens_dev` tables to be returned as `verified`.
-2. Run `python backfill_gamelens_stage_game_results.py` without
-   `--write`. Require four verified attempts, nine unique logical keys, six
-   verified canonical captures, and status counts of six success, two no-op,
-   and one failure.
-3. After reviewing that dry run, run
-   `python backfill_gamelens_stage_game_results.py --write`. Require nine
-   inserted rows and zero existing rows on the first write.
-4. Run the same `--write` command again. Require zero inserted rows and nine
-   existing rows; this is the cloud idempotency proof.
-5. Run
-   `python audit_gamelens_snapshot_coverage.py --start-date 2026-08-06 --end-date 2026-08-13`.
-   Require the six August 13 games to be `captured`; any August 6 scheduled
-   game without a snapshot must be `capture_missing /
-   before_packet_2_capture_program`, never retroactively captured.
+| Gate | Observed evidence | Result |
+|---|---|---|
+| Table setup | `GameLens_dev.pregame_snapshots`, `stage_runs`, and `stage_game_results` all returned `verified` in `US` | Pass |
+| Backfill dry run | Four existing attempt receipts verified; nine unique logical keys; six canonical capture references verified; status counts: six success, two no-op, one failure; `write_requested=false` | Pass |
+| Controlled backfill | Nine per-game rows inserted and zero previously existing; every row marked with `backfill_source=packet_2_verified_evidence_2026-08-13` | Pass |
+| Identical backfill retry | Zero rows inserted and all nine logical rows found existing: `1 + 1 + 1 + 6` across the four attempts | Pass |
+| Read-only coverage audit | Seven scheduled games checked for August 6–13; six captured and one capture missing; source Schedule was `League.schedule`, while snapshot and result evidence came from `GameLens_dev` | Pass |
 
-The runtime must remain `GAMELENS_ENVIRONMENT=dev`; production Schedule reads
-remain read-only and all writes remain locked to `GameLens_dev`. After each
-gate, retain the complete JSON output as evidence before proceeding.
+The coverage audit completed at `2026-08-13T17:06:50.790502Z`. All six
+August 13 games were backed by canonical snapshots and per-game results. The
+only gap was final game `20260806_CAR@ARI`: no capture, no attempt, and the
+explicit reason `before_packet_2_capture_program`. It remains visible as
+`capture_missing`; no post-kickoff snapshot was invented.
+
+The runtime remained `GAMELENS_ENVIRONMENT=dev`. Production Schedule access
+was read-only, writes remained locked to `GameLens_dev`, the four
+`stage_runs` summaries remained intact, and the six canonical snapshots were
+not rebuilt or modified. All seven amendment exit criteria are satisfied.
 
 ### Approved one-game development evidence boundary — 2026-08-12
 
@@ -415,16 +412,16 @@ machinery, readiness polling/backoff, generalized `pipeline_runs`, Admin,
 frontend, production scheduler, production dataset, or production route work
 was added.
 
-### Snapshot proof completed; observability amendment open
+### Final required work completed
 
 The Thursday rehearsal, canonical-row inspection, slate receipt review, runtime
-capture, and six-game authenticated live parity comparison all passed on
-2026-08-13. The canonical Snapshot Capture proof is complete. The per-game
-observability amendment defined above is the only reopened Packet 2 work.
+capture, six-game authenticated live parity comparison, per-game ledger,
+historical backfill, identical retry, and Schedule coverage audit all passed on
+2026-08-13. Packet 2 is complete.
 
-Production behavior remains unchanged. Packet 3 (production-safe Level 1)
-remains next, but implementation waits for the development per-game ledger,
-historical audit backfill, and schedule-coverage proof.
+Production behavior remains unchanged. Packet 3 (production-safe Level 1) is
+next, but its companion document must be created and reviewed before Packet 3
+implementation begins.
 
 ## What Packet 2 is not
 

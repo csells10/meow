@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packet 1 complete; Packet 2 snapshot correctness GO retained, with per-game observability code published and development-cloud migration/proof pending; Packet 3 implementation is paused  
+**Document status:** Packets 1–2 complete; Packet 2 received final GO after snapshot correctness, per-game observability, idempotent historical backfill, and Schedule coverage proof; Packet 3 planning is next  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-13  
 **Owner:** GameLens product stewardship  
@@ -8,7 +8,7 @@
 **Active development branch:** `dev`  
 **Regular-season safety deadline:** before the first Week 1 kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern  
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
-**Packet 2 evidence checkpoint:** snapshot proof completed 2026-08-13; six canonical preseason-shadow snapshots and six exact live `/game` matches remain valid; per-game ledger cloud proof is pending  
+**Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
 
@@ -490,7 +490,7 @@ Completion evidence: `services/gamelens_learning_contract.py` holds the pure tim
 
 ### Packet 2 — Shadow pregame capture
 
-**Status:** Snapshot correctness **GO retained**; the per-game observability amendment is implemented in code and awaits its staged development-cloud proof. See [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) for the canonical evidence record and migration gates.
+**Status:** Complete — **final GO on 2026-08-13**. Snapshot correctness and the per-game observability amendment both passed. See [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) for the canonical evidence record.
 
 **Why this is important:** proves the system can safely preserve real 2026 pregame evidence before claim rows are written.
 
@@ -522,7 +522,8 @@ Completed work and evidence:
 | Full-slate authenticated live parity | 6 of 6 exact matches; 0 differences |
 | Runtime/source/write boundary | Pass; 28.017 seconds, production read-only, writes only to `GameLens_dev` |
 | Per-game observability implementation | Code pass; 66 relevant regression tests pass |
-| Per-game development-cloud migration | Pending: table setup, nine-row write, idempotent rerun, and Aug 6–13 coverage audit |
+| Per-game development-cloud migration | Pass: three tables verified; nine rows inserted; identical retry inserted zero |
+| Schedule coverage audit | Pass: six captured; CAR–ARI on Aug 6 honestly recorded as pre-program `capture_missing` |
 | Production behavior | Unchanged |
 
 Local Windows peak memory was unavailable and remains recorded as null rather
@@ -536,7 +537,7 @@ tables, or change the live frontend/API.
 
 ### Packet 3 — Production-safe Level 1
 
-**Status:** Next, but implementation is paused until the Packet 2 observability migration and coverage proof pass. The companion plan may be drafted and reviewed without changing Level 1 code.
+**Status:** Next. Create and review `GameLens_Packet_3_Production_Level_1.md` before changing Level 1 code.
 
 **Why this is important:** converts the snapshot into durable claim rows without risking the cumulative cohort.
 
@@ -791,20 +792,18 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packet 2's canonical snapshot proof is complete and remains the source of truth.
-The immediate action is to finish its observability amendment in five separate
-development-cloud gates: create/verify the third table, review the backfill dry
-run, write the nine verified rows, prove an identical write inserts zero rows,
-and run the read-only August 6–13 coverage audit. Snapshot Capture itself must
-not be rerun.
+Packet 2 is complete and its canonical evidence record is the source of truth.
+The next action is **Packet 3 planning only**: create and review
+`documentation/live/GameLens_Packet_3_Production_Level_1.md` before changing
+Level 1 code.
 
-Only after those outputs pass and are recorded should Packet 3 implementation
-begin. Its companion plan may be drafted in parallel, but the plan must show
-how one approved immutable snapshot becomes game-scoped Level 1 claim rows
-without rebuilding GameLens or replacing the cumulative learning cohort. It
-should preserve the existing claim extractor, define the exact MERGE identity
-and lineage, keep zero-claim captures visible, and specify dry-read, dry-write,
-deliberate dev-write, and identical-retry evidence.
+The Packet 3 plan must show how one approved immutable snapshot becomes
+game-scoped Level 1 claim rows without rebuilding GameLens or replacing the
+cumulative learning cohort. It should preserve the existing claim extractor,
+define the exact MERGE identity and lineage, keep zero-claim captures visible,
+and specify dry-read, dry-write, deliberate dev-write, and identical-retry
+evidence. `pregame_snapshots` is the canonical product input;
+`stage_runs` and `stage_game_results` remain operational audit evidence.
 
 Do not wire `app.py`, create production learning tables, change production
 `/game`, or change the frontend during Packet 3 planning. Calibrated Matchup
@@ -820,7 +819,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`, `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`, and `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`. Packet 1 is complete. Packet 2 snapshot correctness retains GO after its one-game proof, deterministic retry, six-game shadow rehearsal, six canonical snapshots, and six-of-six exact authenticated live-`/game` parity. Its per-game observability code is published through `15cee38`, but development-cloud proof remains: verify the third table, review the nine-row dry run, write it, prove the identical write inserts zero rows, and audit Schedule coverage for August 6–13 without rerunning Snapshot Capture. Do not begin Packet 3 implementation until those gates pass. Packet 3's companion plan may be drafted against canonical `pregame_snapshots` only; do not wire `app.py`, create production learning tables, change production `/game`, or change the frontend.
+> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`, `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`, and `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`. Packets 1 and 2 are complete. Packet 2 received final GO after its one-game proof, deterministic retry, six-game shadow rehearsal, six canonical snapshots, six-of-six exact authenticated live-`/game` parity, nine-row per-game audit backfill, zero-insert identical retry, and read-only August 6–13 Schedule coverage audit. CAR–ARI on August 6 remains an honest pre-program `capture_missing` case and was not reconstructed. Start Packet 3 planning only: create and review `documentation/live/GameLens_Packet_3_Production_Level_1.md`. Design game-scoped, idempotent Level 1 claim persistence from canonical `pregame_snapshots`; use the receipt tables only for operational audit. Do not wire `app.py`, create production learning tables, change production `/game`, or change the frontend until Packet 3's plan is approved.
 
 ---
 
