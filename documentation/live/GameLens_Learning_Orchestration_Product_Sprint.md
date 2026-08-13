@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packet 1 complete; Packet 2 in progress — one-game capture, exact live `/game` parity, and deterministic retry passed; Thursday multi-game slate rehearsal remains  
+**Document status:** Packets 1–2 complete; Packet 2 received GO after the six-game shadow rehearsal and exact authenticated live `/game` parity; Packet 3 planning is next  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-13  
 **Owner:** GameLens product stewardship  
@@ -8,7 +8,7 @@
 **Active development branch:** `dev`  
 **Regular-season safety deadline:** before the first Week 1 kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern  
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
-**Packet 2 evidence checkpoint:** `dev` at `25295edebf54ba4bb531687e0652e9a3882ef0b7` before the Thursday slate rehearsal  
+**Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical preseason-shadow snapshots, six exact live `/game` matches, and no production writes  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
 
@@ -490,48 +490,50 @@ Completion evidence: `services/gamelens_learning_contract.py` holds the pure tim
 
 ### Packet 2 — Shadow pregame capture
 
-**Status:** In progress. The one-game cloud proof, exact live-response parity check, and deterministic retry are GO. The full Thursday slate rehearsal and final evidence review remain. See [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md).
+**Status:** Complete — **GO on 2026-08-13**. See [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) for the canonical evidence record.
 
 **Why this is important:** proves the system can safely preserve real 2026 pregame evidence before claim rows are written.
 
-Completed work:
+Completed work and evidence:
 
-- implemented the read-only snapshot coordinator, query/evidence loader, storage adapter, schema setup, and focused tests;
-- reused the canonical game-service response-building path in-process with zero internal `/game` HTTP calls;
-- created isolated `GameLens_dev.pregame_snapshots` and append-only `GameLens_dev.stage_runs` storage;
-- kept the complete serving response separate from the internal evidence context while preserving hashes, identities, model/ruleset versions, source lineage, and `lens_tags`;
-- enforced production Schedule/Analytics reads as explicitly read-only while all writes remain in `GameLens_dev`;
-- captured DET–CIN (`20260813_DET@CIN`) before kickoff as `capture_080e1b4f3af8317bfb216ce0`;
-- compared the saved response with the authenticated live production endpoint and received identical canonical hashes with zero field-level differences;
-- reran the same game and received `no_op / canonical_capture_exists`, no rebuild or evidence reload, and a canonical row count of `1 → 1`;
-- corrected the attempt receipt so exact-game runs carry `game_id` and a shared slate phase carries `season_type`; and
-- passed 51 focused capture/query/storage/handoff tests.
+- implemented the dev-only snapshot coordinator, shared evidence loader, append-only BigQuery storage, idempotent schema setup, and 51 focused capture/query/storage/handoff tests;
+- reused the canonical game-service response builder in-process with zero internal `/game` HTTP calls;
+- stored the complete serving response separately from internal evidence context while preserving hashes, identities, model/ruleset versions, source lineage, and `lens_tags`;
+- enforced production `League` and `Analytics` reads as explicitly read-only while all writes remained locked to `GameLens_dev`;
+- captured DET–CIN before kickoff, proved exact authenticated live-`/game` parity, and reran it as `no_op / canonical_capture_exists` with row count `1 → 1`;
+- corrected attempt receipts so exact-game runs carry `game_id`, single-phase slates carry `season_type`, and retries retain upstream lineage;
+- ran the 2026-08-13 six-game Preseason Week 1 shadow rehearsal as attempt `snapshot_20260813T140739Z_e7a26844`;
+- checked six eligible games, created five new snapshots, skipped the existing DET–CIN snapshot without rebuilding, and finished with six unique canonical rows;
+- recorded zero failures, zero waits, zero internal HTTP calls, and a 28,017 ms slate runtime;
+- verified every saved payload after BigQuery read-back, including honest missing-ranking states and ARI–LV's populated registry-backed `lens_tags`;
+- saved a truthful slate receipt with `game_id=NULL`, `season_type=Preseason`, input/output `6 / 5`, and the observed upstream reference; and
+- fetched all six authenticated production endpoints and proved six identical saved/live hashes with zero mismatches and zero field-level differences.
 
-Observed one-game evidence:
-
-| Gate | Result |
+| Final Packet 2 gate | Result |
 |---|---|
-| Capture attempt | `snapshot_20260812T191038Z_4f4725f5` — success |
-| Canonical capture | `capture_080e1b4f3af8317bfb216ce0` |
-| Saved/live payload hash | `50d5e218401037e71de6fbec354d816c26d79cd0348bce8dc22a1f2c93de4acb` on both sides |
-| Semantic differences | `0` |
-| Retry attempt | `snapshot_20260812T213819Z_83ef2f7e` — `no_op` |
-| Snapshot rows before/after retry | `1 / 1` |
-| Retry receipt | DET–CIN, `Preseason`, input/output `1 / 0`, reason `canonical_capture_exists` |
-| Production boundary | read-only `League` and `Analytics`; writes only to `GameLens_dev` |
-| Production product behavior | unchanged |
+| One-game canonical capture | Pass |
+| Saved-row integrity and response/evidence separation | Pass |
+| Exact authenticated one-game live parity | Pass |
+| Deterministic retry/no duplicate | Pass |
+| Full-slate shared-evidence capture | Pass |
+| Existing DET–CIN skip during slate | Pass |
+| Six canonical identities and hashes | Pass |
+| Full-slate authenticated live parity | 6 of 6 exact matches; 0 differences |
+| Runtime/source/write boundary | Pass; 28.017 seconds, production read-only, writes only to `GameLens_dev` |
+| Production behavior | Unchanged |
 
-Remaining required work before Packet 2 GO:
+Local Windows peak memory was unavailable and remains recorded as null rather
+than estimated. This is an honest measurement limitation, not a Packet 2
+correctness failure.
 
-1. Run one read-only preflight for the actual Thursday candidates, kickoff states, upstream evidence, runtime boundary, and starting row count.
-2. Invoke the coordinator once for the full eligible slate with no individual `game_id` filter.
-3. Confirm the existing DET–CIN capture is skipped without rebuilding while every other eligible pre-kickoff game is processed independently and sequentially.
-4. Inspect the canonical rows, saved response/evidence separation, hashes, `lens_tags`, per-game outcomes, slate receipt, duration, best available memory evidence, and zero internal `/game` calls.
-5. Record the observed counts and final GO/NO-GO decision in the Packet 2 plan. If the schedule is unchanged, the forecast is six checked, five new captures, one existing skip, and six total canonical rows; observed eligibility remains the source of truth.
-
-Packet 2 completion does **not** require a dev frontend preview or duplicate GCS payload/manifest copies. Those are optional production-hardening ideas, not proof of whether canonical BigQuery capture works. Packet 2 also does not write Level 1 claims, Model Outcome, production learning tables, or change the live frontend/API.
+Packet 2 completion does **not** require a dev frontend preview or duplicate
+GCS payload/manifest copies. Those remain optional production-hardening work.
+Packet 2 did not write Level 1 claims, Model Outcome, production learning
+tables, or change the live frontend/API.
 
 ### Packet 3 — Production-safe Level 1
+
+**Status:** Next. Create and review `GameLens_Packet_3_Production_Level_1.md` before changing code.
 
 **Why this is important:** converts the snapshot into durable claim rows without risking the cumulative cohort.
 
@@ -786,21 +788,33 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packet 2 is the active packet. Its one-game capture, exact live `/game` parity, and deterministic duplicate retry have passed. The next action is the Thursday read-only preflight followed by one full eligible-slate capture in development, without an individual `game_id` filter.
+Packet 2 is complete and its canonical evidence record is the source of truth.
+The next action is **Packet 3 planning only**: create and review
+`documentation/live/GameLens_Packet_3_Production_Level_1.md` before changing
+Level 1 code.
 
-Use the actual schedule and eligibility as the source of truth. Inspect every result, verify DET–CIN remains the one existing canonical capture, confirm zero internal HTTP calls and no writes outside `GameLens_dev`, then add the observed counts, runtime/memory evidence, and receipt details to the Packet 2 plan.
+The Packet 3 plan must show how one approved immutable snapshot becomes
+game-scoped Level 1 claim rows without rebuilding GameLens or replacing the
+cumulative learning cohort. It should preserve the existing claim extractor,
+define the exact MERGE identity and lineage, keep zero-claim captures visible,
+and specify dry-read, dry-write, deliberate dev-write, and identical-retry
+evidence.
 
-Only after that review passes should Packet 2 receive final GO and Packet 3 planning begin. Do not wire `app.py`, write production Level 1 rows, change production `/game`, or change the frontend during this gate.
+Do not wire `app.py`, create production learning tables, change production
+`/game`, or change the frontend during Packet 3 planning. Calibrated Matchup
+Lean remains a required carry-forward, but it must not be folded into Level 1
+claim persistence accidentally.
 
-If a regular-season game reaches kickoff without a valid snapshot, record it as `capture_missing`. Never rebuild a fake Level 1 snapshot afterward.
+If a regular-season game reaches kickoff without a valid snapshot, record it as
+`capture_missing`. Never rebuild a fake Level 1 snapshot afterward.
 
 ---
 
 ## 14. New-chat restart prompt
 
-Use this handoff in a fresh chat while Packet 2 remains open:
+Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`, `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`, and `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`. Packet 1 is complete. Packet 2 has passed its one-game capture, exact authenticated live-`/game` parity, receipt correction, and deterministic no-duplicate retry. Run the remaining Thursday read-only preflight and one full eligible-slate shadow capture with no individual `game_id` filter. Confirm the existing DET–CIN snapshot is skipped without rebuilding, other eligible games are captured independently and sequentially, hashes and evidence separation remain valid, the slate receipt is truthful, internal `/game` calls remain zero, and no writes occur outside `GameLens_dev`. Record observed counts and runtime/memory evidence in the Packet 2 plan, then make the final GO/NO-GO decision. Do not start Packet 3, wire `app.py`, write production Level 1 rows, or change the live frontend/API until Packet 2 is explicitly GO.
+> Continue GameLens on the long-lived `dev` branch from `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md`, `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`, and `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`. Packets 1 and 2 are complete. Packet 2 received GO after its one-game capture, exact live parity, deterministic retry, six-game preseason shadow rehearsal, six canonical snapshot audit, and six-of-six authenticated live-`/game` parity with zero field differences. Start Packet 3 planning only: create and review `documentation/live/GameLens_Packet_3_Production_Level_1.md`. Design game-scoped, idempotent Level 1 claim persistence from the approved immutable snapshot; reuse the existing claim extractor; preserve capture and upstream lineage; keep zero-claim captures visible; and define dry-read, dry-write, deliberate dev-write, and identical-retry evidence. Do not wire `app.py`, create production learning tables, change production `/game`, or change the frontend until Packet 3's own plan is approved.
 
 ---
 
