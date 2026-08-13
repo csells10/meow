@@ -64,7 +64,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 
 - Packet 2 final closure: commit `50d83ec`
 - Live-document status reconciliation: commit `14653a7`
-- Packet 3 planning handoff: see the commit that added this index and the Packet 3 document.
+- Packet 3 planning handoff and live index: commit `4906a03`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
