@@ -5,6 +5,7 @@
 **Branch:** dev  
 **Scope:** Cloud Run runtime configuration for GameLens dev testing  
 **Source of truth:** runtime_config.py plus the live Cloud Run service configuration
+**Snapshot boundary:** Section 3 records the 2026-08-04 controlled-replay service. It is historical evidence, not the current Packet 2 local-shadow configuration and not permission to reuse those dated values. Re-read live configuration before every cloud action.
 
 ---
 

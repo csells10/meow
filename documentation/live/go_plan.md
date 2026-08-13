@@ -7,6 +7,7 @@
 **Backend release branch:** `main`
 **Target service:** `nfl-games-app-main`
 **Current status:** **GATE H COMPLETE — AUTOMATIC PRODUCTION RUN PASSED**
+**Scope boundary:** Historical cutover evidence for the existing production app. This is not the current GameLens learning-packet plan; use [GameLens_Learning_Orchestration_Product_Sprint.md](./GameLens_Learning_Orchestration_Product_Sprint.md) for current work.
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---

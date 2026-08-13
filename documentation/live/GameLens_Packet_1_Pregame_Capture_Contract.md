@@ -1,10 +1,15 @@
 # GameLens Packet 1 — The Pregame Snapshot Rulebook
 
-**Status:** Rulebook written and tested; no game has been captured yet  
+**Status:** Complete — rulebook written and tested; Packet 2 subsequently proved six canonical development snapshots  
 **Reviewed with Christian:** 2026-08-10  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No
+
+**Historical scope note:** This document preserves the decisions made before
+Packet 2 existed, so portions intentionally describe capture as future work.
+Current execution status lives in the Product Sprint and Packet 2 evidence
+record. Packet 1 itself changed no production behavior.
 
 ## The short version
 
@@ -249,7 +254,9 @@ complete.
 
 Packet 1's framework is understood and preserved. Production remains unchanged.
 
-Packet 2 may begin only as a reviewed shadow plan. Its first implementation step
-must align the pure phase rule with regular season + postseason eligibility,
-then prove one saved preseason shadow snapshot and its exact retry. It must not
-wire `app.py`, write production Level 1 rows, or change the live frontend.
+Packet 2 was authorized under these constraints and later passed its one-game
+proof, deterministic retry, six-game slate rehearsal, exact live-`/game`
+parity, per-game observability amendment, and coverage audit. Packet 1 remains
+the capture rulebook; Packet 2 is the execution evidence. Packet 3 is now the
+next reviewed plan and must continue to avoid `app.py` wiring, production
+Level 1 writes, and frontend changes until its own release boundary.

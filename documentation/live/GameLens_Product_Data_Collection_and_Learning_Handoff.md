@@ -1,12 +1,12 @@
 # GameLens Product Data Collection and Learning Handoff
 
-**Document status:** Draft v0.2 — architecture reviewed; implementation not started  
+**Document status:** Architecture handoff active; Packets 1–2 complete and Packet 3 planning is next  
 **Created:** 2026-08-03  
-**Last revised:** 2026-08-03  
+**Last revised:** 2026-08-13  
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
-**Branch represented:** `main`  
-**Current production checkpoint:** Gate G complete; Gate H pending the first scheduled production run  
+**Branch represented:** `dev` for learning work; `main` remains the production release branch  
+**Current production checkpoint:** Gate H complete; the existing 8:00 a.m. production load remains unchanged and learning is not wired into it  
 **Companion release plan:** [go_plan.md](./go_plan.md)
 
 ---
@@ -19,8 +19,11 @@ Older files remain useful evidence, but they do not override this handoff:
 
 | Document | Current role |
 |---|---|
-| `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` | Canonical Levels 1–4 production design and next-step authority |
-| `documentation/live/go_plan.md` | Canonical production cutover and Gate H evidence |
+| `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md` | Canonical packet sequence, current status, and next-step authority |
+| `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` | Canonical Levels 1–4 product and architecture boundary |
+| `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md` | Approved capture rulebook |
+| `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
+| `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |
 | `documentation/August/GameLens_Backend_August_Readiness_Roadmap.md` | Historical implementation record for Packets 0–4 |
 | `documentation/August/GameLens_August_Readiness_Roadmap_How_To.md` | Historical restart instructions; do not use its old `dev`/Packet 4 directions |
@@ -528,10 +531,15 @@ The handoff should let a new owner answer four questions quickly:
 
 ## 16. Next bounded action
 
-Complete Gate H exactly as documented in [go_plan.md](./go_plan.md).
+Gate H, Packet 1, and Packet 2 are complete. The next bounded action is
+Packet 3 planning:
 
-After the first scheduled production run is proven, return to this document and decide only P1:
+> Review `GameLens_Packet_3_Production_Level_1.md` and prove how one approved
+> canonical `pregame_snapshots` row becomes game-scoped, idempotent Level 1
+> claim rows in development.
 
-> Define the pregame capture contract—timing, immutable storage, identifiers, postgame-field rejection, game-scoped idempotency, read-only behavior, preseason isolation, and `/admin` reconciliation.
-
-August 6 is not a deadline for the intelligence layer. After Gate H, the only time-sensitive optional action is one read-only pregame shadow capture; do not wire Levels 1–4 or the confidence rule into `app.py` as part of Gate H.
+Packet 3 must reuse the existing extractor, preserve
+`pipeline_run_id + learning_run_id + capture_id + claim_key` lineage, keep a
+zero-claim capture visible through an operational receipt, and leave the
+historical filesystem QA path intact. It must not wire `app.py`, write
+production learning rows, change `/game`, or change the frontend.
