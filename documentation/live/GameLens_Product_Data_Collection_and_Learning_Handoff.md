@@ -7,7 +7,9 @@
 **Repository:** `csells10/meow`  
 **Branch represented:** `dev` for learning work; `main` remains the production release branch  
 **Current production checkpoint:** Gate H complete; the existing 8:00 a.m. production load remains unchanged and learning is not wired into it  
-**Companion release plan:** [go_plan.md](./go_plan.md)
+**Companion release plan:** [go_plan.md](./go_plan.md)  
+**Live documentation index:** [README.md](./README.md)  
+**Current packet:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md)
 
 ---
 
@@ -23,6 +25,8 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` | Canonical Levels 1–4 product and architecture boundary |
 | `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md` | Approved capture rulebook |
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
+| `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Current bounded plan; ready for review and not yet implemented |
+| `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |
 | `documentation/August/GameLens_Backend_August_Readiness_Roadmap.md` | Historical implementation record for Packets 0–4 |

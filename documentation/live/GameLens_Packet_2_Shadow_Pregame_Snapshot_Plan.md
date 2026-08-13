@@ -5,8 +5,8 @@
 **Revised:** 2026-08-13  
 **Branch:** `dev`  
 **Production behavior changed:** No  
-**Production data written:** No\
-**Production data read:** Yes — explicitly read-only Schedule and Analytics evidence\
+**Production data written:** No  
+**Production data read:** Yes — explicitly read-only Schedule and Analytics evidence  
 **Development data written:** Yes — six canonical snapshots, four attempt receipts, and nine provenance-marked per-game audit rows
 
 ## Packet 2 observability amendment — 2026-08-13
@@ -1125,13 +1125,16 @@ and retry evidence rather than assumptions.
 ## Documentation handoff
 
 This file is the completed Packet 2 evidence record. It preserves the
-implementation and schemas, 51 focused tests, one-game capture and retry,
-receipt correction, six-game shadow rehearsal, six canonical identities and
-hashes, exact authenticated live-API parity, runtime evidence, source/write
-boundaries, production impact, and deliberately deferred optional hardening.
+implementation and schemas, 66 relevant Packet 1/2 regression tests, one-game
+capture and retry, receipt correction, six-game shadow rehearsal, six
+canonical identities and hashes, exact authenticated live-API parity,
+nine-row per-game audit backfill, zero-insert identical retry, August 6–13
+coverage proof, runtime evidence, source/write boundaries, production impact,
+and deliberately deferred optional hardening.
 
-The next action is to create and review
-`GameLens_Packet_3_Production_Level_1.md`. Packet 3 must consume the approved
-canonical snapshot rather than rebuilding GameLens, remain game-scoped and
-idempotent, and avoid production wiring until its own evidence gate is ready.
+The next action is to review
+[GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md).
+Packet 3 consumes the approved canonical snapshot rather than rebuilding
+GameLens, remains game-scoped and idempotent, preserves zero-claim processing,
+and avoids production wiring until its own evidence gate is ready.
 
