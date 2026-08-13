@@ -1,13 +1,13 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** In progress — one-game cloud proof and retry passed; Thursday slate rehearsal pending
+**Status:** Complete — **Packet 2 GO**; one-game proof, deterministic retry, full-slate shadow capture, canonical audit, and authenticated live `/game` parity all passed
 **Created:** 2026-08-10  
-**Revised:** 2026-08-12  
+**Revised:** 2026-08-13  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No\
 **Production data read:** Yes — explicitly read-only Schedule and Analytics evidence\
-**Development data written:** Yes — one canonical snapshot and append-only stage receipts
+**Development data written:** Yes — six canonical snapshots and append-only stage receipts
 
 ### Approved one-game development evidence boundary — 2026-08-12
 
@@ -42,9 +42,11 @@ passed as recorded below.
 
 ## Development-cloud evidence checkpoint — 2026-08-12
 
-The one-game proof is **GO**. Packet 2 is **not complete yet** because the
-multi-game Thursday slate rehearsal remains required. No production route,
-table, scheduler, frontend, Level, or outcome behavior changed.
+At this 2026-08-12 checkpoint, the one-game proof was **GO** while Packet 2
+remained open for the multi-game Thursday slate rehearsal. That remaining gate
+passed on 2026-08-13 as recorded in the final evidence checkpoint below. No
+production route, table, scheduler, frontend, Level, or outcome behavior
+changed.
 
 ### Completed one-game evidence
 
@@ -84,6 +86,44 @@ Current development state after the retry:
   no-op retry receipt;
 - exact saved/live response parity established for the selected game; and
 - production sources read only, with no production writes.
+
+## Final development-cloud evidence checkpoint — 2026-08-13
+
+Packet 2 receives **GO**. The read-only preflight, full six-game shadow
+rehearsal, canonical snapshot audit, slate receipt inspection, and
+authenticated live-`/game` comparison all passed before kickoff.
+
+### Completed slate evidence
+
+| Gate | Observed evidence | Result |
+|---|---|---|
+| Read-only preflight | Six scheduled Preseason Week 1 games discovered; DET–CIN already canonical; five eligible uncaptured games; production `League` and `Analytics` explicitly read-only; write target locked to `GameLens_dev` | Pass |
+| Upstream evidence | Facts 110, Windowed Metrics 118, Rankings 106; latest metric and ranking dates both 2026-08-06 | Pass |
+| Slate attempt | `snapshot_20260813T140739Z_e7a26844` | Pass |
+| Coordinator result | `success`; six discovered/checked/eligible, five captured, one skipped, zero failed, zero waiting | Pass |
+| Existing-capture protection | DET–CIN returned `no_op / canonical_capture_exists` with `rebuilt=false` | Pass |
+| Sequential save/read-back integrity | Every new result reported `saved_response_parity=matched`; final rows were six games, six capture IDs, and six canonical rows | Pass |
+| Internal HTTP boundary | `internal_http_game_calls=0` | Pass |
+| Slate receipt | `game_id=NULL`, `season_type=Preseason`, input/output `6 / 5`, correct upstream reference, no failure reason | Pass |
+| Runtime | 28,017 ms for the six-game slate; local Windows `peak_memory_mb` remained unavailable/null and was not guessed | Pass with stated measurement limitation |
+| Evidence variety | Five games honestly recorded no prior ranking rows; ARI–LV preserved available 2026-08-06 evidence and its complete de-duplicated `lens_tags` array | Pass |
+| Full-slate live parity | Six authenticated HTTP 200 responses; six saved/live hashes matched; zero mismatches and zero field-level differences | Pass |
+| Production safety | Production Schedule/Analytics were read only; all writes remained in `GameLens_dev`; no production product behavior changed | Pass |
+
+### Canonical snapshot and live-parity evidence
+
+| Game | Capture ID | Saved/live SHA-256 | Differences |
+|---|---|---|---:|
+| DET–CIN | `capture_080e1b4f3af8317bfb216ce0` | `50d5e218401037e71de6fbec354d816c26d79cd0348bce8dc22a1f2c93de4acb` | 0 |
+| GB–PIT | `capture_98bca4de1e28583c67c25204` | `f98d24d95057648e354a140b8b315599fd00278d0695b9021365dbd471f5bf9f` | 0 |
+| IND–NE | `capture_c1effcb077007166b4ccd2bd` | `53dc9415d7c8661302b2b14c3153760a4f05b5e791e271ec3b7a128b8ec97ff7` | 0 |
+| ARI–LV | `capture_3a04ea363187904257e2afa3` | `1550b0bdaac21947a378ecd7d04870b2b9d0ee866b5885a293b2b95afa8d1262` | 0 |
+| LAC–HOU | `capture_a868adbaa49a7f50aeaf3818` | `ae8d121b44e136b106accd372c9c32ac35439172f27b5bc9d3b472facbb49d3d` | 0 |
+| TEN–SF | `capture_80967deb4c5a4eec7454051d` | `98a05985eddff7c205a4a7db458f50d01559a0e4482d638f75cfac01debd0e2b` | 0 |
+
+The comparison included every product field, null, list, and nested section.
+Only HTTP transport and JSON formatting were outside the semantic comparison.
+The comparison itself wrote nothing.
 
 ## Packet 2 in plain English
 
@@ -245,20 +285,15 @@ machinery, readiness polling/backoff, generalized `pipeline_runs`, Admin,
 frontend, production scheduler, production dataset, or production route work
 was added.
 
-### Remaining required work before Packet 2 GO
+### Final required work completed
 
-1. Run the eligible Thursday rehearsal slate and record counts, receipt,
-   duration, best available peak-memory evidence, zero internal HTTP calls, and
-   sequential per-game outcomes.
-2. Inspect the resulting canonical rows and slate-level receipt, including
-   honest missing-evidence states and independent per-game results.
-3. Add the slate's actual row counts and runtime/memory result here, then record
-   the final Packet 2 GO/NO-GO decision. Do not substitute the expected counts
-   below when the observed schedule or eligibility differs.
+The Thursday rehearsal, canonical-row inspection, slate receipt review, runtime
+capture, and six-game authenticated live parity comparison all passed on
+2026-08-13. There is no remaining required Packet 2 work.
 
-Production behavior remains unchanged. Packet 3 (Level 1 claim extraction)
-remains the next packet and must not begin until these required Packet 2 gates
-are reviewed and pass.
+Production behavior remains unchanged. Packet 3 (production-safe Level 1) is
+the next packet, but its companion document must be created and reviewed before
+Packet 3 implementation begins.
 
 ## What Packet 2 is not
 
@@ -764,7 +799,7 @@ gamelens_learning/<environment>/<learning_run_id>/<game_id>/<capture_id>/
 
 It contains immutable `payload.json`, `evidence_context.json`, and `manifest.json` objects.
 
-## Thursday preseason slate rehearsal — remaining Packet 2 gate
+## Thursday preseason slate rehearsal — completed 2026-08-13
 
 The rehearsal proves plumbing and honest empty states, not prediction quality.
 The first preseason game for a team may have no prior season-to-date evidence,
@@ -796,9 +831,9 @@ and does not block Packet 2.
 12. If optional GCS hardening is attempted, test it only after the BigQuery proof
     is already passing.
 
-### Slate-shaped proof
+### Slate-shaped proof — completed 2026-08-13
 
-After the one-game proof passes, run the same selection/loading path for the
+The rehearsal ran the same selection/loading path for the
 eligible Thursday slate or a read-only equivalent. Confirm that:
 
 - one coordinator invocation handles the eligible uncaptured slate;
@@ -813,10 +848,10 @@ eligible Thursday slate or a read-only equivalent. Confirm that:
 - the required runtime/memory evidence is understandable before any production
   sizing decision; detailed query-cost evidence is reviewed when collected.
 
-Assuming the 2026-08-13 production Schedule remains the same six-game slate and
-all six games remain eligible before kickoff, the expected result is:
+The 2026-08-13 Schedule remained the expected six-game slate and all six games
+were eligible before kickoff. The observed result was:
 
-| Slate field | Expected value |
+| Slate field | Observed value |
 |---|---:|
 | `games_discovered` | 6 |
 | `games_checked` | 6 |
@@ -830,12 +865,11 @@ all six games remain eligible before kickoff, the expected result is:
 | Receipt `season_type` | `Preseason` |
 | Receipt input/output counts | 6 / 5 |
 
-These are review expectations, not hard-coded success values. A schedule,
-kickoff, status, or eligibility change must be reflected honestly in the
-observed counts and per-game reasons. The rehearsal blocks final Packet 2 GO if
-it creates duplicates, rebuilds DET–CIN, makes an internal `/game` call, loses
-one game's failure boundary, writes outside `GameLens_dev`, or produces an
-unexplained result.
+These values were observed rather than forced. The rehearsal created no
+duplicates, did not rebuild DET–CIN, made no internal `/game` call, preserved
+independent per-game results, wrote only to `GameLens_dev`, and produced a
+truthful slate receipt. The subsequent authenticated comparison matched all six
+saved responses to live `/game` with zero field differences.
 
 ## What Christian should be able to inspect
 
@@ -922,38 +956,29 @@ or claim logic.
 
 ## Packet 2 completion decision
 
-**Current decision:** In progress. The one-game correctness, inspection,
-live-parity, and retry gates are GO. Final Packet 2 GO is intentionally withheld
-until the Thursday multi-game slate rehearsal passes and its observed evidence
-is added to this document.
+**Final decision: GO — completed 2026-08-13.**
 
-Packet 2 receives GO when Christian can answer yes to every **required** question:
+Every required Packet 2 question is answered yes:
 
-- Did the phase tests pass, with preseason isolated from production evidence?
-- Did one coordinator process the slate through the shared Python builder with
-  zero internal HTTP `/game` calls?
-- Were responses built, saved, verified, and released one at a time?
-- Did the implementation reuse shared evidence rather than repeat the full
-  helper/query stack for every matchup?
-- Did pregame mode avoid final-score queries and every outcome write?
-- Are `response_payload` and `evidence_context` separate?
-- Did relevant `lens_tags` survive as arrays without a new per-game tag path?
-- Can the saved payload be read back without running Level 1?
-- For the same game and pregame evidence, does the saved `response_payload`
-  exactly match the semantic JSON content returned by the live `/game` path,
-  with no excluded product fields or approximate-value tolerance?
-- Did an identical retry skip before rebuilding and create zero duplicate
-  canonical rows?
-- Did a partial upstream state or BigQuery buffer restriction stop safely
-  without freezing inconsistent evidence or blindly rerunning the Metric
-  Pipeline?
-- Can Christian understand the simple Snapshot Capture receipt?
-- Did the one-game and slate proofs provide understandable runtime/memory
-  evidence?
-- Is production unchanged?
+- phase tests passed and preseason evidence remained isolated from production learning;
+- one coordinator processed the slate through the shared Python builder with zero internal HTTP `/game` calls;
+- responses were built, saved, read back, verified, and released one at a time;
+- shared slate evidence was reused instead of re-fetching the full helper/query stack for each matchup;
+- pregame mode avoided final-score queries and every outcome write;
+- `response_payload` and `evidence_context` remained separate;
+- relevant `lens_tags` survived as arrays, including the populated ARI–LV evidence case;
+- saved payloads were readable without running Level 1;
+- all six saved responses exactly matched authenticated live `/game` JSON with no excluded product fields or approximate tolerances;
+- the identical retry and the later slate skip both protected the existing canonical DET–CIN row;
+- focused tests cover partial upstream and BigQuery-buffer safe-stop behavior without rerunning the Metric Pipeline;
+- one-game and slate receipts were readable and correctly identified;
+- one-game and slate runtime evidence was recorded, with unavailable local Windows peak memory stated honestly; and
+- production remained unchanged.
 
-The optional hardening checklist is reviewed separately. Unfinished optional
-items are recorded for later; they do not change a required GO into NO-GO.
+The optional hardening track remains deferred by design. GCS redundancy,
+concurrency coordination, Admin/frontend inspection, production datasets,
+Scheduler wiring, route cutover, retention, and final Cloud Run sizing belong
+to later release work and do not weaken this Packet 2 GO.
 
 ## Decisions intentionally left for later release packets
 
@@ -971,9 +996,14 @@ and retry evidence rather than assumptions.
 
 ## Documentation handoff
 
-This file now records the exact files, schemas, focused tests, one-game
-live-API parity evidence, one-game runtime and row counts, receipt correction,
-retry evidence, deferred optional hardening, production impact, and remaining
-slate gate. After Thursday's rehearsal, add the actual slate evidence and final
-GO/NO-GO decision here. Packet 3 does not begin until that review is
-understandable.
+This file is the completed Packet 2 evidence record. It preserves the
+implementation and schemas, 51 focused tests, one-game capture and retry,
+receipt correction, six-game shadow rehearsal, six canonical identities and
+hashes, exact authenticated live-API parity, runtime evidence, source/write
+boundaries, production impact, and deliberately deferred optional hardening.
+
+The next action is to create and review
+`GameLens_Packet_3_Production_Level_1.md`. Packet 3 must consume the approved
+canonical snapshot rather than rebuilding GameLens, remain game-scoped and
+idempotent, and avoid production wiring until its own evidence gate is ready.
+
