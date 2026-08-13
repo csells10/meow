@@ -1,13 +1,100 @@
 # GameLens Packet 2 — Shadow Pregame Snapshot Plan
 
-**Status:** Complete — **Packet 2 GO**; one-game proof, deterministic retry, full-slate shadow capture, canonical audit, and authenticated live `/game` parity all passed
+**Status:** Snapshot correctness complete — capture/parity **GO retained**; the per-game observability amendment below is open before Packet 3 handoff
 **Created:** 2026-08-10  
 **Revised:** 2026-08-13  
 **Branch:** `dev`  
 **Production behavior changed:** No  
 **Production data written:** No\
 **Production data read:** Yes — explicitly read-only Schedule and Analytics evidence\
-**Development data written:** Yes — six canonical snapshots and append-only stage receipts
+**Development data written:** Yes — six canonical snapshots and append-only attempt receipts; the per-game result ledger is the open amendment
+
+## Packet 2 observability amendment — 2026-08-13
+
+The six canonical snapshots and their exact live-`/game` parity remain valid.
+This amendment does not rebuild or replace any snapshot and does not reverse
+the capture-correctness result. It closes a separate operational blind spot
+before Packet 3 begins.
+
+`GameLens_dev.stage_runs` deliberately has one row per coordinator invocation.
+Its `game_id` describes the **requested scope**, so a slate invocation correctly
+has `game_id=NULL`. That attempt-level row can say “six checked, five captured,
+one skipped,” but it cannot identify which game failed, waited, skipped, or
+returned a no-op. A partial failure would therefore be difficult to diagnose
+from durable BigQuery evidence alone.
+
+Packet 2 will add `GameLens_dev.stage_game_results` at this grain:
+
+```text
+one row per attempt_id + stage_name + game_id
+```
+
+The required fields are `attempt_id`, `stage_name`, `game_id`,
+`capture_id`, `learning_run_id`, `season`, `season_type`, `status`,
+`reason`, `eligible`, `rebuilt`, per-game input/output counts,
+`upstream_run_id`, `recorded_at`, `is_backfill`, and
+`backfill_source`. The attempt summary remains in `stage_runs`; the new
+table supplies the missing per-game detail. It is an audit ledger, not a
+second snapshot store.
+
+### The four known development attempts
+
+“Four attempts” means the four existing rows already visible in
+`GameLens_dev.stage_runs`, not four missing games and not four new runs:
+
+| Attempt | Scope and verified result | Per-game ledger rows |
+|---|---|---:|
+| `snapshot_20260812T184849Z_1830177d` | Explicit DET–CIN proof; failed at the JSON streaming boundary; no snapshot saved | 1 failure |
+| `snapshot_20260812T191038Z_4f4725f5` | Corrected DET–CIN proof; canonical snapshot saved | 1 success |
+| `snapshot_20260812T213819Z_83ef2f7e` | Identical DET–CIN retry; canonical snapshot already existed | 1 no-op |
+| `snapshot_20260813T140739Z_e7a26844` | Six-game slate; DET–CIN no-op plus five successful new captures | 6 results |
+
+The controlled historical backfill therefore creates **nine per-game audit
+rows** from evidence already verified in this document. It does not rerun any
+capture, mutate the four attempt summaries, or create post-kickoff snapshots.
+The backfill must be explicit, development-only, provenance-marked, and
+idempotent.
+
+### Packet 3 boundary and missed-capture rule
+
+Packet 3's canonical input is `pregame_snapshots`, joined by
+`capture_id`/`game_id`; it must not treat either receipt table as prediction
+evidence. The receipt tables answer what the coordinator attempted. The
+snapshot table answers what was actually frozen before kickoff.
+
+A scheduled game without a canonical snapshot before kickoff is not eligible
+for Level 1 extraction or later learning. Its pregame state cannot be
+reconstructed honestly after the game starts. The coverage audit will compare
+Schedule with `pregame_snapshots` and the latest per-game result, reporting:
+
+- `captured` when a canonical snapshot exists;
+- `upcoming` when kickoff is still in the future and capture remains possible;
+- `capture_missing` when kickoff passed without a canonical snapshot, with a
+  separate latest-attempt status and reason.
+
+Games from 2026-08-06 predate the Packet 2 capture proof. If Schedule confirms
+such games and no canonical snapshot exists, they are recorded as
+`capture_missing` with a pre-Packet-2 reason. They are **not** retroactively
+snapshotted.
+
+### Amendment exit criteria
+
+Packet 2's observability amendment closes only when:
+
+1. the new table is created idempotently in `GameLens_dev`;
+2. every checked future game automatically writes one durable result for
+   success, no-op, failure, waiting, or skipped;
+3. retrying a detail write does not create a duplicate logical key;
+4. the nine verified historical detail rows are backfilled without running
+   Snapshot Capture again;
+5. a read-only Schedule coverage audit identifies captured, upcoming, and
+   missed games, including the pre-Packet-2 August 6 gap;
+6. all focused and Packet 2 regression tests pass; and
+7. the six existing snapshots, hashes, and payloads remain unchanged.
+
+Packet 3 implementation remains paused until this amendment is proven in the
+development dataset. Its design may proceed against the already-established
+rule that only canonical pregame snapshots feed Level 1.
 
 ### Approved one-game development evidence boundary — 2026-08-12
 
@@ -285,15 +372,16 @@ machinery, readiness polling/backoff, generalized `pipeline_runs`, Admin,
 frontend, production scheduler, production dataset, or production route work
 was added.
 
-### Final required work completed
+### Snapshot proof completed; observability amendment open
 
 The Thursday rehearsal, canonical-row inspection, slate receipt review, runtime
 capture, and six-game authenticated live parity comparison all passed on
-2026-08-13. There is no remaining required Packet 2 work.
+2026-08-13. The canonical Snapshot Capture proof is complete. The per-game
+observability amendment defined above is the only reopened Packet 2 work.
 
-Production behavior remains unchanged. Packet 3 (production-safe Level 1) is
-the next packet, but its companion document must be created and reviewed before
-Packet 3 implementation begins.
+Production behavior remains unchanged. Packet 3 (production-safe Level 1)
+remains next, but implementation waits for the development per-game ledger,
+historical audit backfill, and schedule-coverage proof.
 
 ## What Packet 2 is not
 
