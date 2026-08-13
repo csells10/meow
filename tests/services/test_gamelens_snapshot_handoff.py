@@ -187,6 +187,7 @@ class JsonRoundTripStorage:
     def __init__(self):
         self.rows = {}
         self.receipts = []
+        self.game_results = []
 
     def find_capture(self, capture_id):
         return copy.deepcopy(self.rows.get(capture_id))
@@ -201,6 +202,15 @@ class JsonRoundTripStorage:
 
     def write_stage_receipt(self, receipt):
         self.receipts.append(dict(receipt))
+
+    def write_stage_game_results(self, rows):
+        copied = [copy.deepcopy(dict(row)) for row in rows]
+        self.game_results.extend(copied)
+        return {
+            "input_count": len(copied),
+            "inserted_count": len(copied),
+            "existing_count": 0,
+        }
 
 
 class TestPopulatedSnapshotHandoff(unittest.TestCase):
@@ -228,6 +238,15 @@ class TestPopulatedSnapshotHandoff(unittest.TestCase):
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["games_captured"], 1)
+        self.assertEqual(len(storage.game_results), 1)
+        self.assertEqual(
+            storage.game_results[0]["game_id"],
+            item["game_id"],
+        )
+        self.assertEqual(
+            storage.game_results[0]["status"],
+            "success",
+        )
         saved = next(iter(storage.rows.values()))
         self.assertEqual(
             saved["learning_run_id"],
