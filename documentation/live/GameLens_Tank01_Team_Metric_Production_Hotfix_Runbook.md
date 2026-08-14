@@ -579,6 +579,41 @@ The Facts metadata transformation was also exercised in memory with all 14 appro
 | Lens-tag contract | Every new `lens_tags` list is non-empty, unique, normalized, and matches the approved worksheet |
 | Product-influence controls | All 14 additions remain excluded from Core Area Advantage and confidence |
 
+### 8.3 Isolated BigQuery load evidence - 2026-08-14
+
+The committed branch was validated against the fresh historical
+`20250907_CAR@JAX` response using two isolated `Analytics_dev` tables cloned
+from the existing dev source and Facts schemas:
+
+- `qa_tank01_game_metrics_flat_c6f78e2`, eight fields;
+- `qa_tank01_metric_facts_c6f78e2`, 39 fields with `lens_tags` as
+  `REPEATED STRING`.
+
+Both tables expire automatically on 2026-08-15 at approximately 20:19 UTC.
+The test kept the Tank01 response in memory and did not call
+`save_raw_response`, write GCS, touch production, replay a production game, or
+modify the canonical dev tables.
+
+| Check | Source QA | Facts QA |
+|---|---:|---:|
+| Rows | 144 | 144 |
+| Distinct metrics | 72 | 72 |
+| Teams | 2 | 2 |
+| Approved metric rows | 28 | 28 |
+| Approved metric names | 14 | 14 |
+| Snap rows | 14 | 14 |
+| Fabricated zero snap rows | 0 | 0 |
+| Duplicate game/team/metric rows | 0 | 0 |
+| Required-field issues | 0 | 0 |
+| Missing/empty `lens_tags` | N/A | 0 |
+| Source-to-Facts value mismatches | N/A | 0 |
+
+The first one-off Facts adapter attempt included the source-only `data_date`
+field. BigQuery correctly rejected every row and left the Facts QA table empty.
+The adapter was corrected to enforce the exact existing 39-field Facts schema,
+after which all 144 rows loaded. This was a QA harness correction, not an
+application-code change.
+
 ---
 
 ## 9. Expected implementation surface
