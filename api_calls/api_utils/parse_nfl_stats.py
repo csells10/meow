@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 __all__ = ["parse_game_stats"]
 
@@ -27,16 +29,8 @@ _METRIC_MAP: dict[str, Tuple[str, str, str]] = {
     "defensiveInterceptions": ("Disruption and Turnovers", "defensive_interceptions", "Defense"),
     "sacks": ("Disruption and Turnovers", "sacks", "Defense"),
     "fumblesRecovered": ("Disruption and Turnovers", "fumbles_recovered", "Defense"),
-    "defTD": ("Disruption and Turnovers", "defensive_tds", "Defense"),
-    "turnovers": ("Disruption and Turnovers", "turnovers", "Defense"),
     "interceptionsThrown": ("Disruption and Turnovers", "interceptions_thrown", "Offense"),
     "fumblesLost": ("Disruption and Turnovers", "fumbles_lost", "Offense"),
-
-    # Field Control (Special Teams)
-    "blockedPunt": ("Field Control (Special Teams)", "blocked_punt", "Special Teams"),
-    "blockedFG": ("Field Control (Special Teams)", "blocked_fg", "Special Teams"),
-    "blockedXP": ("Field Control (Special Teams)", "blocked_xp", "Special Teams"),
-    "safeties": ("Field Control (Special Teams)", "safeties", "Special Teams"),
 
     # Offensive Output
     "passingYards": ("Offensive Output", "passing_yards", "Passing"),
@@ -53,10 +47,59 @@ _METRIC_MAP: dict[str, Tuple[str, str, str]] = {
     "totalDrives": ("Offensive Output", "total_drives", "Offense"),
 }
 
+# Optional fields are emitted only when Tank01 supplies a finite numeric value.
+# This preserves explicit zeroes without inventing zeroes for absent statistics.
+_OPTIONAL_METRIC_MAP: dict[str, Tuple[str, str, str]] = {
+    # Existing parsed-but-unregistered metrics
+    "defTD": ("Disruption and Turnovers", "defensive_tds", "Defense"),
+    "turnovers": ("Disruption and Turnovers", "turnovers", "Offense"),
+    "blockedPunt": ("Field Control (Special Teams)", "blocked_punt", "Special Teams"),
+    "blockedFG": ("Field Control (Special Teams)", "blocked_fg", "Special Teams"),
+    "blockedXP": ("Field Control (Special Teams)", "blocked_xp", "Special Teams"),
+    "safeties": ("Disruption and Turnovers", "safeties", "Defense"),
+
+    # Newly captured Tank01 team-level metrics
+    "passingFirstDowns": ("Offensive Output", "passing_first_downs", "Passing"),
+    "rushingFirstDowns": ("Offensive Output", "rushing_first_downs", "Rushing"),
+    "firstDownsFromPenalties": (
+        "Offensive Output",
+        "first_downs_from_penalties",
+        "Offense",
+    ),
+    "twoPointConversions": (
+        "Scoring Efficiency",
+        "two_point_conversions",
+        "Offense",
+    ),
+    "defensiveTwoPointConversionReturns": (
+        "Disruption and Turnovers",
+        "defensive_two_point_returns",
+        "Defense",
+    ),
+    "defensiveOrSpecialTeamsTds": (
+        "Disruption and Turnovers",
+        "defensive_or_special_teams_tds",
+        "Non-Offensive Scoring",
+    ),
+}
+
 _DERIVED = {
     "points_per_yard": ("Offensive Output", "points_per_yard", "Offense"),
     "points_allowed_per_yard": ("Defensive Control", "points_allowed_per_yard", "Defense"),
 }
+
+
+def _optional_float(values: Mapping[str, Any], key: str) -> Optional[float]:
+    """Return a supplied finite numeric value without treating absence as zero."""
+    if key not in values:
+        return None
+
+    try:
+        value = float(values[key])
+    except (TypeError, ValueError):
+        return None
+
+    return value if math.isfinite(value) else None
 
 # ────────────────────────────────────────────────────────────────
 # Main entry point
@@ -141,7 +184,7 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                 try:
                     a, b = map(float, t_stats[raw_key].split("-"))
                 except Exception:
-                    a, b = 0.0, 0.0
+                    continue
                 raw[first_name.lower()] = a
                 raw[second_name.lower()] = b
 
@@ -172,22 +215,56 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             except (ValueError, TypeError):
                 val = 0.0
             add_metric(category, metric_name, core_area, val)
-            
-        snap_counts = t_stats.get("snapCounts", {})
-        total_off = float(snap_counts.get("totalOffensive", 0))
-        total_def = float(snap_counts.get("totalDefensive", 0))
-        total_st  = float(snap_counts.get("totalSpecialTeams", 0))
-        total_all = total_off + total_def + total_st
-        
-        add_metric("Snap Load", "total_offensive_snaps", "Offense", total_off)
-        add_metric("Snap Load", "total_defensive_snaps", "Defense", total_def)
-        add_metric("Snap Load", "total_special_teams_snaps", "Special Teams", total_st)
-        add_metric("Snap Load", "total_snaps", "Raw", total_all)
 
-        if total_all > 0:
-            try_add_metric("Offense", "offensive_snap_load", "Offensive Output", total_off, total_all, "Offensive Snap Load")
-            try_add_metric("Defense", "defensive_snap_load", "Defensive Control", total_def, total_all, "Defensive Snap Load")
-            try_add_metric("Special Teams", "special_teams_snap_pct", "Field Control (Special Teams)", total_st, total_all, "Special Teams Snap Load")
+        for raw_key, (core_area, metric_name, category) in _OPTIONAL_METRIC_MAP.items():
+            val = _optional_float(merged, raw_key)
+            if val is not None:
+                add_metric(category, metric_name, core_area, val)
+
+        snap_counts = t_stats.get("snapCounts")
+        snap_values: Dict[str, float] = {}
+        if isinstance(snap_counts, Mapping):
+            snap_fields = (
+                (
+                    "totalOffensive",
+                    "total_offensive_snaps",
+                    "Offensive Output",
+                ),
+                (
+                    "totalDefensive",
+                    "total_defensive_snaps",
+                    "Defensive Control",
+                ),
+                (
+                    "totalSpecialTeams",
+                    "total_special_teams_snaps",
+                    "Field Control (Special Teams)",
+                ),
+            )
+            for raw_key, metric_name, core_area in snap_fields:
+                val = _optional_float(snap_counts, raw_key)
+                if val is None:
+                    continue
+                snap_values[raw_key] = val
+                add_metric("Snap Load", metric_name, core_area, val)
+
+        if len(snap_values) == 3:
+            total_off = snap_values["totalOffensive"]
+            total_def = snap_values["totalDefensive"]
+            total_st = snap_values["totalSpecialTeams"]
+            total_all = total_off + total_def + total_st
+
+            add_metric(
+                "Snap Load",
+                "total_snaps",
+                "Field Control (Special Teams)",
+                total_all,
+            )
+
+            if total_all > 0:
+                try_add_metric("Offense", "offensive_snap_load", "Offensive Output", total_off, total_all, "Offensive Snap Load")
+                try_add_metric("Defense", "defensive_snap_load", "Defensive Control", total_def, total_all, "Defensive Snap Load")
+                try_add_metric("Special Teams", "special_teams_snap_pct", "Field Control (Special Teams)", total_st, total_all, "Special Teams Snap Load")
 
         # Extract composite metrics like "13-18"
         for raw_key, new_names in _COMPOSITE_MAP.items():
@@ -195,10 +272,13 @@ def parse_game_stats(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                 try:
                     a, b = map(float, t_stats[raw_key].split("-"))
                 except Exception:
-                    a, b = 0.0, 0.0
+                    continue
                 for name, val in zip(new_names, [a, b]):
                     # Hardcode known edge cases
-                    if name in ("sacks_taken", "sack_yards_lost"):
+                    if name in ("penalty_count", "penalty_yards"):
+                        core_area = "Offensive Output"
+                        category = "Team Discipline"
+                    elif name in ("sacks_taken", "sack_yards_lost"):
                         core_area = "Offensive Output"
                         category = "Offense"
                     else:

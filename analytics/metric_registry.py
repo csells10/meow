@@ -160,6 +160,20 @@ EXPECTED_METRICS = {
     "opponent_total_plays",
     "points_allowed_per_yard",
     "yards_allowed",
+    "blocked_fg",
+    "blocked_punt",
+    "blocked_xp",
+    "defensive_or_special_teams_tds",
+    "defensive_tds",
+    "defensive_two_point_returns",
+    "first_downs_from_penalties",
+    "passing_first_downs",
+    "penalty_count",
+    "penalty_yards",
+    "rushing_first_downs",
+    "safeties",
+    "turnovers",
+    "two_point_conversions",
 }
 
 
@@ -512,6 +526,93 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
         signal_strength="supporting",
         lens_tags=["drive-sustainability", "offensive-output", "volume-sensitive"],
     ),
+    "passing_first_downs": _metric(
+        label="Passing First Downs",
+        definition="First downs gained by the team through passing plays.",
+        category="Offensive Rhythm",
+        core_area="Offensive Output",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Passing contribution to first-down production; higher is useful but "
+            "volume-sensitive and overlaps total first downs."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "drive-sustainability",
+            "passing-production",
+            "offensive-output",
+            "volume-sensitive",
+        ],
+    ),
+    "rushing_first_downs": _metric(
+        label="Rushing First Downs",
+        definition="First downs gained by the team through rushing plays.",
+        category="Offensive Rhythm",
+        core_area="Offensive Output",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Rushing contribution to first-down production; higher is useful but "
+            "volume-sensitive and overlaps total first downs."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "drive-sustainability",
+            "rushing-production",
+            "offensive-output",
+            "volume-sensitive",
+        ],
+    ),
+    "first_downs_from_penalties": _metric(
+        label="First Downs From Penalties",
+        definition="First downs awarded to the team because of opponent penalties.",
+        category="Offensive Rhythm",
+        core_area="Offensive Output",
+        comparison_direction="context",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Context for how first downs were awarded; do not describe it as "
+            "offense-created production or use it for edge language."
+        ),
+        ranking_usage="context_only",
+        signal_strength="context",
+        edge_language_allowed=False,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "drive-sustainability",
+            "penalties",
+            "opponent-penalties",
+            "offensive-context",
+        ],
+    ),
     "1st_down_rate": _metric(
         label="First Down Rate",
         definition="First downs divided by total offensive plays.",
@@ -691,6 +792,77 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
     ),
 
     # ------------------------------------------------------------------
+    # Offensive Output - Team Discipline
+    # ------------------------------------------------------------------
+    "penalty_count": _metric(
+        label="Accepted Penalties Committed",
+        definition=(
+            "Team penalties reported in the count component of Tank01's count-yards "
+            "penalties field."
+        ),
+        category="Team Discipline",
+        core_area="Offensive Output",
+        comparison_direction="lower",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Team-wide discipline count parsed from the Tank01 composite; lower is "
+            "generally better, but penalty type and situation are not represented."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "penalties",
+            "discipline",
+            "drive-killers",
+            "team-wide",
+            "supporting",
+        ],
+    ),
+    "penalty_yards": _metric(
+        label="Accepted Penalty Yards",
+        definition=(
+            "Penalty yards charged to the team in the yards component of Tank01's "
+            "count-yards penalties field."
+        ),
+        category="Team Discipline",
+        core_area="Offensive Output",
+        comparison_direction="lower",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Team-wide penalty-yard cost; lower is generally better, but declined or "
+            "offsetting detail and play context are not represented."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "penalties",
+            "discipline",
+            "field-position",
+            "drive-killers",
+            "team-wide",
+            "supporting",
+        ],
+    ),
+
+    # ------------------------------------------------------------------
     # Scoring Efficiency — Scoring Production
     # ------------------------------------------------------------------
     "actual_points": _metric(
@@ -709,6 +881,36 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         signal_strength="supporting",
         lens_tags=["scoring", "production", "outcome-total"],
+    ),
+    "two_point_conversions": _metric(
+        label="Two-Point Conversions",
+        definition="Successful offensive two-point conversions completed by the team.",
+        category="Scoring Production",
+        core_area="Scoring Efficiency",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Successful two-point scoring; higher is useful, but attempts are sparse "
+            "and strongly situation-dependent."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "scoring",
+            "two-point-conversions",
+            "situational",
+            "rare-event",
+            "volatility",
+        ],
     ),
     "points_per_play": _metric(
         label="Points Per Play",
@@ -1205,6 +1407,169 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
         signal_strength="supporting",
         lens_tags=["turnovers", "giveaways", "risk", "volatility"],
     ),
+    "turnovers": _metric(
+        label="Turnovers Committed",
+        definition=(
+            "Offensive giveaways committed by the team, expected to reconcile to "
+            "interceptions thrown plus fumbles lost when all components are present."
+        ),
+        category="Turnovers",
+        core_area="Disruption and Turnovers",
+        comparison_direction="lower",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "This is turnovers committed, not takeaways. Reconcile to interceptions "
+            "thrown plus fumbles lost when all components exist."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "turnovers",
+            "giveaways",
+            "ball-security",
+            "risk",
+            "supporting",
+        ],
+    ),
+    "defensive_tds": _metric(
+        label="Defensive Touchdowns",
+        definition="Touchdowns credited to the team defense by Tank01 DST.defTD.",
+        category="Defensive Scoring",
+        core_area="Disruption and Turnovers",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Defensive scoring production; impactful but volatile and partly dependent "
+            "on return opportunity and game state."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "defense",
+            "defensive-scoring",
+            "takeaways",
+            "swing-play",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+    "safeties": _metric(
+        label="Defensive Safeties",
+        definition="Safeties credited to the team defense by Tank01 DST.safeties.",
+        category="Defensive Scoring",
+        core_area="Disruption and Turnovers",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Defensive scoring and field-position disruption; rare enough to remain "
+            "supporting rather than confidence-driving."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "defense",
+            "defensive-scoring",
+            "safeties",
+            "field-position",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+    "defensive_two_point_returns": _metric(
+        label="Defensive Two-Point Conversion Returns",
+        definition=(
+            "Defensive returns of an opponent conversion attempt that produced two "
+            "points for the team."
+        ),
+        category="Defensive Scoring",
+        core_area="Disruption and Turnovers",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Rare defensive scoring event; supporting evidence only and not "
+            "confidence-driving."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "defense",
+            "defensive-scoring",
+            "two-point-return",
+            "swing-play",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+    "defensive_or_special_teams_tds": _metric(
+        label="Defensive or Special Teams Touchdowns",
+        definition=(
+            "Combined touchdowns credited by Tank01 to the team defense or special "
+            "teams."
+        ),
+        category="Non-Offensive Scoring",
+        core_area="Disruption and Turnovers",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Combined cross-phase source metric. Preserve for context, never add to "
+            "defensive_tds without de-duplication, and do not use for edge or confidence."
+        ),
+        ranking_usage="context_only",
+        signal_strength="context",
+        edge_language_allowed=False,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="watch",
+        lens_tags=[
+            "defense",
+            "special-teams",
+            "non-offensive-scoring",
+            "combined-source-metric",
+            "overlap-risk",
+            "context",
+        ],
+    ),
     "turnover_margin": _metric(
         label="Turnover Margin",
         definition="Cumulative takeaways minus giveaways across the selected window.",
@@ -1255,7 +1620,104 @@ METRIC_REGISTRY: Dict[str, Dict[str, Any]] = {
     ),
 
     # ------------------------------------------------------------------
-    # Field Control (Special Teams) — Special Teams Usage
+    # Field Control (Special Teams) - Special Teams Disruption
+    # ------------------------------------------------------------------
+    "blocked_fg": _metric(
+        label="Blocked Field Goals",
+        definition="Opponent field-goal attempts blocked by the team.",
+        category="Special Teams Disruption",
+        core_area="Field Control (Special Teams)",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Special-teams disruption count; higher is useful, but rare and volatile, "
+            "so it must not drive a core-area winner or confidence by itself."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "special-teams",
+            "blocked-kicks",
+            "field-goal-defense",
+            "disruption",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+    "blocked_punt": _metric(
+        label="Blocked Punts",
+        definition="Opponent punts blocked by the team.",
+        category="Special Teams Disruption",
+        core_area="Field Control (Special Teams)",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Punt-pressure and field-position disruption; rare and attempt-sensitive."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "special-teams",
+            "blocked-kicks",
+            "punt-pressure",
+            "field-position",
+            "disruption",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+    "blocked_xp": _metric(
+        label="Blocked Extra Points",
+        definition="Opponent extra-point attempts blocked by the team.",
+        category="Special Teams Disruption",
+        core_area="Field Control (Special Teams)",
+        comparison_direction="higher",
+        raw_or_derived="raw",
+        aggregation_method="sum",
+        numerator=None,
+        denominator=None,
+        format="integer",
+        decimals=0,
+        notes=(
+            "Extra-point disruption; a rare scoring event that should speak only as "
+            "supporting evidence."
+        ),
+        ranking_usage="edge",
+        signal_strength="supporting",
+        edge_language_allowed=True,
+        include_in_core_area_advantage=False,
+        confidence_eligible=False,
+        data_quality_status="good",
+        lens_tags=[
+            "special-teams",
+            "blocked-kicks",
+            "extra-point-defense",
+            "disruption",
+            "rare-event",
+            "volatility",
+        ],
+    ),
+
+    # ------------------------------------------------------------------
+    # Field Control (Special Teams) - Special Teams Usage
     # ------------------------------------------------------------------
     "total_special_teams_snaps": _metric(
         label="Total Special Teams Snaps",
