@@ -4,6 +4,16 @@ import unittest
 from api_calls.api_utils.validate_nfl_boxscore import validate_nfl_boxscore
 
 
+NEW_OPTIONAL_STAT_FIELDS = {
+    "defensiveOrSpecialTeamsTds",
+    "defensiveTwoPointConversionReturns",
+    "firstDownsFromPenalties",
+    "passingFirstDowns",
+    "rushingFirstDowns",
+    "twoPointConversions",
+}
+
+
 def make_valid_payload() -> dict:
     return {
         "statusCode": 200,
@@ -23,6 +33,12 @@ def make_valid_payload() -> dict:
                     "totalYards": "410",
                     "totalPlays": "64",
                     "firstDowns": "23",
+                    "passingFirstDowns": "14",
+                    "rushingFirstDowns": "7",
+                    "firstDownsFromPenalties": "2",
+                    "twoPointConversions": "1",
+                    "defensiveTwoPointConversionReturns": "0",
+                    "defensiveOrSpecialTeamsTds": "1",
                     "passCompletionsAndAttempts": "25-34",
                     "thirdDownEfficiency": "6-12",
                     "possession": "31:15",
@@ -40,6 +56,12 @@ def make_valid_payload() -> dict:
                     "totalYards": "355",
                     "totalPlays": "59",
                     "firstDowns": "20",
+                    "passingFirstDowns": "12",
+                    "rushingFirstDowns": "7",
+                    "firstDownsFromPenalties": "1",
+                    "twoPointConversions": "0",
+                    "defensiveTwoPointConversionReturns": "0",
+                    "defensiveOrSpecialTeamsTds": "0",
                     "passCompletionsAndAttempts": "22-33",
                     "thirdDownEfficiency": "4-11",
                     "possession": "28:45",
@@ -156,6 +178,30 @@ class ValidateNflBoxscoreTests(unittest.TestCase):
         self.assertEqual(result.code, "malformed_stats")
         self.assertIn("home.totalYards", result.reason)
 
+    def test_rejects_malformed_new_optional_stat(self):
+        payload = make_valid_payload()
+        payload["body"]["teamStats"]["home"][
+            "defensiveTwoPointConversionReturns"
+        ] = "not-a-number"
+
+        result = validate_nfl_boxscore(payload)
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "malformed_stats")
+        self.assertIn("home.defensiveTwoPointConversionReturns", result.reason)
+
+    def test_accepts_when_new_optional_stats_are_absent(self):
+        payload = make_valid_payload()
+        for side in ("home", "away"):
+            team_stats = payload["body"]["teamStats"][side]
+            for field in NEW_OPTIONAL_STAT_FIELDS:
+                team_stats.pop(field)
+
+        result = validate_nfl_boxscore(payload)
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "accepted")
+
     def test_accepts_legitimate_zero_valued_stats(self):
         payload = make_valid_payload()
         payload["body"]["homePts"] = "0"
@@ -171,6 +217,8 @@ class ValidateNflBoxscoreTests(unittest.TestCase):
                 "firstDowns",
             ):
                 team_stats[field] = "0"
+            for field in NEW_OPTIONAL_STAT_FIELDS:
+                team_stats[field] = "0"
             team_stats["passCompletionsAndAttempts"] = "0-0"
             team_stats["thirdDownEfficiency"] = "0-0"
             team_stats["possession"] = "00:00"
@@ -180,6 +228,17 @@ class ValidateNflBoxscoreTests(unittest.TestCase):
             dst_stats = payload["body"]["DST"][side]
             for field in ("ptsAllowed", "ydsAllowed", "sacks"):
                 dst_stats[field] = "0"
+
+        result = validate_nfl_boxscore(payload)
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "accepted")
+
+    def test_accepts_partial_snap_counts(self):
+        payload = make_valid_payload()
+        del payload["body"]["teamStats"]["home"]["snapCounts"][
+            "totalSpecialTeams"
+        ]
 
         result = validate_nfl_boxscore(payload)
 
