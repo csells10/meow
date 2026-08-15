@@ -2,20 +2,16 @@ import copy
 import json
 import unittest
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 
 from tests._gcp_stubs import install_bigquery_stub
 
 install_bigquery_stub()
 
-from agg.gamelens_training.build_claim_training_examples import (
-    extract_claim_rows,
-    extract_payload_context,
-)
 from analytics.metric_registry import METRIC_REGISTRY
 from runtime_config import RuntimeConfig
 from services.core_area_analysis import ACTIVE_CORE_AREAS
 from services.game_service import GameDetailsEvidence
+from services.gamelens_level1_service import prepare_level1_claims
 from services.gamelens_snapshot_capture import SnapshotCaptureCoordinator
 
 
@@ -274,18 +270,12 @@ class TestPopulatedSnapshotHandoff(unittest.TestCase):
                 )
             )
 
-        context = extract_payload_context(
-            payload=payload,
-            payload_path=Path("pregame_snapshot.json"),
-            payload_run=Path("packet2_handoff"),
-            run_id=saved["learning_run_id"],
-            model_version=saved["model_version"],
-        )
-        claims = extract_claim_rows(
-            payload=payload,
-            context=context,
+        level1 = prepare_level1_claims(
+            saved,
             headline_top_metrics=8,
+            extracted_at=NOW,
         )
+        claims = level1["rows"]
         claim_types = {row["claim_type"] for row in claims}
         self.assertEqual(
             claim_types,
@@ -298,6 +288,24 @@ class TestPopulatedSnapshotHandoff(unittest.TestCase):
                 "team_comparison_metric",
             },
         )
+        self.assertEqual(level1["claim_count"], len(claims))
+        self.assertEqual(level1["unique_claim_key_count"], len(claims))
+        self.assertTrue(
+            all(row["capture_id"] == saved["capture_id"] for row in claims)
+        )
+        self.assertTrue(
+            all(
+                row["learning_run_id"] == saved["learning_run_id"]
+                for row in claims
+            )
+        )
+        self.assertTrue(
+            all(
+                row["source_payload_sha256"] == saved["payload_sha256"]
+                for row in claims
+            )
+        )
+        self.assertNotIn("lens_tag", claim_types)
         self.assertGreaterEqual(len(claims), 20)
         self.assertLessEqual(len(claims), 45)
         self.assertTrue(

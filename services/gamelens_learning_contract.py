@@ -25,6 +25,30 @@ KNOWN_SEASON_TYPES = (
 )
 PREGAME_CAPTURE_STATUS = "captured"
 
+# Level 1 is strictly pregame. These fields belong to later outcome grading
+# and claim validation, so every prepared Level 1 row must keep them NULL.
+LEVEL1_POSTGAME_NULL_FIELDS = (
+    "actual_team",
+    "actual_side",
+    "validation_result",
+    "validated_flag",
+    "elevated_deserved_flag",
+    "actual_gap",
+    "actual_rank_gap",
+    "actual_percentile_gap",
+    "actual_gap_bucket",
+    "actual_winner",
+    "model_result",
+    "is_tie",
+    "final_away_total",
+    "final_home_total",
+    "final_margin_abs",
+    "final_margin_bucket",
+    "qa_read_v2",
+    "headline_claim_validation_rate",
+    "unique_claim_validation_rate",
+)
+
 # ``model_trust`` is intentionally not denied: it contains the pregame model
 # read. Only outcome-bearing fields are forbidden in a canonical snapshot.
 POSTGAME_TOP_LEVEL_FIELDS = frozenset({"final_score", "model_outcome"})

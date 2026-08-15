@@ -18,6 +18,7 @@ from agg.gamelens_training.build_claim_training_examples import (
     extract_payload_context,
 )
 from services.gamelens_learning_contract import (
+    LEVEL1_POSTGAME_NULL_FIELDS,
     PREGAME_CAPTURE_STATUS,
     build_claim_key,
     payload_sha256,
@@ -28,26 +29,20 @@ from services.gamelens_learning_contract import (
 SOURCE_SNAPSHOT_TABLE = "GameLens_dev.pregame_snapshots"
 EXTRACTION_VERSION = "level1_snapshot_adapter_v1"
 
-POSTGAME_NULL_FIELDS = (
-    "actual_team",
-    "actual_side",
-    "validation_result",
-    "validated_flag",
-    "elevated_deserved_flag",
-    "actual_gap",
-    "actual_rank_gap",
-    "actual_percentile_gap",
-    "actual_gap_bucket",
-    "actual_winner",
-    "model_result",
-    "is_tie",
-    "final_away_total",
-    "final_home_total",
-    "final_margin_abs",
-    "final_margin_bucket",
-    "qa_read_v2",
-    "headline_claim_validation_rate",
-    "unique_claim_validation_rate",
+LEVEL1_REQUIRED_ROW_FIELDS = (
+    "claim_key",
+    "run_id",
+    "learning_run_id",
+    "capture_id",
+    "game_id",
+    "claimed_team",
+    "claim_type",
+    "claim_layer",
+    "source_field_path",
+    "source_payload_sha256",
+    "extraction_version",
+    "extracted_at",
+    "created_at",
 )
 
 
@@ -75,6 +70,47 @@ def _count_by(rows: List[Dict[str, Any]], field: str) -> Dict[str, int]:
         key = str(row.get(field) or "missing")
         counts[key] = counts.get(key, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _validate_prepared_row(
+    row: Mapping[str, Any],
+    *,
+    game_id: str,
+    capture_id: str,
+    learning_run_id: str,
+    source_hash: str,
+) -> None:
+    missing = [
+        field
+        for field in LEVEL1_REQUIRED_ROW_FIELDS
+        if row.get(field) is None or row.get(field) == ""
+    ]
+    if missing:
+        raise Level1PreparationError(
+            "prepared claim missing required fields: " + ",".join(missing)
+        )
+    if (
+        row["run_id"] != learning_run_id
+        or row["learning_run_id"] != learning_run_id
+    ):
+        raise Level1PreparationError("prepared claim cohort identity disagrees")
+    if row["capture_id"] != capture_id:
+        raise Level1PreparationError("prepared claim capture identity disagrees")
+    if row["game_id"] != game_id:
+        raise Level1PreparationError("prepared claim game identity disagrees")
+    if row["source_payload_sha256"] != source_hash:
+        raise Level1PreparationError("prepared claim payload hash disagrees")
+
+    populated_postgame = [
+        field
+        for field in LEVEL1_POSTGAME_NULL_FIELDS
+        if row.get(field) is not None
+    ]
+    if populated_postgame:
+        raise Level1PreparationError(
+            "prepared Level 1 claim contains postgame fields: "
+            + ",".join(populated_postgame)
+        )
 
 
 def _validate_snapshot(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
@@ -139,37 +175,38 @@ def prepare_level1_claims(
     source_hash = canonical["payload_sha256"]
     payload = canonical["payload"]
 
-    context = extract_payload_context(
-        payload=payload,
-        payload_path=Path(f"{capture_id}.json"),
-        payload_run=Path(SOURCE_SNAPSHOT_TABLE),
-        run_id=learning_run_id,
-        model_version=snapshot.get("model_version"),
-    )
-    context.update(
-        {
-            "run_id": learning_run_id,
-            "learning_run_id": learning_run_id,
-            "capture_id": capture_id,
-            "pipeline_run_id": snapshot.get("metric_pipeline_run_id"),
-            "source_payload_sha256": source_hash,
-            "extraction_version": EXTRACTION_VERSION,
-            "extracted_at": captured_at,
-            "source_payload_run": SOURCE_SNAPSHOT_TABLE,
-            "source_payload_path": f"{SOURCE_SNAPSHOT_TABLE}#capture_id={capture_id}",
-            "created_at": captured_at,
-            "updated_at": None,
-        }
-    )
-
     try:
+        context = extract_payload_context(
+            payload=payload,
+            payload_path=Path(f"{capture_id}.json"),
+            payload_run=Path(SOURCE_SNAPSHOT_TABLE),
+            run_id=learning_run_id,
+            model_version=snapshot.get("model_version"),
+        )
+        context.update(
+            {
+                "run_id": learning_run_id,
+                "learning_run_id": learning_run_id,
+                "capture_id": capture_id,
+                "pipeline_run_id": snapshot.get("metric_pipeline_run_id"),
+                "source_payload_sha256": source_hash,
+                "extraction_version": EXTRACTION_VERSION,
+                "extracted_at": captured_at,
+                "source_payload_run": SOURCE_SNAPSHOT_TABLE,
+                "source_payload_path": f"{SOURCE_SNAPSHOT_TABLE}#capture_id={capture_id}",
+                "created_at": captured_at,
+                "updated_at": None,
+            }
+        )
         extracted_rows = extract_claim_rows(
             payload=payload,
             context=context,
             headline_top_metrics=headline_top_metrics,
         )
     except Exception as exc:
-        raise Level1PreparationError(f"claim extraction failed: {exc}") from exc
+        raise Level1PreparationError(
+            f"Level 1 preparation failed: {exc}"
+        ) from exc
 
     rows: List[Dict[str, Any]] = []
     seen_keys = set()
@@ -193,10 +230,16 @@ def prepare_level1_claims(
             raise Level1PreparationError("duplicate canonical claim_key extracted")
         seen_keys.add(claim_key)
 
-        row.update(context)
         row["claim_key"] = claim_key
-        for field in POSTGAME_NULL_FIELDS:
+        for field in LEVEL1_POSTGAME_NULL_FIELDS:
             row[field] = None
+        _validate_prepared_row(
+            row,
+            game_id=game_id,
+            capture_id=capture_id,
+            learning_run_id=learning_run_id,
+            source_hash=source_hash,
+        )
         rows.append(row)
 
     return {

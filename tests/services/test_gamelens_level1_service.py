@@ -3,10 +3,12 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from services.gamelens_learning_contract import payload_sha256
+from services.gamelens_learning_contract import (
+    LEVEL1_POSTGAME_NULL_FIELDS,
+    payload_sha256,
+)
 from services.gamelens_level1_service import (
     EXTRACTION_VERSION,
-    POSTGAME_NULL_FIELDS,
     Level1PreparationError,
     prepare_level1_claims,
 )
@@ -85,7 +87,9 @@ class TestPrepareLevel1Claims(unittest.TestCase):
         self.assertEqual(row["source_payload_sha256"], result["payload_sha256"])
         self.assertEqual(row["extraction_version"], EXTRACTION_VERSION)
         self.assertIn(result["capture_id"], row["source_payload_path"])
-        self.assertTrue(all(row[field] is None for field in POSTGAME_NULL_FIELDS))
+        self.assertTrue(
+            all(row[field] is None for field in LEVEL1_POSTGAME_NULL_FIELDS)
+        )
 
     def test_same_capture_produces_same_claim_identity(self):
         first = prepare_level1_claims(snapshot(), extracted_at=EXTRACTED_AT)
@@ -125,12 +129,41 @@ class TestPrepareLevel1Claims(unittest.TestCase):
             "claim_rank": 1,
             "claim_layer": "headline",
         }
+
+        def duplicate_rows(*, context, **kwargs):
+            return [
+                {**context, **copy.deepcopy(duplicate), "claimed_team": "ARI"},
+                {**context, **copy.deepcopy(duplicate), "claimed_team": "ARI"},
+            ]
+
         with patch(
             "services.gamelens_level1_service.extract_claim_rows",
-            return_value=[copy.deepcopy(duplicate), copy.deepcopy(duplicate)],
+            side_effect=duplicate_rows,
         ):
             with self.assertRaisesRegex(Level1PreparationError, "duplicate"):
                 prepare_level1_claims(snapshot(), extracted_at=EXTRACTED_AT)
+
+    def test_context_builder_failure_uses_level1_error_boundary(self):
+        with patch(
+            "services.gamelens_level1_service.extract_payload_context",
+            side_effect=ValueError("bad canonical context"),
+        ):
+            with self.assertRaisesRegex(
+                Level1PreparationError,
+                "Level 1 preparation failed",
+            ):
+                prepare_level1_claims(snapshot(), extracted_at=EXTRACTED_AT)
+
+    def test_non_dev_and_uncaptured_snapshots_fail_closed(self):
+        for field, value, message in (
+            ("environment", "prod", "must be from dev"),
+            ("capture_status", "failure", "must be captured"),
+        ):
+            with self.subTest(field=field):
+                selected = snapshot()
+                selected[field] = value
+                with self.assertRaisesRegex(Level1PreparationError, message):
+                    prepare_level1_claims(selected, extracted_at=EXTRACTED_AT)
 
     def test_honest_zero_claim_capture_is_a_successful_preparation(self):
         selected = snapshot()
