@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table and dry-read gates passed, but all six Packet 2 captures honestly extract zero claims; the zero-claim receipt/retry proof is next and the populated-write gate remains open for a future genuine capture.
+**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table, dry-read inventory, and zero-claim receipt/retry gates passed. All six Packet 2 captures honestly extract zero claims, so the populated-write and bounded-slate gates remain open for a future genuine claim-bearing capture.
 
 **Updated:** 2026-08-15  
 **Working branch:** `dev`  
@@ -82,8 +82,8 @@ Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewa
 2. ~~dev table schema and storage boundary~~ complete;
 3. ~~game-scoped MERGE, per-game receipts, and runner~~ complete;
 4. ~~dev table setup and six-capture dry inventory~~ complete;
-5. perform the deliberate zero-claim receipt and identical-retry proof;
-6. wait for and prove one genuine populated canonical capture; and
+5. wait for and prove one genuine populated canonical capture;
+6. prove its identical replay changes zero rows; and
 7. complete the bounded-slate proof and documentation closure.
 
 Do not start Packet 4, modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 3.

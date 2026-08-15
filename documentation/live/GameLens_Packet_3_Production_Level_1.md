@@ -1,6 +1,6 @@
 # GameLens Packet 3 — Production-Safe Level 1 Plan
 
-**Status:** In progress — code complete; table setup and dry-read inventory passed; zero-claim write/retry and future populated-capture proof pending  
+**Status:** In progress — code complete; table setup, dry-read inventory, and zero-claim write/retry passed; future populated-capture and bounded-slate proofs pending  
 **Created:** 2026-08-13  
 **Branch:** `dev`  
 **Predecessor:** [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md)  
@@ -21,7 +21,7 @@
 | One-capture coordinator and receipts | Dry plan, deliberate write, unchanged retry, zero-claim receipt, compact visual output | Complete — `c264002`, `3e82c6f`, `dad1806` |
 | Dev table setup | `GameLens_dev.claim_training_examples` created/verified with the 117-field contract | Pass — user-run 2026-08-15 |
 | Six-capture dry inventory | All six canonical Packet 2 snapshots revalidated and ran through the shared extractor without writes | Pass — six honest zero-claim results |
-| Zero-claim receipt/retry | Persist one visible processing receipt, then prove the same logical attempt is unchanged | Ready; not yet run |
+| Zero-claim receipt/retry | Persist one visible processing receipt, then prove the same logical attempt is unchanged | Pass — `level1_zero_20260815_ari_lv`; one receipt inserted, identical retry inserted zero |
 | Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Waiting; no current Packet 2 snapshot contains claim candidates |
 | Bounded-slate proof | Process the remaining eligible captures sequentially without cross-game mutation | Pending |
 
@@ -36,9 +36,10 @@ the pytest-based storage suite was exercised with a direct harness; the full
 repository test suite and GitHub checks remain required before GO.
 
 The development table was created and verified during the user-run 2026-08-15
-setup. No claim row or Level 1 receipt has yet been written. The next step is
-the deliberate zero-claim receipt and identical-retry proof using the committed
-one-capture runner.
+setup. No claim row has been written because no canonical capture contains a
+claim candidate. One Level 1 zero-claim receipt now proves that this valid empty
+capture was processed, and an identical retry proved that the receipt is not
+duplicated.
 
 ### Dry-read correction — 2026-08-15
 
@@ -55,6 +56,25 @@ must not manufacture two-sided claims from one-sided or unmatched evidence.
 The six captures therefore support the zero-claim path only. The populated
 cloud gate remains open until a new canonical pregame capture contains genuine
 claim sections.
+
+### Zero-claim write/retry evidence — 2026-08-15
+
+Both runs used capture `capture_3a04ea363187904257e2afa3`, game
+`20260813_ARI@LV`, and logical attempt `level1_zero_20260815_ari_lv`.
+
+| Reconciliation | First write | Identical retry |
+|---|---:|---:|
+| Claims extracted | 0 | 0 |
+| Claims persisted | 0 | 0 |
+| Claim conflicts | 0 | 0 |
+| Existing receipts | 0 | 1 |
+| Receipts inserted | 1 | 0 |
+| Status | `success` | `no_op` |
+| Reason | `zero_claims_extracted` | `zero_claims_already_recorded` |
+
+This is the intended empty-batch behavior: claims in equal claims out, no
+claim-table mutation occurs, and the game-level processing receipt remains
+visible and repeat-safe.
 
 ---
 
@@ -447,6 +467,11 @@ zero conflicts, unchanged total count, and a truthful no-op/unchanged receipt.
 Process one valid empty-evidence capture. Require zero claim rows and one
 successful `zero_claims_extracted` game-level receipt. Repeat it and prove no
 duplicate receipt or claim row.
+
+**Result:** Pass on 2026-08-15 using
+`level1_zero_20260815_ari_lv`. The first run inserted one receipt and the
+identical retry found that receipt and inserted zero. Both runs reconciled zero
+claims in, zero claims out, and zero conflicts.
 
 ### Gate 8 — bounded slate proof
 
