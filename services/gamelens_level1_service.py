@@ -1,15 +1,10 @@
-"""Prepare production-safe Level 1 claims from one canonical snapshot.
-
-This first Packet 3 slice is intentionally read-only.  It adapts the existing
-historical claim extractor to the Packet 2 snapshot contract, replaces legacy
-claim identities with capture-aware identities, and returns rows for review.
-Storage, receipts, and slate coordination belong to later slices.
-"""
+"""Prepare and persist Level 1 claims from one canonical snapshot."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Dict, List, Mapping, Optional
 
 from agg.gamelens_training.build_claim_training_examples import (
@@ -28,6 +23,7 @@ from services.gamelens_learning_contract import (
 
 SOURCE_SNAPSHOT_TABLE = "GameLens_dev.pregame_snapshots"
 EXTRACTION_VERSION = "level1_snapshot_adapter_v1"
+LEVEL1_STAGE_NAME = "level1_claim_extraction"
 
 LEVEL1_REQUIRED_ROW_FIELDS = (
     "claim_key",
@@ -256,5 +252,141 @@ def prepare_level1_claims(
         "unique_claim_key_count": len(seen_keys),
         "by_claim_type": _count_by(rows, "claim_type"),
         "by_claim_layer": _count_by(rows, "claim_layer"),
+        "rows": rows,
+    }
+
+
+def extract_level1_from_capture(
+    capture_id: str,
+    attempt_id: str,
+    *,
+    snapshot_storage,
+    claim_storage,
+    write: bool = False,
+    headline_top_metrics: int = DEFAULT_HEADLINE_TOP_METRICS,
+    extracted_at: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Run one capture through preparation, MERGE planning, and its receipt."""
+    requested_capture = str(capture_id or "").strip()
+    attempt = str(attempt_id or "").strip()
+    if not requested_capture:
+        raise Level1PreparationError("capture_id is required")
+    if not attempt:
+        raise Level1PreparationError("attempt_id is required")
+
+    started_at = datetime.now(timezone.utc)
+    started_clock = perf_counter()
+    snapshot = snapshot_storage.read_snapshot(requested_capture)
+    if snapshot is None:
+        raise Level1PreparationError(
+            f"canonical snapshot not found: {requested_capture}"
+        )
+
+    prepared = prepare_level1_claims(
+        snapshot,
+        headline_top_metrics=headline_top_metrics,
+        extracted_at=extracted_at,
+    )
+    rows = prepared["rows"]
+    storage_args = {
+        "learning_run_id": prepared["learning_run_id"],
+        "capture_id": prepared["capture_id"],
+    }
+
+    receipt_result = None
+    if write:
+        storage_result = claim_storage.merge_claims(
+            rows,
+            attempt_id=attempt,
+            **storage_args,
+        )
+        claim_count = prepared["claim_count"]
+        if claim_count == 0:
+            stage_status = "success"
+            reason = "zero_claims_extracted"
+        elif storage_result["inserted"] == 0:
+            stage_status = "no_op"
+            reason = "claims_unchanged"
+        else:
+            stage_status = "success"
+            reason = "claims_merged"
+
+        recorded_at = datetime.now(timezone.utc).isoformat()
+        receipt_result = snapshot_storage.write_stage_game_results(
+            [
+                {
+                    "attempt_id": attempt,
+                    "stage_name": LEVEL1_STAGE_NAME,
+                    "game_id": prepared["game_id"],
+                    "capture_id": prepared["capture_id"],
+                    "learning_run_id": prepared["learning_run_id"],
+                    "season": snapshot.get("season"),
+                    "season_type": snapshot.get("season_type"),
+                    "status": stage_status,
+                    "reason": reason,
+                    "eligible": True,
+                    "rebuilt": False,
+                    "input_count": 1,
+                    "output_count": claim_count,
+                    "upstream_run_id": prepared.get("pipeline_run_id"),
+                    "recorded_at": recorded_at,
+                    "is_backfill": False,
+                    "backfill_source": None,
+                }
+            ]
+        )
+    else:
+        storage_result = claim_storage.plan_claims(rows, **storage_args)
+        if storage_result["conflict_count"]:
+            raise Level1PreparationError(
+                "dry-write plan found immutable Level 1 conflicts"
+            )
+        stage_status = "ready"
+        reason = "zero_claims_extracted" if not rows else "dry_write_ready"
+
+    finished_at = datetime.now(timezone.utc)
+    receipt_saved = bool(
+        receipt_result
+        and receipt_result.get("inserted_count", 0)
+        + receipt_result.get("existing_count", 0)
+        == 1
+    )
+    return {
+        "status": stage_status,
+        "reason": reason,
+        "attempt_id": attempt,
+        "stage_name": LEVEL1_STAGE_NAME,
+        "capture_id": prepared["capture_id"],
+        "game_id": prepared["game_id"],
+        "learning_run_id": prepared["learning_run_id"],
+        "pipeline_run_id": prepared.get("pipeline_run_id"),
+        "payload_sha256": prepared["payload_sha256"],
+        "extraction_version": prepared["extraction_version"],
+        "claim_count": prepared["claim_count"],
+        "unique_claim_key_count": prepared["unique_claim_key_count"],
+        "by_claim_type": prepared["by_claim_type"],
+        "by_claim_layer": prepared["by_claim_layer"],
+        "inserted_count": storage_result.get(
+            "inserted", storage_result.get("expected_inserted_count", 0)
+        ),
+        "unchanged_count": storage_result.get(
+            "unchanged", storage_result.get("expected_unchanged_count", 0)
+        ),
+        "conflict_count": storage_result["conflict_count"]
+        if "conflict_count" in storage_result
+        else storage_result.get("conflicts", 0),
+        "claims_out": storage_result.get(
+            "claims_out", prepared["claim_count"]
+        ),
+        "source_table": prepared["source_table"],
+        "target_table": storage_result["target_table"],
+        "merge_key": storage_result["merge_key"],
+        "write_requested": write,
+        "write_performed": storage_result.get("write_performed", False),
+        "receipt_saved": receipt_saved,
+        "receipt_result": receipt_result,
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_ms": int((perf_counter() - started_clock) * 1000),
         "rows": rows,
     }

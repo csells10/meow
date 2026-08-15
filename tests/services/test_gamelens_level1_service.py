@@ -9,7 +9,9 @@ from services.gamelens_learning_contract import (
 )
 from services.gamelens_level1_service import (
     EXTRACTION_VERSION,
+    LEVEL1_STAGE_NAME,
     Level1PreparationError,
+    extract_level1_from_capture,
     prepare_level1_claims,
 )
 
@@ -176,6 +178,168 @@ class TestPrepareLevel1Claims(unittest.TestCase):
         self.assertEqual(result["claim_count"], 0)
         self.assertEqual(result["unique_claim_key_count"], 0)
         self.assertEqual(result["rows"], [])
+
+
+class FakeSnapshotStorage:
+    def __init__(self, selected):
+        self.selected = selected
+        self.receipts = []
+
+    def read_snapshot(self, capture_id):
+        if self.selected and self.selected["capture_id"] == capture_id:
+            return copy.deepcopy(self.selected)
+        return None
+
+    def write_stage_game_results(self, rows):
+        self.receipts.extend(copy.deepcopy(rows))
+        return {
+            "input_count": len(rows),
+            "inserted_count": len(rows),
+            "existing_count": 0,
+        }
+
+
+class FakeClaimStorage:
+    def __init__(self, *, inserted=1, unchanged=0):
+        self.inserted = inserted
+        self.unchanged = unchanged
+        self.plan_calls = []
+        self.merge_calls = []
+
+    def plan_claims(self, rows, **identity):
+        self.plan_calls.append((copy.deepcopy(rows), dict(identity)))
+        return {
+            "status": "ready",
+            "expected_inserted_count": len(rows),
+            "expected_unchanged_count": 0,
+            "conflict_count": 0,
+            "target_table": "nfl-stream-406420.GameLens_dev.claim_training_examples",
+            "merge_key": ["learning_run_id", "claim_key"],
+            "write_performed": False,
+        }
+
+    def merge_claims(self, rows, **identity):
+        self.merge_calls.append((copy.deepcopy(rows), dict(identity)))
+        return {
+            "status": "matched",
+            "claims_in": len(rows),
+            "unique_claim_keys": len(rows),
+            "inserted": self.inserted if rows else 0,
+            "unchanged": self.unchanged if rows else 0,
+            "conflicts": 0,
+            "claims_out": len(rows),
+            "target_table": "nfl-stream-406420.GameLens_dev.claim_training_examples",
+            "merge_key": ["learning_run_id", "claim_key"],
+            "write_performed": bool(rows and self.inserted),
+        }
+
+
+class TestExtractLevel1FromCapture(unittest.TestCase):
+    def test_dry_write_plan_has_counts_and_no_receipt(self):
+        snapshots = FakeSnapshotStorage(snapshot())
+        claims = FakeClaimStorage()
+
+        result = extract_level1_from_capture(
+            "capture_packet3_test",
+            "level1_dry_run",
+            snapshot_storage=snapshots,
+            claim_storage=claims,
+            write=False,
+            extracted_at=EXTRACTED_AT,
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["claim_count"], 1)
+        self.assertEqual(result["inserted_count"], 1)
+        self.assertEqual(result["unchanged_count"], 0)
+        self.assertFalse(result["write_requested"])
+        self.assertFalse(result["write_performed"])
+        self.assertFalse(result["receipt_saved"])
+        self.assertEqual(len(claims.plan_calls), 1)
+        self.assertEqual(snapshots.receipts, [])
+
+    def test_deliberate_write_merges_and_saves_canonical_output_count(self):
+        snapshots = FakeSnapshotStorage(snapshot())
+        claims = FakeClaimStorage(inserted=1, unchanged=0)
+
+        result = extract_level1_from_capture(
+            "capture_packet3_test",
+            "level1_write_one",
+            snapshot_storage=snapshots,
+            claim_storage=claims,
+            write=True,
+            extracted_at=EXTRACTED_AT,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["reason"], "claims_merged")
+        self.assertEqual(result["inserted_count"], 1)
+        self.assertTrue(result["receipt_saved"])
+        receipt = snapshots.receipts[0]
+        self.assertEqual(receipt["stage_name"], LEVEL1_STAGE_NAME)
+        self.assertEqual(receipt["input_count"], 1)
+        self.assertEqual(receipt["output_count"], result["claim_count"])
+        self.assertEqual(receipt["capture_id"], result["capture_id"])
+        self.assertEqual(receipt["learning_run_id"], result["learning_run_id"])
+        self.assertEqual(receipt["upstream_run_id"], "metric_20260813")
+
+    def test_identical_retry_is_no_op_but_still_gets_a_receipt(self):
+        snapshots = FakeSnapshotStorage(snapshot())
+        claims = FakeClaimStorage(inserted=0, unchanged=1)
+
+        result = extract_level1_from_capture(
+            "capture_packet3_test",
+            "level1_retry",
+            snapshot_storage=snapshots,
+            claim_storage=claims,
+            write=True,
+            extracted_at=EXTRACTED_AT,
+        )
+
+        self.assertEqual(result["status"], "no_op")
+        self.assertEqual(result["reason"], "claims_unchanged")
+        self.assertEqual(result["inserted_count"], 0)
+        self.assertEqual(result["unchanged_count"], 1)
+        self.assertFalse(result["write_performed"])
+        self.assertTrue(result["receipt_saved"])
+
+    def test_zero_claim_capture_is_visible_in_receipt(self):
+        selected = snapshot()
+        selected["response_payload"]["game_profile"] = []
+        selected["payload_sha256"] = payload_sha256(
+            selected["response_payload"]
+        )
+        snapshots = FakeSnapshotStorage(selected)
+
+        result = extract_level1_from_capture(
+            "capture_packet3_test",
+            "level1_zero",
+            snapshot_storage=snapshots,
+            claim_storage=FakeClaimStorage(inserted=0, unchanged=0),
+            write=True,
+            extracted_at=EXTRACTED_AT,
+        )
+
+        self.assertEqual(result["claim_count"], 0)
+        self.assertEqual(result["reason"], "zero_claims_extracted")
+        self.assertEqual(snapshots.receipts[0]["output_count"], 0)
+        self.assertEqual(snapshots.receipts[0]["status"], "success")
+
+    def test_missing_capture_fails_before_claim_or_receipt_write(self):
+        snapshots = FakeSnapshotStorage(None)
+        claims = FakeClaimStorage()
+
+        with self.assertRaisesRegex(Level1PreparationError, "not found"):
+            extract_level1_from_capture(
+                "missing_capture",
+                "level1_missing",
+                snapshot_storage=snapshots,
+                claim_storage=claims,
+                write=True,
+            )
+
+        self.assertEqual(claims.merge_calls, [])
+        self.assertEqual(snapshots.receipts, [])
 
 
 if __name__ == "__main__":
