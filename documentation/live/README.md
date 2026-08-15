@@ -1,8 +1,8 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 is planned and ready for review; Packet 3 implementation has not started.
+**Current status:** Packets 1 and 2 are complete. Packet 3 implementation is in progress: the snapshot adapter and development claim-table contract are complete; claim MERGE, per-game receipts, and cloud proof remain.
 
-**Updated:** 2026-08-13  
+**Updated:** 2026-08-15  
 **Working branch:** `dev`  
 **Production posture:** The existing 8:00 AM production load is unchanged. No learning stage is wired into `app.py`, no learning tables have been created in production, and no learning-orchestration change is ready for `main`.
 
@@ -13,7 +13,7 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 ## Recommended reading order
 
 1. [GameLens Learning Orchestration Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) — current sprint status, packet order, gates, and next action.
-2. [Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — the next packet; planning only until explicitly approved.
+2. [Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — the active packet and its current implementation checkpoint.
 3. [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) — completed implementation and cloud proof that Packet 3 inherits.
 4. [Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md) — the locked contract and invariants.
 5. [Product Data Collection and Learning Handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) — architecture and level boundaries.
@@ -26,8 +26,8 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 
 | File | Role | Current state | Do not infer |
 |---|---|---|---|
-| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–2 complete; Packet 3 next | A future packet is implemented merely because it is described |
-| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Next bounded implementation plan | Ready for review; code and cloud work not started | Approval to write production data or wire the daily load |
+| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–2 complete; Packet 3 in progress | A future packet is implemented merely because it is described |
+| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Active bounded implementation plan | Adapter and dev table/storage contract complete; MERGE, receipts, and cloud proof pending | Approval to write production data or wire the daily load |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
 | [Architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) | Stable system design and level boundaries | Active | Architecture prose is a live execution receipt |
@@ -65,6 +65,8 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 2 final closure: commit `50d83ec`
 - Live-document status reconciliation: commit `14653a7`
 - Packet 3 planning handoff and live index: commit `4906a03`.
+- Packet 3 snapshot adapter first pass and cleanup: commits `28b52df` and `6d1b977`.
+- Canonical claim-schema reuse and dev storage contract: commits `3fe24d3` and `fb6e997`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -72,13 +74,13 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Review [Packet 3](./GameLens_Packet_3_Production_Level_1.md). After approval, implement it in small, reviewable commits:
+Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewable commits:
 
-1. snapshot-to-claim adapter and capture-aware identity;
-2. dev table schema and storage boundary;
-3. Level 1 service plus per-game receipts;
-4. unit/regression tests;
-5. bounded dev cloud proof and documentation closure.
+1. ~~snapshot-to-claim adapter and capture-aware identity~~ complete;
+2. ~~dev table schema and storage boundary~~ complete;
+3. implement the game-scoped MERGE and per-game receipts;
+4. run the focused and relevant regression tests; and
+5. complete the gated dev cloud proof and documentation closure.
 
 Do not start Packet 4, modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 3.
 
@@ -86,7 +88,7 @@ Do not start Packet 4, modify `app.py`, create production learning tables, or me
 
 ## Fresh-chat handoff prompt
 
-> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 3 plan, completed Packet 2 plan, Packet 1 contract, and architecture handoff in that order. Treat Packet 2 evidence as complete and Packet 3 as planning-only. Inspect the current code before editing. Keep production and the 8:00 AM load unchanged. Implement only the next approved Packet 3 slice, verify it, and update the live breadcrumbs before closing the packet.
+> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 3 plan, completed Packet 2 plan, Packet 1 contract, and architecture handoff in that order. Treat Packet 2 evidence as complete and Packet 3 as in progress. The snapshot adapter and dev claim-table contract are complete; game-scoped MERGE, per-game receipts, and cloud proof remain. Inspect the current code before editing. Keep production and the 8:00 AM load unchanged. Implement only the next approved Packet 3 slice, verify it, and update the live breadcrumbs before closing the packet.
 
 ---
 
