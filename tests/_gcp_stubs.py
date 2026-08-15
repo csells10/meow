@@ -18,6 +18,10 @@ def install_bigquery_stub():
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
+    class LoadJobConfig:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
     class QueryParameter:
         def __init__(self, *args):
             self.args = args
@@ -47,9 +51,13 @@ def install_bigquery_stub():
     class TimePartitioningType:
         DAY = "DAY"
 
+    class WriteDisposition:
+        WRITE_TRUNCATE = "WRITE_TRUNCATE"
+
     defaults = {
         "Client": Client,
         "QueryJobConfig": QueryJobConfig,
+        "LoadJobConfig": LoadJobConfig,
         "ScalarQueryParameter": QueryParameter,
         "ArrayQueryParameter": QueryParameter,
         "SchemaField": SchemaField,
@@ -57,6 +65,7 @@ def install_bigquery_stub():
         "Table": Table,
         "TimePartitioning": TimePartitioning,
         "TimePartitioningType": TimePartitioningType,
+        "WriteDisposition": WriteDisposition,
     }
     for name, value in defaults.items():
         if not hasattr(bigquery, name):
