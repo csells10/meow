@@ -348,6 +348,26 @@ def test_bigquery_merge_inserts_once_and_identical_retry_is_unchanged():
     assert client.deleted_tables
 
 
+def test_dry_plan_separates_current_rows_from_projected_rows():
+    client = FakeClaimClient()
+    storage = BigQueryClaimStorage(
+        client=client,
+        runtime_config=_runtime_config(),
+    )
+    row = _claim_row()
+
+    plan = storage.plan_claims(
+        [row],
+        learning_run_id=row["learning_run_id"],
+        capture_id=row["capture_id"],
+    )
+
+    assert plan["existing_capture_row_count"] == 0
+    assert plan["projected_capture_row_count"] == 1
+    assert plan["write_performed"] is False
+    assert client.target_rows == []
+
+
 def test_bigquery_merge_fails_before_write_on_immutable_conflict():
     stored = _claim_row(claim_text="Stored wording")
     client = FakeClaimClient(target_rows=[stored])

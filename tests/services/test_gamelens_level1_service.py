@@ -213,6 +213,8 @@ class FakeClaimStorage:
             "expected_inserted_count": len(rows),
             "expected_unchanged_count": 0,
             "conflict_count": 0,
+            "existing_capture_row_count": 0,
+            "projected_capture_row_count": len(rows),
             "target_table": "nfl-stream-406420.GameLens_dev.claim_training_examples",
             "merge_key": ["learning_run_id", "claim_key"],
             "write_performed": False,
@@ -252,6 +254,8 @@ class TestExtractLevel1FromCapture(unittest.TestCase):
         self.assertEqual(result["claim_count"], 1)
         self.assertEqual(result["inserted_count"], 1)
         self.assertEqual(result["unchanged_count"], 0)
+        self.assertEqual(result["claims_out"], 0)
+        self.assertEqual(result["projected_claims_out"], 1)
         self.assertFalse(result["write_requested"])
         self.assertFalse(result["write_performed"])
         self.assertFalse(result["receipt_saved"])

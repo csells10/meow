@@ -376,7 +376,12 @@ def extract_level1_from_capture(
         if "conflict_count" in storage_result
         else storage_result.get("conflicts", 0),
         "claims_out": storage_result.get(
-            "claims_out", prepared["claim_count"]
+            "claims_out",
+            storage_result.get("existing_capture_row_count", 0),
+        ),
+        "projected_claims_out": storage_result.get(
+            "claims_out",
+            storage_result.get("projected_capture_row_count", 0),
         ),
         "source_table": prepared["source_table"],
         "target_table": storage_result["target_table"],

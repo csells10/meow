@@ -318,6 +318,10 @@ class BigQueryClaimStorage:
             if key != "pending_rows"
         } | {
             "status": "conflict" if plan["conflict_count"] else "ready",
+            "existing_capture_row_count": len(existing),
+            "projected_capture_row_count": (
+                len(existing) + plan["expected_inserted_count"]
+            ),
             "target_table": self.table,
             "merge_key": ["learning_run_id", "claim_key"],
             "write_performed": False,
