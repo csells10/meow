@@ -181,8 +181,9 @@ class TestPrepareLevel1Claims(unittest.TestCase):
 
 
 class FakeSnapshotStorage:
-    def __init__(self, selected):
+    def __init__(self, selected, *, receipt_already_exists=False):
         self.selected = selected
+        self.receipt_already_exists = receipt_already_exists
         self.receipts = []
 
     def read_snapshot(self, capture_id):
@@ -194,8 +195,8 @@ class FakeSnapshotStorage:
         self.receipts.extend(copy.deepcopy(rows))
         return {
             "input_count": len(rows),
-            "inserted_count": len(rows),
-            "existing_count": 0,
+            "inserted_count": 0 if self.receipt_already_exists else len(rows),
+            "existing_count": len(rows) if self.receipt_already_exists else 0,
         }
 
 
@@ -328,6 +329,32 @@ class TestExtractLevel1FromCapture(unittest.TestCase):
         self.assertEqual(result["reason"], "zero_claims_extracted")
         self.assertEqual(snapshots.receipts[0]["output_count"], 0)
         self.assertEqual(snapshots.receipts[0]["status"], "success")
+
+    def test_zero_claim_identical_retry_is_a_visible_no_op(self):
+        selected = snapshot()
+        selected["response_payload"]["game_profile"] = []
+        selected["payload_sha256"] = payload_sha256(
+            selected["response_payload"]
+        )
+        snapshots = FakeSnapshotStorage(
+            selected,
+            receipt_already_exists=True,
+        )
+
+        result = extract_level1_from_capture(
+            "capture_packet3_test",
+            "level1_zero_retry",
+            snapshot_storage=snapshots,
+            claim_storage=FakeClaimStorage(inserted=0, unchanged=0),
+            write=True,
+            extracted_at=EXTRACTED_AT,
+        )
+
+        self.assertEqual(result["status"], "no_op")
+        self.assertEqual(result["reason"], "zero_claims_already_recorded")
+        self.assertTrue(result["receipt_saved"])
+        self.assertEqual(result["receipt_result"]["inserted_count"], 0)
+        self.assertEqual(result["receipt_result"]["existing_count"], 1)
 
     def test_missing_capture_fails_before_claim_or_receipt_write(self):
         snapshots = FakeSnapshotStorage(None)

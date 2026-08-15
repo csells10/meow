@@ -335,6 +335,13 @@ def extract_level1_from_capture(
                 }
             ]
         )
+        if (
+            claim_count == 0
+            and receipt_result.get("inserted_count", 0) == 0
+            and receipt_result.get("existing_count", 0) == 1
+        ):
+            stage_status = "no_op"
+            reason = "zero_claims_already_recorded"
     else:
         storage_result = claim_storage.plan_claims(rows, **storage_args)
         if storage_result["conflict_count"]:
