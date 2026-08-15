@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 implementation is in progress: the snapshot adapter and development claim-table contract are complete; claim MERGE, per-game receipts, and cloud proof remain.
+**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete: the snapshot adapter, development claim table, game-scoped MERGE, receipts, and one-capture runner are in place. Development-cloud proof remains before GO.
 
 **Updated:** 2026-08-15  
 **Working branch:** `dev`  
@@ -27,7 +27,7 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 | File | Role | Current state | Do not infer |
 |---|---|---|---|
 | [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–2 complete; Packet 3 in progress | A future packet is implemented merely because it is described |
-| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Active bounded implementation plan | Adapter and dev table/storage contract complete; MERGE, receipts, and cloud proof pending | Approval to write production data or wire the daily load |
+| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Active bounded implementation plan | Code complete; development-cloud proof pending | Approval to write production data or wire the daily load |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
 | [Architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) | Stable system design and level boundaries | Active | Architecture prose is a live execution receipt |
@@ -67,6 +67,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 3 planning handoff and live index: commit `4906a03`.
 - Packet 3 snapshot adapter first pass and cleanup: commits `28b52df` and `6d1b977`.
 - Canonical claim-schema reuse and dev storage contract: commits `3fe24d3` and `fb6e997`.
+- Game-scoped MERGE, per-game receipts, and one-capture runner: commits `45b3863`, `c264002`, and `3e82c6f`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -78,9 +79,9 @@ Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewa
 
 1. ~~snapshot-to-claim adapter and capture-aware identity~~ complete;
 2. ~~dev table schema and storage boundary~~ complete;
-3. implement the game-scoped MERGE and per-game receipts;
-4. run the focused and relevant regression tests; and
-5. complete the gated dev cloud proof and documentation closure.
+3. ~~game-scoped MERGE, per-game receipts, and runner~~ complete;
+4. run the full available regression ladder; and
+5. complete the gated dev table setup, dry run, deliberate write, replay, zero-claim proof, bounded-slate proof, and documentation closure.
 
 Do not start Packet 4, modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 3.
 
@@ -88,7 +89,7 @@ Do not start Packet 4, modify `app.py`, create production learning tables, or me
 
 ## Fresh-chat handoff prompt
 
-> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 3 plan, completed Packet 2 plan, Packet 1 contract, and architecture handoff in that order. Treat Packet 2 evidence as complete and Packet 3 as in progress. The snapshot adapter and dev claim-table contract are complete; game-scoped MERGE, per-game receipts, and cloud proof remain. Inspect the current code before editing. Keep production and the 8:00 AM load unchanged. Implement only the next approved Packet 3 slice, verify it, and update the live breadcrumbs before closing the packet.
+> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 3 plan, completed Packet 2 plan, Packet 1 contract, and architecture handoff in that order. Treat Packet 2 evidence as complete and Packet 3 code as implemented. Verify commits through `3e82c6f`, then continue with the regression ladder and gated development-cloud proof. Keep production, the 8:00 AM load, `/game`, and the frontend unchanged. Update the live breadcrumbs with exact cloud counts before closing Packet 3.
 
 ---
 

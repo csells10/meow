@@ -1,6 +1,6 @@
 # GameLens Packet 3 — Production-Safe Level 1 Plan
 
-**Status:** In progress — adapter and dev table/storage contract complete; MERGE, receipts, and cloud proof pending  
+**Status:** In progress — code implementation complete; development-cloud proof pending  
 **Created:** 2026-08-13  
 **Branch:** `dev`  
 **Predecessor:** [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md)  
@@ -17,17 +17,23 @@
 | Snapshot-to-claim adapter | Reuses the historical extractor, replaces legacy keys with capture-aware keys, preserves lineage, and rejects postgame leakage | Complete — `28b52df`, `6d1b977` |
 | Shared row definition | Historical Analytics setup and Packet 3 now use one canonical 111-field claim schema | Complete — `3fe24d3` |
 | Dev table/storage contract | Adds the six required lineage fields, dev-only idempotent setup, layout verification, and fail-closed claim-in/claim-out reconciliation | Complete — `fb6e997` |
-| Game-scoped MERGE and receipts | Insert/unchanged/conflict behavior plus zero-claim evidence | Not implemented |
+| Game-scoped MERGE | Insert-only on `learning_run_id + claim_key`; read-back reconciliation; immutable conflicts fail before mutation | Complete — `45b3863` |
+| One-capture coordinator and receipts | Dry plan, deliberate write, unchanged retry, zero-claim receipt, compact visual output | Complete — `c264002`, `3e82c6f` |
 | Development-cloud proof | Table setup, dry read, dry write, deliberate write, retry, zero-claim, and bounded slate | Not started |
 
 The current table contract has 117 unique fields: 111 reused fields plus six
-Packet 3 lineage fields. Local direct checks passed schema uniqueness,
+Packet 3 lineage fields. Local checks passed schema uniqueness,
 historical-schema reuse, repeat-safe setup, production refusal, incompatible
-schema refusal, and three-way reconciliation. The workspace used for this
-checkpoint did not include `pytest`, so the focused test files are committed
-but the repository test suite and GitHub checks remain required before GO.
+schema refusal, insert-once behavior, identical retry, unrelated-game
+preservation, immutable-conflict refusal, zero-claim handling, and three-way
+reconciliation. The coordinator and command-line path passed 17 `unittest`
+checks. The workspace used for this checkpoint did not include `pytest`, so
+the pytest-based storage suite was exercised with a direct harness; the full
+repository test suite and GitHub checks remain required before GO.
 
-No BigQuery table or claim row was created by this checkpoint.
+No BigQuery table or claim row was created by this checkpoint. The next step is
+the documented gated development-cloud proof using the committed setup and
+one-capture runner.
 
 ---
 
