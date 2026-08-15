@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete: the snapshot adapter, development claim table, game-scoped MERGE, receipts, and one-capture runner are in place. Development-cloud proof remains before GO.
+**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table and dry-read gates passed, but all six Packet 2 captures honestly extract zero claims; the zero-claim receipt/retry proof is next and the populated-write gate remains open for a future genuine capture.
 
 **Updated:** 2026-08-15  
 **Working branch:** `dev`  
@@ -68,6 +68,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 3 snapshot adapter first pass and cleanup: commits `28b52df` and `6d1b977`.
 - Canonical claim-schema reuse and dev storage contract: commits `3fe24d3` and `fb6e997`.
 - Game-scoped MERGE, per-game receipts, and one-capture runner: commits `45b3863`, `c264002`, and `3e82c6f`.
+- Dry-run current/projected row clarity and zero-claim retry semantics: commits `7e61540` and `dad1806`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -80,8 +81,10 @@ Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewa
 1. ~~snapshot-to-claim adapter and capture-aware identity~~ complete;
 2. ~~dev table schema and storage boundary~~ complete;
 3. ~~game-scoped MERGE, per-game receipts, and runner~~ complete;
-4. run the full available regression ladder; and
-5. complete the gated dev table setup, dry run, deliberate write, replay, zero-claim proof, bounded-slate proof, and documentation closure.
+4. ~~dev table setup and six-capture dry inventory~~ complete;
+5. perform the deliberate zero-claim receipt and identical-retry proof;
+6. wait for and prove one genuine populated canonical capture; and
+7. complete the bounded-slate proof and documentation closure.
 
 Do not start Packet 4, modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 3.
 

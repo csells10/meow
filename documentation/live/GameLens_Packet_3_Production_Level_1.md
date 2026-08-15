@@ -1,6 +1,6 @@
 # GameLens Packet 3 — Production-Safe Level 1 Plan
 
-**Status:** In progress — code implementation complete; development-cloud proof pending  
+**Status:** In progress — code complete; table setup and dry-read inventory passed; zero-claim write/retry and future populated-capture proof pending  
 **Created:** 2026-08-13  
 **Branch:** `dev`  
 **Predecessor:** [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md)  
@@ -18,22 +18,43 @@
 | Shared row definition | Historical Analytics setup and Packet 3 now use one canonical 111-field claim schema | Complete — `3fe24d3` |
 | Dev table/storage contract | Adds the six required lineage fields, dev-only idempotent setup, layout verification, and fail-closed claim-in/claim-out reconciliation | Complete — `fb6e997` |
 | Game-scoped MERGE | Insert-only on `learning_run_id + claim_key`; read-back reconciliation; immutable conflicts fail before mutation | Complete — `45b3863` |
-| One-capture coordinator and receipts | Dry plan, deliberate write, unchanged retry, zero-claim receipt, compact visual output | Complete — `c264002`, `3e82c6f` |
-| Development-cloud proof | Table setup, dry read, dry write, deliberate write, retry, zero-claim, and bounded slate | Not started |
+| One-capture coordinator and receipts | Dry plan, deliberate write, unchanged retry, zero-claim receipt, compact visual output | Complete — `c264002`, `3e82c6f`, `dad1806` |
+| Dev table setup | `GameLens_dev.claim_training_examples` created/verified with the 117-field contract | Pass — user-run 2026-08-15 |
+| Six-capture dry inventory | All six canonical Packet 2 snapshots revalidated and ran through the shared extractor without writes | Pass — six honest zero-claim results |
+| Zero-claim receipt/retry | Persist one visible processing receipt, then prove the same logical attempt is unchanged | Ready; not yet run |
+| Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Waiting; no current Packet 2 snapshot contains claim candidates |
+| Bounded-slate proof | Process the remaining eligible captures sequentially without cross-game mutation | Pending |
 
 The current table contract has 117 unique fields: 111 reused fields plus six
 Packet 3 lineage fields. Local checks passed schema uniqueness,
 historical-schema reuse, repeat-safe setup, production refusal, incompatible
 schema refusal, insert-once behavior, identical retry, unrelated-game
 preservation, immutable-conflict refusal, zero-claim handling, and three-way
-reconciliation. The coordinator and command-line path passed 17 `unittest`
+reconciliation. The coordinator and command-line path passed 18 `unittest`
 checks. The workspace used for this checkpoint did not include `pytest`, so
 the pytest-based storage suite was exercised with a direct harness; the full
 repository test suite and GitHub checks remain required before GO.
 
-No BigQuery table or claim row was created by this checkpoint. The next step is
-the documented gated development-cloud proof using the committed setup and
+The development table was created and verified during the user-run 2026-08-15
+setup. No claim row or Level 1 receipt has yet been written. The next step is
+the deliberate zero-claim receipt and identical-retry proof using the committed
 one-capture runner.
+
+### Dry-read correction — 2026-08-15
+
+The original Gate 1 assumption that ARI–LV would be the populated claim case
+was disproven by the canonical snapshot. ARI–LV contains 73 de-duplicated
+`lens_tags` and reports ranking context metadata as available, but it contains
+zero featured comparison metrics, `matchup_breakdown.available=false`, and
+empty `game_profile`, Core Area, summary, metric-highlight, and Team Comparison
+claim sections. The other five captures also contain zero claim candidates.
+
+This is a valid early-preseason state, not an extractor failure. `lens_tags`
+describe registry/evidence context; they are not user-facing claims. Packet 3
+must not manufacture two-sided claims from one-sided or unmatched evidence.
+The six captures therefore support the zero-claim path only. The populated
+cloud gate remains open until a new canonical pregame capture contains genuine
+claim sections.
 
 ---
 
@@ -88,8 +109,9 @@ Packet 3 inherits these completed development proofs:
 - postgame fields were rejected from the canonical payload;
 - saved hashes were verified after BigQuery read-back;
 - all six saved responses exactly matched authenticated live `/game`;
-- ARI–LV contains populated ranking and `lens_tags` evidence;
-- five early-season games honestly contain no ranking-derived comparison
+- ARI–LV contains populated registry-backed `lens_tags`, but no matched
+  two-sided comparison metrics or claim-ready sections;
+- all six early-season games honestly contain no claim-ready comparison
   evidence;
 - `stage_runs` records one row per coordinator attempt;
 - `stage_game_results` records one row per attempt, stage, and game;
@@ -369,7 +391,8 @@ not merely the number inserted during a retry.
 
 ### Handoff tests
 
-- the populated ARI–LV-style snapshot produces the expected claim families;
+- a synthetic populated fixture produces the expected claim families without
+  creating a second extraction path;
 - an honest empty-evidence snapshot can complete with zero claims;
 - `lens_tags` and evidence context survive Packet 2 but are not mistaken for
   standalone user-facing claims;
@@ -385,7 +408,7 @@ Cloud work remains deliberately gated.
 Confirm:
 
 - the six Packet 2 snapshots are unchanged;
-- the selected populated capture is ARI–LV;
+- whether any capture genuinely contains populated claim sections; do not infer this from `lens_tags` or ranking availability alone;
 - at least one honest zero-claim/empty-evidence capture is available;
 - the target table does not yet contain an unexpected cohort; and
 - runtime targets are development-only.
@@ -409,6 +432,10 @@ the mutation. Print expected inserted/unchanged/conflict counts.
 
 Write one populated capture. Read it back and reconcile identities, count,
 hash, claim types, and null postgame fields.
+
+As of the 2026-08-15 dry inventory, no existing Packet 2 capture qualifies for
+this gate. Wait for a genuine future canonical capture; do not reconstruct or
+manufacture one.
 
 ### Gate 6 — identical replay
 
