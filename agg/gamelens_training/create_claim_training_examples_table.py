@@ -45,9 +45,9 @@ def create_table(
         print(f"⚠️ Failed to create table {table_ref}: {e}")
 
 
-def create_gamelens_claim_training_examples_table(client: bigquery.Client):
+def claim_training_examples_schema() -> list[bigquery.SchemaField]:
     """
-    Creates Analytics.gamelens_claim_training_examples.
+    Return the canonical GameLens claim-training row definition.
 
     Grain:
         One row per extracted GameLens claim per game.
@@ -633,10 +633,15 @@ def create_gamelens_claim_training_examples_table(client: bigquery.Client):
         ),
     ]
 
+    return schema
+
+
+def create_gamelens_claim_training_examples_table(client: bigquery.Client):
+    """Create the historical Analytics claim-training table."""
     create_table(
         client=client,
         table_id="gamelens_claim_training_examples",
-        schema=schema,
+        schema=claim_training_examples_schema(),
         description=(
             "Fine-grain GameLens claim training table. One row per extracted claim per game, "
             "combining pregame features, optional engineered combo scores, and postgame validation labels."
