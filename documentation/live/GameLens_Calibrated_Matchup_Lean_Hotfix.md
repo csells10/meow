@@ -1,8 +1,8 @@
 # GameLens Calibrated Matchup Lean Hotfix
 
-**Status:** Isolated main-based branch implemented; draft review and live
-read-only parity QA remain. No merge, build, deployment, traffic promotion, or
-data write has occurred.
+**Status:** Isolated main-based implementation and live read-only parity QA are
+complete. Draft review remains. No merge, build, deployment, traffic promotion,
+or data write has occurred.
 
 **Branch:** `agent/calibrated-matchup-lean-hotfix`  
 **Base:** `main@7b54cead`  
@@ -75,9 +75,14 @@ python qa_calibrated_matchup_lean_parity.py
 This command is read-only. It does not call `/game`, run ETL, replace a run,
 or write BigQuery.
 
-Expected output:
+Live output recorded on 2026-08-16:
 
 ```text
+CALIBRATED MATCHUP LEAN — READ-ONLY PARITY QA
+------------------------------------------------
+run_id: full_2025_reg_post_claim_matrix_pilot
+source: nfl-stream-406420.Analytics.gamelens_claim_training_examples
+
 Source                       Low    Medium    High    Total
 Stored 2025 baseline         154        93      22      269
 Shared helper result         154       103      12      269
@@ -88,12 +93,36 @@ Conflicting game rows: 0
 RESULT: PASS
 ```
 
-A mismatch, unexpected label, or conflicting per-game value must return
-`RESULT: FAIL` and stop the release.
+This confirms that the shared production helper reproduces the approved Admin
+benchmark across all 269 historical games without modifying the historical
+table. A mismatch, unexpected label, or conflicting per-game value returns
+`RESULT: FAIL` and stops the release.
+
+## Automated test proof
+
+Command:
+
+```bash
+python -m pytest \
+  tests/test_confidence_calibration.py \
+  tests/test_game_service_confidence_calibration.py \
+  tests/test_qa_calibrated_matchup_lean_parity.py \
+  -q
+```
+
+Recorded result on 2026-08-16:
+
+```text
+7 passed, 6 subtests passed in 2.22s
+```
+
+The tests verify the 0.45 boundary, unchanged labels outside the rule,
+preservation of the pick and raw confidence, Week 1–2 precedence, exact visual
+reconciliation, and visible failure on conflicting source rows.
 
 ## Release sequence
 
-1. Run the focused tests and the live read-only 2025 parity command.
+1. Run the focused tests and the live read-only 2025 parity command. **Complete.**
 2. Review the branch diff against current `main`.
 3. Merge the approved branch into `main`.
 4. Allow the existing Cloud Build configuration to create a 0%-traffic
@@ -107,12 +136,13 @@ A mismatch, unexpected label, or conflicting per-game value must return
 
 ## Current evidence
 
-- Seven focused tests pass locally.
+- Live read-only BigQuery parity passed for all 269 games.
+- The shared helper exactly matched the Admin benchmark:
+  Low 154 / Medium 103 / High 12.
+- Ten High labels moved to Medium, with zero conflicting game rows.
+- Seven focused tests and six subtests passed locally in 2.22 seconds.
 - Python compilation passes for all changed Python files.
-- Synthetic visual reconciliation produces the expected
-  `154 / 103 / 12` result.
-- The branch is four commits ahead of `main` and contains only the shared
-  helper, `/game` integration, focused tests, and read-only QA.
-- Live read-only BigQuery parity remains the next gate.
+- No historical data was rebuilt, rewritten, or inserted.
+- Branch diff review is the next release gate.
 
 No merge or deployment is authorized by this document alone.
