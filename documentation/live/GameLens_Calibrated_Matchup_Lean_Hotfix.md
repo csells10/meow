@@ -100,7 +100,7 @@ table. A mismatch, unexpected label, or conflicting per-game value returns
 
 ## Automated test proof
 
-Command:
+Focused command:
 
 ```bash
 python -m pytest \
@@ -110,20 +110,34 @@ python -m pytest \
   -q
 ```
 
-Recorded result on 2026-08-16:
+Recorded focused result on 2026-08-16:
 
 ```text
 7 passed, 6 subtests passed in 2.22s
 ```
 
+Full repository regression command:
+
+```bash
+python -m pytest -q
+```
+
+Recorded full result on 2026-08-16:
+
+```text
+123 passed, 77 subtests passed in 10.61s
+```
+
 The tests verify the 0.45 boundary, unchanged labels outside the rule,
 preservation of the pick and raw confidence, Week 1–2 precedence, exact visual
-reconciliation, and visible failure on conflicting source rows.
+reconciliation, visible failure on conflicting source rows, and compatibility
+with the complete main-based test suite.
 
 ## Release sequence
 
 1. Run the focused tests and the live read-only 2025 parity command. **Complete.**
-2. Review the branch diff against current `main`.
+2. Review the branch diff against current `main` and run the full regression
+   suite. **Complete.**
 3. Merge the approved branch into `main`.
 4. Allow the existing Cloud Build configuration to create a 0%-traffic
    candidate.
@@ -141,8 +155,10 @@ reconciliation, and visible failure on conflicting source rows.
   Low 154 / Medium 103 / High 12.
 - Ten High labels moved to Medium, with zero conflicting game rows.
 - Seven focused tests and six subtests passed locally in 2.22 seconds.
+- The full repository suite passed: 123 tests and 77 subtests in 10.61 seconds.
 - Python compilation passes for all changed Python files.
+- GitHub reports the PR mergeable with no review-thread blockers.
 - No historical data was rebuilt, rewritten, or inserted.
-- Branch diff review is the next release gate.
+- Explicit approval to merge into `main` is the next release gate.
 
 No merge or deployment is authorized by this document alone.
