@@ -1,8 +1,8 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table, dry-read inventory, and zero-claim receipt/retry gates passed. All six Packet 2 captures honestly extract zero claims, so the populated-write and bounded-slate gates remain open for a future genuine claim-bearing capture.
+**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability gates passed. All seven current canonical captures honestly extract zero claims, so the populated-write and bounded-slate gates remain open for a future genuine claim-bearing capture.
 
-**Updated:** 2026-08-15  
+**Updated:** 2026-08-16  
 **Working branch:** `dev`  
 **Production posture:** The existing 8:00 AM production load is unchanged. No learning stage is wired into `app.py`, no learning tables have been created in production, and no learning-orchestration change is ready for `main`.
 
@@ -69,6 +69,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Canonical claim-schema reuse and dev storage contract: commits `3fe24d3` and `fb6e997`.
 - Game-scoped MERGE, per-game receipts, and one-capture runner: commits `45b3863`, `c264002`, and `3e82c6f`.
 - Dry-run current/projected row clarity and zero-claim retry semantics: commits `7e61540` and `dad1806`.
+- Packet 3 zero-claim inventory and replay documentation: commits `18377e6` and `8634148`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -81,7 +82,7 @@ Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewa
 1. ~~snapshot-to-claim adapter and capture-aware identity~~ complete;
 2. ~~dev table schema and storage boundary~~ complete;
 3. ~~game-scoped MERGE, per-game receipts, and runner~~ complete;
-4. ~~dev table setup and six-capture dry inventory~~ complete;
+4. ~~dev table setup, seven-capture dry inventory, zero-claim retry, and post-ETL immutability proof~~ complete;
 5. wait for and prove one genuine populated canonical capture;
 6. prove its identical replay changes zero rows; and
 7. complete the bounded-slate proof and documentation closure.

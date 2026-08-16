@@ -1,6 +1,6 @@
 # GameLens Packet 3 — Production-Safe Level 1 Plan
 
-**Status:** In progress — code complete; table setup, dry-read inventory, and zero-claim write/retry passed; future populated-capture and bounded-slate proofs pending  
+**Status:** In progress — code complete; table setup, seven-capture dry inventory, zero-claim write/retry, and post-ETL immutability proof passed; future populated-capture and bounded-slate proofs pending  
 **Created:** 2026-08-13  
 **Branch:** `dev`  
 **Predecessor:** [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md)  
@@ -20,9 +20,10 @@
 | Game-scoped MERGE | Insert-only on `learning_run_id + claim_key`; read-back reconciliation; immutable conflicts fail before mutation | Complete — `45b3863` |
 | One-capture coordinator and receipts | Dry plan, deliberate write, unchanged retry, zero-claim receipt, compact visual output | Complete — `c264002`, `3e82c6f`, `dad1806` |
 | Dev table setup | `GameLens_dev.claim_training_examples` created/verified with the 117-field contract | Pass — user-run 2026-08-15 |
-| Six-capture dry inventory | All six canonical Packet 2 snapshots revalidated and ran through the shared extractor without writes | Pass — six honest zero-claim results |
+| Canonical dry inventory | Six August 13 snapshots plus the August 15 DAL–SEA snapshot revalidated and ran through the shared extractor without claim writes | Pass — seven honest zero-claim results |
 | Zero-claim receipt/retry | Persist one visible processing receipt, then prove the same logical attempt is unchanged | Pass — `level1_zero_20260815_ari_lv`; one receipt inserted, identical retry inserted zero |
-| Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Waiting; no current Packet 2 snapshot contains claim candidates |
+| Post-ETL immutability | Re-read DAL–SEA after the next production ETL and prove its frozen payload, hash, and pregame boundary remained unchanged | Pass — exact hash match, zero postgame fields, zero claims |
+| Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Waiting; no current canonical snapshot contains claim candidates |
 | Bounded-slate proof | Process the remaining eligible captures sequentially without cross-game mutation | Pending |
 
 The current table contract has 117 unique fields: 111 reused fields plus six
@@ -75,6 +76,33 @@ Both runs used capture `capture_3a04ea363187904257e2afa3`, game
 This is the intended empty-batch behavior: claims in equal claims out, no
 claim-table mutation occurs, and the game-level processing receipt remains
 visible and repeat-safe.
+
+### DAL–SEA post-ETL immutability proof — 2026-08-16
+
+Packet 2 attempt `snapshot_20260815T234205Z_f3fe33e5` discovered seven August
+15 games, safely skipped six after kickoff, and captured DAL–SEA before its
+kickoff as `capture_b387ab5d3545e2c322827756`. The capture used upstream
+lineage `observed_prod_2026_asof_20260814_f1272_w1460_r2073`, saved seven
+per-game audit rows, made zero internal `/game` calls, and reported zero
+failures or waits.
+
+The following morning's production ETL returned HTTP 200 and completed all
+seven games through every stage in 107 seconds with no unregistered-metric
+exclusions. The subsequent Packet 3 read-only QA proved:
+
+| Check | Observed result |
+|---|---|
+| Stored payload hash | `d9ddda20f7fe42291acd4268dd871368def66b604c28b151aad86e7bb71922b1` |
+| Recalculated payload hash | Exact match |
+| Populated postgame fields | 0 |
+| `final_score` / `model_outcome` | Both null |
+| Lens tags / featured metrics | 0 / 0 |
+| Matchup breakdown | Unavailable |
+| Claims / unique claim keys | 0 / 0 |
+
+This proves the completed-game ETL did not mutate or leak into the frozen
+Level 1 input. Because the shared extractor returned zero claims, no additional
+claim write or redundant zero-claim receipt was created.
 
 ---
 

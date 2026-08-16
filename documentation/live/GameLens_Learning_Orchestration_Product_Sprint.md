@@ -2,14 +2,14 @@
 
 **Document status:** Packets 1–2 complete; Packet 3 code is implemented and development-cloud proof is in progress; delivery remains ahead of the Aug 17–23 Packet 3 window  
 **Created:** 2026-08-06  
-**Updated:** 2026-08-15  
+**Updated:** 2026-08-16  
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Active development branch:** `dev`  
 **Regular-season safety deadline:** before the first Week 1 kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern  
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
-**Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) is active. Code and dev table setup are complete. Dry inventory proved all six Packet 2 captures are honest zero-claim cases; ARI–LV has 73 lens tags but zero matched claim metrics. The deliberate zero-claim write and identical retry passed. The populated-write and bounded-slate gates wait for a future genuine claim-bearing capture.  
+**Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) is active. Code and dev table setup are complete. Seven canonical captures are honest zero-claim cases. The deliberate zero-claim write/retry passed, and DAL–SEA remained byte-for-byte unchanged with no postgame leakage after the next 7/7-game production ETL. The populated-write and bounded-slate gates wait for a future genuine claim-bearing capture.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
@@ -432,7 +432,7 @@ Each companion document must answer:
 | Packet 0 | This Product Sprint and the architecture handoff |
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
-| Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — code/table setup, six-capture dry inventory, and zero-claim write/retry passed; populated and bounded-slate proofs pending |
+| Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — code/table setup, seven-capture dry inventory, zero-claim write/retry, and post-ETL immutability passed; populated and bounded-slate proofs pending |
 | Packet 4 | `GameLens_Packet_4_Postgame_Learning.md` — create and review before Packet 4 code |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
@@ -831,7 +831,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read `GameLens_Learning_Orchestration_Product_Sprint.md`, `GameLens_Packet_3_Production_Level_1.md`, `GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`, `GameLens_Packet_1_Pregame_Capture_Contract.md`, and the architecture handoff. Packets 1 and 2 are complete; Packet 3 code is implemented through `dad1806`. The development table setup, six-capture dry inventory, and zero-claim write/retry proof passed. Attempt `level1_zero_20260815_ari_lv` inserted one receipt on its first run and zero on its identical retry. All six current captures are honest zero-claim cases, so wait for a future genuine populated canonical capture before the populated-write and bounded-slate gates. Packet 3 must read canonical `GameLens_dev.pregame_snapshots`, preserve zero-claim processing through `stage_game_results`, and keep every write in development. Do not rerun Snapshot Capture, manufacture comparison claims, reconstruct CAR–ARI, wire `app.py`, create production learning tables, change `/game`, or change the frontend.
+> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read `GameLens_Learning_Orchestration_Product_Sprint.md`, `GameLens_Packet_3_Production_Level_1.md`, `GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`, `GameLens_Packet_1_Pregame_Capture_Contract.md`, and the architecture handoff. Packets 1 and 2 are complete; Packet 3 code is implemented through `dad1806`. The development table setup, seven-capture dry inventory, zero-claim write/retry, and DAL–SEA post-ETL immutability proof passed. Attempt `level1_zero_20260815_ari_lv` inserted one receipt on its first run and zero on its identical retry. Capture `capture_b387ab5d3545e2c322827756` retained an exact hash and no postgame fields after the next production ETL. All seven current captures are honest zero-claim cases, so wait for a future genuine populated canonical capture before the populated-write and bounded-slate gates. Packet 3 must read canonical `GameLens_dev.pregame_snapshots`, preserve zero-claim processing through `stage_game_results`, and keep every write in development. Do not rerun Snapshot Capture, manufacture comparison claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, or change the frontend.
 
 ---
 
