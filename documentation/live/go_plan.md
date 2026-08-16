@@ -56,6 +56,10 @@ Candidate and production health: HTTP 200
 Representative live comparison: PASS
 Post-promotion severity-ERROR review: no rows
 Dev forward merge: 0b4d4ad93b6b617b0b6ea2871764353375e0e2c7
+Dev forward-merge build: SUCCESS
+Dev release-documentation source: 43e2f824860f69a9daeb4cda05fc8fb310f378ce
+Dev release-documentation build: SUCCESS
+Temporary hotfix branch: deleted locally and from GitHub
 Historical rebuild or BigQuery write: none
 ```
 

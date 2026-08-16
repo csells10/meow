@@ -1,12 +1,12 @@
 # GameLens Product Data Collection and Learning Handoff
 
-**Document status:** Architecture handoff active; Packets 1–3 complete and Packet 4 planning/review is next  
+**Document status:** Architecture handoff active; Packets 1–3 and the separate Calibrated Matchup Lean release are complete; Packet 4 is next  
 **Created:** 2026-08-03  
 **Last revised:** 2026-08-16  
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Branch represented:** `dev` for learning work; `main` remains the production release branch  
-**Current production checkpoint:** Gate H complete; the existing 8:00 a.m. production load remains unchanged and learning is not wired into it  
+**Current production checkpoint:** Gate H remains complete; Calibrated Matchup Lean revision `nfl-games-app-main-00155-qaf` serves 100% traffic; the existing 8:00 a.m. production load remains unchanged and learning is not wired into it  
 **Companion release plan:** [go_plan.md](./go_plan.md)  
 **Live documentation index:** [README.md](./README.md)  
 **Current packet:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)
@@ -26,7 +26,8 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md` | Approved capture rulebook |
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
 | `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Completed Packet 3 Implementation GO evidence and deferred pre-production real-data validation |
-| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Current bounded review plan; no Packet 4 code started |
+| `documentation/live/GameLens_Calibrated_Matchup_Lean_Hotfix.md` | Completed separate confidence release and production receipt |
+| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Next bounded working packet; no Packet 4 code started |
 | `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |

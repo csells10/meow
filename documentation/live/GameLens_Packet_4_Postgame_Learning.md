@@ -1,11 +1,12 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Planning/review — no Packet 4 code or cloud write has started  
+**Status:** Ready to begin on 2026-08-17 — plan reviewed; no Packet 4 code or cloud write has started  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
 **Sprint authority:** [GameLens Learning Orchestration Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md)  
 **Production behavior changed:** No  
+**Separate prerequisite complete:** Calibrated Matchup Lean was released and forward-merged on 2026-08-16; Packet 4 must consume its stored result, not recalculate it  
 
 ---
 
@@ -284,11 +285,11 @@ Packet 4 does not:
 - run Level 4 calibration;
 - expose the learning ledger through Admin;
 - change Matchup Lean, confidence, claim language, or the frontend;
-- resolve Calibrated Matchup Lean parity;
+- reimplement or recalculate the already released Calibrated Matchup Lean rule;
 - create production learning datasets; or
 - merge learning work to `main`.
 
-Those remain later packet or explicit release decisions.
+Those constraints remain outside Packet 4; later capabilities require their own packet or explicit release decision.
 
 ## Review questions before implementation
 

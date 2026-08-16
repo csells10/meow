@@ -5,7 +5,7 @@ Revision `nfl-games-app-main-00155-qaf` serves 100% of normal traffic;
 `nfl-games-app-main-00153-jol` is the rollback revision. No historical rebuild
 or data write occurred.
 
-**Branch:** `agent/calibrated-matchup-lean-hotfix`  
+**Temporary branch:** `agent/calibrated-matchup-lean-hotfix` — deleted locally and from GitHub after release  
 **Base:** `main@7b54cead`  
 **Production branch:** `main`  
 **Long-lived development branch:** `dev`  
@@ -153,6 +153,9 @@ with the complete main-based test suite.
 | Production health | HTTP 200 after promotion |
 | Post-promotion errors | None found for `00155-qaf` in the 15-minute review window |
 | Main → dev | [#7](https://github.com/csells10/meow/pull/7), merge `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7` |
+| Dev forward-merge build | Source commit `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7`, `SUCCESS` |
+| Dev release-documentation build | Source commit `43e2f824860f69a9daeb4cda05fc8fb310f378ce`, `SUCCESS` |
+| Temporary branch cleanup | Local and GitHub branches deleted |
 | Historical writes | None; the 2025 table was read only |
 
 ## Release sequence
@@ -169,7 +172,7 @@ with the complete main-based test suite.
 7. Merge released `main` forward into `dev`; do not reimplement the rule.
    **Complete.**
 8. Delete the temporary branch only after both long-lived branches contain the
-   identical released code. **Ready after this documentation receipt is verified.**
+   identical released code. **Complete.**
 
 ## Current evidence
 
@@ -182,6 +185,8 @@ with the complete main-based test suite.
 - Python compilation passes for all changed Python files.
 - Pull request #6 merged to `main`; pull request #7 forward-merged the
   released code into `dev`.
+- Both resulting `dev` Cloud Builds completed successfully, and the temporary
+  hotfix branch was removed locally and from GitHub.
 - The candidate and normal production URL returned HTTP 200.
 - The live representative comparison passed every preservation check.
 - No severity-ERROR entries were found in the bounded candidate or

@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released and present in both `main` and `dev`. Packet 4 planning is active; no Packet 4 code has started.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4 is the next working packet for 2026-08-17; no Packet 4 code has started.
 
 **Updated:** 2026-08-16  
 **Working branch:** `dev`  
@@ -42,17 +42,18 @@ If two files appear to conflict, use this order: current Sprint status, current 
 
 ---
 
-## Stable truths as of 2026-08-13
+## Stable truths as of 2026-08-16
 
-- Packet 2 produced six canonical rows in `GameLens_dev.pregame_snapshots` for the August 13 slate.
-- All six saved payloads matched live `/game` exactly: six HTTP 200 responses, six exact hashes, and zero field differences.
-- `GameLens_dev.stage_runs` contains the four known capture attempts.
-- `GameLens_dev.stage_game_results` contains nine historical per-game results across those attempts. The first backfill inserted nine rows; an identical retry inserted zero and found all nine existing.
-- Coverage from August 6 through August 13 is explicit: six games captured and `20260806_CAR@ARI` marked `capture_missing` with reason `before_packet_2_capture_program`.
-- The August 6 missing capture must not be reconstructed after kickoff and must not be used as if it were genuine pregame evidence.
-- Packet 3 must read canonical payloads from `pregame_snapshots`. The receipt tables are for audit, coverage, and diagnosis—not product-payload input.
-- The production 8:00 AM workflow is unchanged. Packet 3 remains dev-only until its own tests and cloud gates pass.
-- Merge to `main` and production scheduling remain later release work, not a reward for completing Packet 2.
+- Packet 2 established canonical, immutable pregame snapshots with exact `/game` parity, honest coverage gaps, attempt receipts, and per-game results.
+- Packet 3 reads only canonical `pregame_snapshots`, uses one shared Level 1 extraction path, and writes development-only claim examples through a game-scoped idempotent MERGE.
+- Seven available preseason captures truthfully produced zero claims. The zero-claim write/retry, controlled populated-path tests, and DAL–SEA post-ETL immutability check passed.
+- Packet 3 has **Implementation GO**. Its first genuine claim-bearing write/retry and bounded-slate reconciliation remain a required pre-production operational validation, not a reason to manufacture evidence.
+- Calibrated Matchup Lean is a separate completed release. Revision `nfl-games-app-main-00155-qaf` serves 100% traffic and `nfl-games-app-main-00153-jol` remains the rollback anchor.
+- The live representative comparison changed only the qualifying confidence label from High to Medium; the pick, profile, raw signal, Model Outcome, and Model Trust remained unchanged.
+- Production and candidate health returned HTTP 200, and the bounded post-promotion error review returned no rows.
+- Released `main` was forward-merged into `dev`. The forward-merge build from `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7` and the documentation build from `43e2f824860f69a9daeb4cda05fc8fb310f378ce` both succeeded.
+- The temporary hotfix branch was deleted locally and from GitHub.
+- The production 8:00 a.m. workflow is unchanged. No learning stage is wired into `app.py`, and no production learning tables or writes were introduced.
 
 ---
 
@@ -78,6 +79,8 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Calibrated Matchup Lean main merge: `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`.
 - Production build and serving revision: `896a7a28-e968-4d1d-a224-db5f1ede8d34`; `nfl-games-app-main-00155-qaf` at 100%.
 - Calibrated Matchup Lean main-to-dev forward merge: `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7`.
+- Release-documentation receipt: `43e2f824860f69a9daeb4cda05fc8fb310f378ce`; both associated `dev` builds succeeded.
+- Temporary hotfix branch cleanup: complete locally and on GitHub.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -85,7 +88,7 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Calibrated Matchup Lean is complete and must remain a separate shared rule. Review [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) before changing code:
+Tomorrow, begin [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Calibrated Matchup Lean is complete and must remain a separate shared rule:
 
 1. inspect the existing Model Outcome/Trust and Levels 2–3 workers;
 2. confirm the smallest DRY adapters and storage changes;

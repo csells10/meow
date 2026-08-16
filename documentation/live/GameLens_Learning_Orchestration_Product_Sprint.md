@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released and forward-merged; Packet 4 companion plan is active for review  
+**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released, forward-merged, and closed; Packet 4 is the next working packet  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-16  
 **Owner:** GameLens product stewardship  
@@ -10,8 +10,8 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) is documentation-only and ready for review; no Packet 4 code or cloud write has started.  
-**Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, and forward-merged to `dev`.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) is the next working packet for 2026-08-17; no Packet 4 code or cloud write has started.  
+**Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
@@ -83,7 +83,7 @@ There are almost five weeks from this update to the first regular-season game. T
 |---|---|---|
 | Aug 6–9 | Packet 0 plus Packet 1 | Freeze this plan; define capture timing, preseason exclusion, identities, denylist, readiness gates, and reused functions |
 | Aug 10–16 | Packet 2 | Use preseason only as a dev/shadow rehearsal for empty days, retries, timing, payload capture, and orchestration; produce no production learning evidence |
-| Aug 17–23 | Packet 3 plus Calibrated Matchup Lean parity | Make Level 1 game-scoped/idempotent; place the existing Core Area durability confidence rule behind one shared helper; prove Admin and `/game` agree without changing the pick or lean direction |
+| Aug 17–23 | Packet 3 closure plus Calibrated Matchup Lean | Completed ahead of schedule on Aug 16: Level 1 received Implementation GO and the separate confidence rule was tested, released, promoted, and forward-merged without changing the pick or lean direction |
 | Aug 24–30 | Packet 4 | Reuse the frozen read to grade Model Outcome/Trust, then run Levels 2–3 only after final score plus accepted Facts |
 | Aug 31–Sep 6 | Packets 5–6 and end-to-end dev rehearsal | Reconcile Admin/ledger counts; rehearse Level 4 and the weekly “What did we learn?” output against historical evidence; prove no-op, partial failure, retry, and kill-switch behavior |
 | Sep 7–8 | Packet 7 release gate | Small production wiring change, shadow/read-only check, one deliberate activation, and rollback proof |
@@ -95,7 +95,7 @@ There are almost five weeks from this update to the first regular-season game. T
 planned windows, including per-game observability, zero-claim cloud proof, and
 post-ETL immutability evidence. Packet 4 planning may begin, but the deferred
 Packet 3 genuine populated-data validation remains a pre-production gate and
-Calibrated Matchup Lean completed its separate main-based release and is now present in both `main` and `dev`.
+Calibrated Matchup Lean completed its separate main-based release, is present in both `main` and `dev`, passed both `dev` builds, and has no remaining temporary branch.
 
 **Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–6 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
 
@@ -471,7 +471,7 @@ Each companion document must answer:
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
 | Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
-| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active review plan; no code started |
+| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — next working packet; no code started |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
 | Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
