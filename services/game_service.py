@@ -12,6 +12,10 @@ from services.claim_language_features import (
     build_runtime_two_way_context_by_side,
 )
 from services.claim_language_response import apply_claim_language_support_to_response_sections
+from services.confidence_calibration import (
+    INSUFFICIENT_DURABILITY_REASON,
+    apply_core_area_durability_confidence_calibration,
+)
 from utils.logging_setup import log_event
 from google.cloud import bigquery
 from dataclasses import dataclass
@@ -688,8 +692,9 @@ def build_profile_strength_labels(
     outcome_confidence answers:
     - How much should we trust the lean as a winner/outcome read?
 
-    This is additive only. It does not change picks, confidence, target_team,
-    profile_type, or model_outcome.
+    This does not change picks, legacy signal confidence, target_team,
+    profile_type, or model_outcome. It may soften only the user-facing
+    outcome-confidence label through the shared calibration helper.
     """
 
     core_area_context = core_area_context or {}
@@ -804,9 +809,28 @@ def build_profile_strength_labels(
             "summary": "Outcome confidence is based on the current matchup lean.",
         }
 
+    confidence_calibration = (
+        apply_core_area_durability_confidence_calibration(
+            confidence_label=outcome_confidence.get("label"),
+            core_gap=core_gap,
+        )
+    )
+
+    if confidence_calibration["confidence_calibrated"]:
+        outcome_confidence = {
+            "code": "medium",
+            "label": "Medium",
+            "summary": (
+                "The matchup lean remains usable, but broader Core Area "
+                "support is not durable enough for High confidence."
+            ),
+        }
+        cautions.append(INSUFFICIENT_DURABILITY_REASON)
+
     return {
         "profile_strength": profile_strength,
         "outcome_confidence": outcome_confidence,
+        "confidence_calibration": confidence_calibration,
         "display_label": (
             f"{profile_strength['label']} / "
             f"{outcome_confidence['label']} Outcome Confidence"
@@ -1777,6 +1801,7 @@ def build_matchup_lean(
             "confidence_guardrails": confidence_guardrails,
             "profile_strength": profile_labels["profile_strength"],
             "outcome_confidence": outcome_confidence,
+            "confidence_calibration": profile_labels["confidence_calibration"],
             "matchup_label": profile_labels["display_label"],
             "matchup_cautions": profile_labels["cautions"],
         }
@@ -1916,6 +1941,7 @@ def build_matchup_lean(
         "confidence_guardrails": confidence_guardrails,
         "profile_strength": profile_labels["profile_strength"],
         "outcome_confidence": outcome_confidence,
+        "confidence_calibration": profile_labels["confidence_calibration"],
         "matchup_label": profile_labels["display_label"],
         "matchup_cautions": profile_labels["cautions"],
     }
