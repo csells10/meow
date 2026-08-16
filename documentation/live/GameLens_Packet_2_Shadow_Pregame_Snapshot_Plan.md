@@ -7,7 +7,31 @@
 **Production behavior changed:** No  
 **Production data written:** No  
 **Production data read:** Yes — explicitly read-only Schedule and Analytics evidence  
-**Development data written:** Yes — six canonical snapshots, four attempt receipts, and nine provenance-marked per-game audit rows
+**Development data written:** Yes — the six-snapshot completion cohort plus one later canonical DAL–SEA operational capture; attempt and per-game receipts remain development-only  
+**Operational follow-up:** 2026-08-15 capture and 2026-08-16 post-ETL verification recorded below
+
+## Post-completion operational evidence — 2026-08-15 to 2026-08-16
+
+This follow-up does not reopen Packet 2 or change its 2026-08-13 GO evidence.
+It records the next real use of the completed capture and receipt path.
+
+Attempt `snapshot_20260815T234205Z_f3fe33e5` inspected seven August 15 games.
+Six were truthfully skipped with `kickoff_reached`; DAL–SEA remained eligible
+and was saved before kickoff as `capture_b387ab5d3545e2c322827756` under
+`gamelens_2026_preseason_v1`. The run captured one game, failed zero, waited
+on zero, made zero internal `/game` HTTP calls, saved seven per-game results,
+and saved its attempt receipt. Upstream lineage was
+`observed_prod_2026_asof_20260814_f1272_w1460_r2073`.
+
+After the next production ETL completed all seven games through every stage,
+the frozen DAL–SEA payload recalculated to the same SHA-256:
+`d9ddda20f7fe42291acd4268dd871368def66b604c28b151aad86e7bb71922b1`.
+It still contained no postgame fields, final score, or model outcome. This proves
+the later ETL did not mutate or leak into the canonical pregame record.
+
+The current development snapshot total is seven. The original six-snapshot,
+four-attempt, and nine-row counts below remain the dated Packet 2 completion
+cohort and must not be rewritten as if the later attempt existed on August 13.
 
 ## Packet 2 observability amendment — 2026-08-13
 
@@ -1132,9 +1156,8 @@ nine-row per-game audit backfill, zero-insert identical retry, August 6–13
 coverage proof, runtime evidence, source/write boundaries, production impact,
 and deliberately deferred optional hardening.
 
-The next action is to review
-[GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md).
-Packet 3 consumes the approved canonical snapshot rather than rebuilding
-GameLens, remains game-scoped and idempotent, preserves zero-claim processing,
-and avoids production wiring until its own evidence gate is ready.
-
+Packet 3 later consumed these canonical snapshots without rebuilding GameLens
+and received Implementation GO on 2026-08-16. The next active review is
+[GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
+Packet 2 remains the capture/evidence authority; Packet 4 must not reinterpret
+its missed-game or immutable-snapshot rules.

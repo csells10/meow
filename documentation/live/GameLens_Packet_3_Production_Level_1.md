@@ -1,6 +1,6 @@
 # GameLens Packet 3 — Production-Safe Level 1 Plan
 
-**Status:** In progress — code complete; table setup, seven-capture dry inventory, zero-claim write/retry, and post-ETL immutability proof passed; future populated-capture and bounded-slate proofs pending  
+**Status:** Complete — **Implementation GO 2026-08-16**; first genuine populated-capture write/retry and claim-bearing bounded-slate proof are carried as non-blocking pre-production operational validations  
 **Created:** 2026-08-13  
 **Branch:** `dev`  
 **Predecessor:** [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md)  
@@ -23,8 +23,8 @@
 | Canonical dry inventory | Six August 13 snapshots plus the August 15 DAL–SEA snapshot revalidated and ran through the shared extractor without claim writes | Pass — seven honest zero-claim results |
 | Zero-claim receipt/retry | Persist one visible processing receipt, then prove the same logical attempt is unchanged | Pass — `level1_zero_20260815_ari_lv`; one receipt inserted, identical retry inserted zero |
 | Post-ETL immutability | Re-read DAL–SEA after the next production ETL and prove its frozen payload, hash, and pregame boundary remained unchanged | Pass — exact hash match, zero postgame fields, zero claims |
-| Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Waiting; no current canonical snapshot contains claim candidates |
-| Bounded-slate proof | Process the remaining eligible captures sequentially without cross-game mutation | Pending |
+| Populated-capture write/retry | Reconcile inserted claims and identical replay against a genuine two-sided canonical capture | Deferred operational validation; synthetic populated path and cloud zero path passed, but no genuine claim-bearing capture exists |
+| Bounded-slate proof | Process multiple claim-bearing captures without cross-game mutation | Deferred with the genuine populated-capture validation; local cross-game preservation tests passed |
 
 The current table contract has 117 unique fields: 111 reused fields plus six
 Packet 3 lineage fields. Local checks passed schema uniqueness,
@@ -54,9 +54,10 @@ claim sections. The other five captures also contain zero claim candidates.
 This is a valid early-preseason state, not an extractor failure. `lens_tags`
 describe registry/evidence context; they are not user-facing claims. Packet 3
 must not manufacture two-sided claims from one-sided or unmatched evidence.
-The six captures therefore support the zero-claim path only. The populated
-cloud gate remains open until a new canonical pregame capture contains genuine
-claim sections.
+The original six captures therefore support the zero-claim path only. The
+later DAL–SEA capture recorded below produced the same honest result. The
+populated cloud gate remains open until a new canonical pregame capture
+contains genuine claim sections.
 
 ### Zero-claim write/retry evidence — 2026-08-15
 
@@ -103,6 +104,25 @@ exclusions. The subsequent Packet 3 read-only QA proved:
 This proves the completed-game ETL did not mutate or leak into the frozen
 Level 1 input. Because the shared extractor returned zero claims, no additional
 claim write or redundant zero-claim receipt was created.
+
+### Completion decision — 2026-08-16
+
+Packet 3 receives **Implementation GO**. The adapter, shared extractor,
+capture-aware identity, canonical schema, development-only storage, game-scoped
+MERGE, receipt path, zero-claim cloud write/retry, and post-ETL immutability
+boundary are implemented and proven. Controlled populated fixtures also prove
+claim-family extraction, inserted/unchanged/conflict reconciliation, identical
+retry, and preservation of unrelated games through the same code paths.
+
+The original plan expected at least one current preseason capture to contain
+real claim candidates. That data assumption was false: all seven available
+canonical captures honestly contain zero claims. Manufacturing a populated
+capture or changing the extractor to satisfy the checklist would weaken the
+system. The first genuine populated dev write/retry and claim-bearing bounded
+slate therefore remain required before production promotion, but they do not
+block Packet 4 implementation. When real data becomes available, use the
+existing Packet 3 runner and record exact identities and counts; do not reopen
+or redesign Packet 3 unless that proof exposes a defect.
 
 ---
 
@@ -507,16 +527,16 @@ Only after the one-game paths pass, process the remaining canonical Packet 2
 captures sequentially. One failure must not discard or mutate another game's
 result.
 
-## Required evidence for Packet 3 GO
+## Implementation GO and production-promotion evidence
 
-Packet 3 receives GO only when:
+Packet 3 received Implementation GO because:
 
 1. the companion plan was reviewed before implementation;
 2. focused tests and relevant Packet 1–2 regressions pass;
 3. the new code reads canonical snapshots rather than rebuilding GameLens;
 4. every claim carries complete capture and cohort lineage;
-5. the first populated write reconciles exactly;
-6. the identical replay changes zero rows;
+5. populated fixtures reconcile insert, unchanged retry, and immutable conflict behavior through the shared code;
+6. a real zero-claim write and identical replay change no claim rows or duplicate receipts;
 7. a zero-claim capture remains visibly processed;
 8. historical filesystem QA remains available;
 9. no postgame value enters a Level 1 row;
@@ -524,6 +544,30 @@ Packet 3 receives GO only when:
 11. `app.py`, production Scheduler behavior, `/game`, and the frontend remain
     unchanged; and
 12. the document is updated with exact attempt IDs, counts, and evidence.
+
+Before production promotion, additionally require:
+
+1. the first genuine claim-bearing capture writes to development and reconciles exact claim keys and counts;
+2. its identical replay inserts and updates zero rows;
+3. a claim-bearing bounded slate preserves unrelated games; and
+4. any failure is traceable through the stage and per-game receipt contract.
+
+These are carried operational validations, not permission to manufacture test
+data or delay unrelated Packet 4 implementation.
+
+### Diagnostic contract carried forward
+
+The Packet 3 runner already exposes the core diagnostic chain: attempt, stage,
+game, learning run, capture, upstream pipeline, payload hash, extraction
+version, source/target tables, claim counts, insert/unchanged/conflict counts,
+status, reason, timestamps, duration, and receipt reconciliation. Packet 4 and
+the future learning conductor must preserve that chain per game and stage.
+
+A top-level failure alone is not acceptable. The operator must be able to tell
+which game and stage failed, which input version was used, what happened,
+whether retry is safe, and where the detailed Cloud Logging execution can be
+found. A true zero remains a visible zero and is never relabeled as missing or
+failed.
 
 ## What Packet 3 does not do
 
@@ -554,9 +598,9 @@ Packet 6 decides controlled Level 4 batching and weekly reporting.
 Packet 7 decides the production dataset, kill switch, final service/job
 topology, 8:00 a.m. handoff, deployment, and rollback.
 
-## Review checklist for Christian
+## Closure checklist for Christian
 
-Before implementation, confirm that this plan answers yes:
+Packet 3 closed with yes answers to:
 
 - Does Level 1 read only the frozen Packet 2 snapshot?
 - Can every claim be traced back to one capture?
@@ -566,20 +610,22 @@ Before implementation, confirm that this plan answers yes:
 - Are all writes development-only?
 - Are the 8:00 a.m. load and production app still untouched?
 
-If those answers remain yes, Packet 3 implementation may begin in small,
-separately tested commits.
+The first real populated write/retry remains visible above as a pre-production
+validation, not hidden unfinished code.
 
 ## Documentation handoff
 
-This plan is the next-chat starting point. A new chat should read, in order:
+This plan is completed evidence. A new Packet 4 chat should read, in order:
 
 1. [Live documentation index](./README.md);
 2. [Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md);
-3. this Packet 3 plan;
-4. [Packet 2 evidence](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md);
-5. [Packet 1 rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md); and
-6. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md).
+3. [Packet 4 plan](./GameLens_Packet_4_Postgame_Learning.md);
+4. this completed Packet 3 evidence;
+5. [Packet 2 evidence](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md);
+6. [Packet 1 rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md); and
+7. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md).
 
-Then inspect the current `dev` versions of the extractor, table-setup module,
-snapshot storage, learning contract, and handoff tests before changing code.
-The plan governs the boundary; current code governs implementation details.
+Then inspect the current `dev` versions of the outcome/trust service, Level 2
+validation worker, Level 3 feature worker, Level 1 service/storage boundary,
+learning contract, and handoff tests before changing code. The plan governs
+the boundary; current code governs implementation details.

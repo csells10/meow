@@ -1,15 +1,15 @@
 # GameLens Product Data Collection and Learning Handoff
 
-**Document status:** Architecture handoff active; Packets 1–2 complete and Packet 3 planning is next  
+**Document status:** Architecture handoff active; Packets 1–3 complete and Packet 4 planning/review is next  
 **Created:** 2026-08-03  
-**Last revised:** 2026-08-13  
+**Last revised:** 2026-08-16  
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Branch represented:** `dev` for learning work; `main` remains the production release branch  
 **Current production checkpoint:** Gate H complete; the existing 8:00 a.m. production load remains unchanged and learning is not wired into it  
 **Companion release plan:** [go_plan.md](./go_plan.md)  
 **Live documentation index:** [README.md](./README.md)  
-**Current packet:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md)
+**Current packet:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)
 
 ---
 
@@ -25,7 +25,8 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md` | Canonical Levels 1–4 product and architecture boundary |
 | `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md` | Approved capture rulebook |
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
-| `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Current bounded plan; ready for review and not yet implemented |
+| `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Completed Packet 3 Implementation GO evidence and deferred pre-production real-data validation |
+| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Current bounded review plan; no Packet 4 code started |
 | `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |
@@ -169,7 +170,7 @@ That runtime metadata is **not proof that the persisted Levels 1–4 learning pi
 | Level | Purpose | Current implementation | Production automation status |
 |---|---|---|---|
 | Level 0 | Create or migrate the claim-training table | `create_claim_training_examples_table.py` | Setup-only; not a daily job |
-| Level 1 | Extract one row per pregame GameLens claim | `build_claim_training_examples.py` reads saved payload JSON files | Working for QA/historical runs; not connected to production scheduling |
+| Level 1 | Extract one row per pregame GameLens claim | Historical CLI plus Packet 3 snapshot adapter/service and game-scoped development MERGE | Implementation GO in development; not connected to production scheduling; first genuine populated cloud write/retry remains a pre-production validation |
 | Level 2 | Validate pregame claims against postgame facts | `update_claim_training_validation.py` reads `game_team_metric_facts_{season}` | Working for historical runs; not connected to production scheduling |
 | Level 3 | Add pregame-safe engineered feature context | `update_claim_training_features.py` | Working and historically validated; not connected to production scheduling |
 | Level 4 | Aggregate claim-language calibration evidence | `build_claim_language_calibration.py` | Working as an analysis/calibration job; not a production runtime steering job |
@@ -289,17 +290,30 @@ For each scheduled run, retain:
 
 For each learning run, retain:
 
-- payload run ID;
-- Level 1 run ID and claim-row count;
-- unique game and claim counts;
-- Level 1 extraction errors;
-- Level 2 validation counts by result;
-- unavailable validation count;
+- attempt ID, overall status, start/finish timestamps, and duration;
+- per-game and per-stage status rows;
+- `pipeline_run_id`, `learning_run_id`, `capture_id`, `game_id`, and
+  `claim_key` where applicable;
+- source payload hash, extraction/model/ruleset/formula versions, and
+  source/target table identity;
+- Level 1 input/output, inserted, unchanged, and conflict counts;
+- Level 2 validation counts by result plus unavailable/rejected counts;
 - Level 3 formula version and feature bucket counts;
 - Level 4 calibration version and recommendation counts;
-- BigQuery write mode;
-- dry-run evidence location; and
+- BigQuery write mode and dry-run evidence location;
+- stable failure reason code, readable message, failed boundary, and retryable
+  status;
+- non-secret exception class and Cloud Logging execution/trace reference when
+  an exception occurs;
+- preservation of successful sibling games when one game or stage fails; and
 - reviewer decision.
+
+A top-level `failure` or `partial_failure` is not a complete diagnostic. The
+operator view must answer: which game, which stage, which input version, what
+failed, and what is safe to retry. A true zero must remain visibly zero rather
+than being collapsed into missing or failed. `stage_runs` and
+`stage_game_results` are the minimum durable pattern; add only the smallest
+schema change needed when existing fields cannot answer those questions.
 
 ---
 
@@ -329,7 +343,7 @@ Run from the immutable pregame snapshot.
 Output:
 
 - one row per pregame claim with deterministic `claim_key`;
-- game-scoped MERGE/replacement inside a stable `learning_run_id`;
+- game-scoped insert-only MERGE inside a stable `learning_run_id`;
 - duplicate rerun produces no additional claims;
 - dry-run review before the first BigQuery write.
 
@@ -535,15 +549,21 @@ The handoff should let a new owner answer four questions quickly:
 
 ## 16. Next bounded action
 
-Gate H, Packet 1, and Packet 2 are complete. The next bounded action is
-Packet 3 planning:
+Gate H and Packets 1–3 are complete. Packet 3 has Implementation GO; its first
+genuine populated-capture write/retry and claim-bearing bounded slate remain
+pre-production validations because all seven available preseason captures
+contained zero claims.
 
-> Review `GameLens_Packet_3_Production_Level_1.md` and prove how one approved
-> canonical `pregame_snapshots` row becomes game-scoped, idempotent Level 1
-> claim rows in development.
+The next bounded action is Packet 4 review:
 
-Packet 3 must reuse the existing extractor, preserve
-`pipeline_run_id + learning_run_id + capture_id + claim_key` lineage, keep a
-zero-claim capture visible through an operational receipt, and leave the
-historical filesystem QA path intact. It must not wire `app.py`, write
-production learning rows, change `/game`, or change the frontend.
+> Review `GameLens_Packet_4_Postgame_Learning.md`, inspect the existing Model
+> Outcome/Trust, Level 2, and Level 3 workers, and define the smallest adapters
+> that grade the frozen capture and process only games with the required final
+> score and accepted Facts.
+
+Packet 4 must preserve the existing calculation owners, use the canonical
+capture lineage, and emit durable per-game/per-stage diagnostics that identify
+the failed game, stage, input version, reason, retryability, counts, and log
+reference. It must not wire `app.py`, write production learning rows, change
+`/game`, change the frontend, or manufacture claims to close Packet 3's
+deferred real-data proof.

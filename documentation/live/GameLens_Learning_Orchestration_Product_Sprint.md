@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–2 complete; Packet 3 code is implemented and development-cloud proof is in progress; delivery remains ahead of the Aug 17–23 Packet 3 window  
+**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Packet 4 companion plan is active for review  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-16  
 **Owner:** GameLens product stewardship  
@@ -9,7 +9,8 @@
 **Regular-season safety deadline:** before the first Week 1 kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern  
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
-**Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) is active. Code and dev table setup are complete. Seven canonical captures are honest zero-claim cases. The deliberate zero-claim write/retry passed, and DAL–SEA remained byte-for-byte unchanged with no postgame leakage after the next 7/7-game production ETL. The populated-write and bounded-slate gates wait for a future genuine claim-bearing capture.  
+**Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) is documentation-only and ready for review; no Packet 4 code or cloud write has started.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
@@ -89,10 +90,11 @@ There are almost five weeks from this update to the first regular-season game. T
 | After Week 1 completes | First weekly learning cycle | Once Monday’s game and accepted Stats/Facts are available, run the first weekly summary; expect limited evidence and say so |
 | Week 2 onward | Normal weekly rhythm | Run Level 4 once per completed NFL week and publish the plain-language “What did we learn?” summary after its evidence is complete |
 
-**Schedule checkpoint — 2026-08-13:** Packet 2 completed before the end of its
-Aug 10–16 window, including the unplanned but valuable per-game observability
-amendment. Packet 3's plan is also drafted. This is schedule cushion, not
-permission to skip review gates or production safety evidence.
+**Schedule checkpoint — 2026-08-16:** Packets 2 and 3 completed ahead of their
+planned windows, including per-game observability, zero-claim cloud proof, and
+post-ETL immutability evidence. Packet 4 planning may begin, but the deferred
+Packet 3 genuine populated-data validation remains a pre-production gate and
+Calibrated Matchup Lean parity remains a separate required carry-forward.
 
 **Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–6 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
 
@@ -401,6 +403,35 @@ Blank data is not automatically an exception. The result depends on what the sta
 | Scheduler or Cloud Run retries | Reuse deterministic IDs and keys | Same final rows, no duplicates |
 | Timeout/OOM | Record failed stage and leave prior good tables/snapshots intact | Safe retry from the failed boundary |
 
+### Required failure-trace contract
+
+A future learning conductor must never stop at a top-level `failure` or
+`partial_failure`. For every attempted game and stage, the durable receipt and
+terminal/admin summary must make the failure traceable without reconstructing
+the run from chat history.
+
+Retain or expose:
+
+- `attempt_id`, `stage_name`, `game_id`, `learning_run_id`, and `capture_id`;
+- upstream `pipeline_run_id`, source payload hash, extraction/model/ruleset or
+  formula version, and source/target table identity;
+- input, output, inserted, unchanged, conflict, unavailable, and rejected
+  counts as applicable;
+- final status plus a stable reason code, readable message, failed boundary,
+  and whether retry is safe;
+- start/finish timestamps and duration;
+- the non-secret exception class and Cloud Logging execution/trace reference
+  when an exception occurs; and
+- successful sibling games/stages, which must remain committed and visible
+  when another game fails.
+
+The operator view must answer five questions directly: **which game, which
+stage, which input version, what failed, and what is safe to retry?** A true
+zero is data and must display as zero; it must not be collapsed into missing,
+unknown, or failed. Existing `stage_runs` and `stage_game_results` are the
+minimum durable pattern. Later packet schemas may add dedicated error fields,
+but must not create a second calculation path.
+
 ### Missing capture rule
 
 If no valid pregame snapshot was saved before kickoff, record `capture_missing`. The final score may still display, but do not produce a model grade or reconstruct Levels 1–4 evidence for that game. Missing one game is better than contaminating the training evidence.
@@ -432,8 +463,8 @@ Each companion document must answer:
 | Packet 0 | This Product Sprint and the architecture handoff |
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
-| Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — code/table setup, seven-capture dry inventory, zero-claim write/retry, and post-ETL immutability passed; populated and bounded-slate proofs pending |
-| Packet 4 | `GameLens_Packet_4_Postgame_Learning.md` — create and review before Packet 4 code |
+| Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
+| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active review plan; no code started |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
 | Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
@@ -544,7 +575,7 @@ tables, or change the live frontend/API.
 
 ### Packet 3 — Production-safe Level 1
 
-**Status:** In progress. The snapshot adapter, capture-aware identity, canonical schema reuse, dev-only table/storage contract, game-scoped MERGE, per-game receipts, and one-capture runner are implemented. The full regression ladder and development-cloud proof remain. Review [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) before continuing.
+**Status:** Complete — **Implementation GO on 2026-08-16**. The snapshot adapter, capture-aware identity, canonical schema reuse, dev-only table/storage contract, game-scoped MERGE, per-game receipts, and one-capture runner are implemented. Seven real captures proved honest zero handling, receipt idempotency, and post-ETL immutability. Controlled populated fixtures proved claim extraction, reconciliation, immutable conflict refusal, and cross-game preservation through the shared code. Review [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) for exact evidence.
 
 **Why this is important:** converts the snapshot into durable claim rows without risking the cumulative cohort.
 
@@ -564,7 +595,18 @@ Exit evidence:
 - duplicate replay adds zero rows; and
 - historical QA behavior remains available separately.
 
+Operational validation carried forward: before production promotion, run the
+existing Packet 3 path against the first genuine claim-bearing canonical
+capture, prove an identical replay changes zero rows, and prove a claim-bearing
+bounded slate preserves unrelated games. This was deferred because all seven
+available preseason captures contained zero claims—not because Packet 3 code
+or cloud plumbing failed.
+
 ### Packet 4 — Postgame outcome plus Levels 2–3
+
+**Status:** Companion plan created for review on 2026-08-16; no implementation
+or cloud write has started. See [GameLens Packet 4 — Postgame Outcome plus
+Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
 
 **Why this is important:** grades the frozen prediction and turns completed games into claim-learning evidence without rebuilding what GameLens said before kickoff.
 
@@ -799,28 +841,24 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packet 2 is complete and its canonical evidence record is the source of truth.
-Packet 3 code is implemented. The next action is the gated development-cloud
-proof, not wiring all Levels into `app.py`.
+Packets 1–3 are complete. Review
+[GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md),
+then inspect the existing outcome/trust, Level 2 validation, and Level 3 feature
+workers before choosing the smallest adapter and storage changes. Packet 4 must
+reuse those calculations, apply capture/score/Facts gates, and return a
+per-game/per-stage diagnostic funnel.
 
-[GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md)
-shows how one approved immutable snapshot becomes game-scoped Level 1 claim
-rows without rebuilding GameLens or replacing the cumulative learning cohort.
-It preserves the existing extractor, replaces only the snapshot adapter,
-identity, storage, and receipt boundaries, keeps zero-claim captures visible,
-and specifies dry-read, dry-write, deliberate dev-write, identical-retry, and
-bounded-slate evidence. `pregame_snapshots` is the canonical product input;
-`stage_runs` and `stage_game_results` remain operational audit evidence.
-
-The adapter, schema, MERGE, receipt, and one-capture runner slices are complete.
-Continue with the full available test ladder, then table setup, dry run,
-deliberate write, identical replay, zero-claim proof, bounded-slate proof, and
-documentation closure.
+The Packet 3 genuine populated-capture proof stays on the pre-production gate
+list. If genuine claim data appears during Packet 4, run that existing proof
+before using those rows downstream; otherwise continue Packet 4 implementation
+with controlled fixtures and honest real zero-claim cases. Do not manufacture
+claims or reopen the Level 1 design merely to satisfy unavailable preseason
+data.
 
 Do not wire `app.py`, create production learning tables, change production
-`/game`, or change the frontend during Packet 3. Calibrated Matchup
-Lean remains a required carry-forward, but it must not be folded into Level 1
-claim persistence accidentally.
+`/game`, or change the frontend during Packet 4. Calibrated Matchup Lean parity
+remains a separate required carry-forward and must not be folded accidentally
+into postgame learning.
 
 If a regular-season game reaches kickoff without a valid snapshot, record it as
 `capture_missing`. Never rebuild a fake Level 1 snapshot afterward.
@@ -831,7 +869,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read `GameLens_Learning_Orchestration_Product_Sprint.md`, `GameLens_Packet_3_Production_Level_1.md`, `GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`, `GameLens_Packet_1_Pregame_Capture_Contract.md`, and the architecture handoff. Packets 1 and 2 are complete; Packet 3 code is implemented through `dad1806`. The development table setup, seven-capture dry inventory, zero-claim write/retry, and DAL–SEA post-ETL immutability proof passed. Attempt `level1_zero_20260815_ari_lv` inserted one receipt on its first run and zero on its identical retry. Capture `capture_b387ab5d3545e2c322827756` retained an exact hash and no postgame fields after the next production ETL. All seven current captures are honest zero-claim cases, so wait for a future genuine populated canonical capture before the populated-write and bounded-slate gates. Packet 3 must read canonical `GameLens_dev.pregame_snapshots`, preserve zero-claim processing through `stage_game_results`, and keep every write in development. Do not rerun Snapshot Capture, manufacture comparison claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, or change the frontend.
+> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff. Packets 1–3 are complete. Packet 3 received Implementation GO after seven real zero-claim captures, a zero-claim write/retry, controlled populated-path tests, and DAL–SEA post-ETL immutability proof. Its first genuine populated-capture write/retry and claim-bearing bounded slate remain pre-production validations because preseason supplied no real claims. Review Packet 4 before code, preserve existing worker calculations, and require per-game/per-stage failure traces that identify the game, stage, lineage, counts, reason, retryability, and log reference. Keep all writes in development. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, change the frontend, or fold Calibrated Matchup Lean parity into Packet 4 accidentally.
 
 ---
 
@@ -840,6 +878,8 @@ Use this handoff in a fresh chat:
 - `documentation/live/GameLens_Product_Data_Collection_and_Learning_Handoff.md`
 - `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md`
 - `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`
+- `documentation/live/GameLens_Packet_3_Production_Level_1.md`
+- `documentation/live/GameLens_Packet_4_Postgame_Learning.md`
 - `documentation/live/GameLens_Packet_3_Production_Level_1.md`
 - `documentation/live/README.md`
 - `documentation/live/go_plan.md`

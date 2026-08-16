@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1 and 2 are complete. Packet 3 code implementation is complete and development-cloud proof is in progress. The dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability gates passed. All seven current canonical captures honestly extract zero claims, so the populated-write and bounded-slate gates remain open for a future genuine claim-bearing capture.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. Packet 4 planning is now active; no Packet 4 code has started.
 
 **Updated:** 2026-08-16  
 **Working branch:** `dev`  
@@ -13,12 +13,13 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 ## Recommended reading order
 
 1. [GameLens Learning Orchestration Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) — current sprint status, packet order, gates, and next action.
-2. [Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — the active packet and its current implementation checkpoint.
-3. [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) — completed implementation and cloud proof that Packet 3 inherits.
-4. [Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md) — the locked contract and invariants.
-5. [Product Data Collection and Learning Handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) — architecture and level boundaries.
-6. [Runtime Configuration](./runtime_configuration.md) — deployment and environment controls; use when a packet reaches cloud validation.
-7. [Go Plan](./go_plan.md) — historical production-cutover evidence. It is not the current learning-packet plan.
+2. [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — the active review plan; read before Packet 4 code.
+3. [Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — completed implementation evidence and deferred real-data validation.
+4. [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) — completed implementation and cloud proof that Packet 3 inherits.
+5. [Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md) — the locked contract and invariants.
+6. [Product Data Collection and Learning Handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) — architecture, level boundaries, and failure-trace contract.
+7. [Runtime Configuration](./runtime_configuration.md) — deployment and environment controls; use when a packet reaches cloud validation.
+8. [Go Plan](./go_plan.md) — historical production-cutover evidence with a learning-track cross-reference. It is not the current learning-packet plan.
 
 ---
 
@@ -26,8 +27,9 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 
 | File | Role | Current state | Do not infer |
 |---|---|---|---|
-| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–2 complete; Packet 3 in progress | A future packet is implemented merely because it is described |
-| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Active bounded implementation plan | Code complete; development-cloud proof pending | Approval to write production data or wire the daily load |
+| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–3 complete; Packet 4 plan active | A future packet is implemented merely because it is described |
+| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded review plan | Documentation only; no code started | Approval to wire postgame learning into production |
+| [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Completed implementation evidence | Implementation GO; real populated dev validation carried forward | Approval to write production data or proof that genuine claim rows have been observed in cloud |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
 | [Architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) | Stable system design and level boundaries | Active | Architecture prose is a live execution receipt |
@@ -70,6 +72,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Game-scoped MERGE, per-game receipts, and one-capture runner: commits `45b3863`, `c264002`, and `3e82c6f`.
 - Dry-run current/projected row clarity and zero-claim retry semantics: commits `7e61540` and `dad1806`.
 - Packet 3 zero-claim inventory and replay documentation: commits `18377e6` and `8634148`.
+- Packet 3 post-ETL snapshot proof: commit `3c8d5ab`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -77,23 +80,21 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Continue [Packet 3](./GameLens_Packet_3_Production_Level_1.md) in small, reviewable commits:
+Review [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) before changing code:
 
-1. ~~snapshot-to-claim adapter and capture-aware identity~~ complete;
-2. ~~dev table schema and storage boundary~~ complete;
-3. ~~game-scoped MERGE, per-game receipts, and runner~~ complete;
-4. ~~dev table setup, seven-capture dry inventory, zero-claim retry, and post-ETL immutability proof~~ complete;
-5. wait for and prove one genuine populated canonical capture;
-6. prove its identical replay changes zero rows; and
-7. complete the bounded-slate proof and documentation closure.
+1. inspect the existing Model Outcome/Trust and Levels 2–3 workers;
+2. confirm the smallest DRY adapters and storage changes;
+3. lock the per-game/per-stage failure-trace contract;
+4. add focused tests before cloud writes; and
+5. keep the Packet 3 populated-capture proof as a carried operational gate rather than rebuilding or manufacturing claims.
 
-Do not start Packet 4, modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 3.
+Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4 planning.
 
 ---
 
 ## Fresh-chat handoff prompt
 
-> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 3 plan, completed Packet 2 plan, Packet 1 contract, and architecture handoff in that order. Treat Packet 2 evidence as complete and Packet 3 code as implemented. Verify commits through `3e82c6f`, then continue with the regression ladder and gated development-cloud proof. Keep production, the 8:00 AM load, `/game`, and the frontend unchanged. Update the live breadcrumbs with exact cloud counts before closing Packet 3.
+> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff in that order. Packets 1–3 are complete; Packet 3 has Implementation GO with its first genuine populated-capture write/retry carried as a pre-production operational validation because all seven available preseason captures contained zero claims. Review Packet 4 before code. Preserve DRY worker reuse, per-game/per-stage failure traceability, development-only writes, the production 8:00 a.m. load, `/game`, and the frontend. Do not manufacture claims to close the deferred Packet 3 proof.
 
 ---
 

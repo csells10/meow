@@ -2,6 +2,7 @@
 
 **Created:** 2026-08-02
 **Last execution update:** 2026-08-05
+**Learning-track cross-reference:** updated 2026-08-16
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
@@ -11,6 +12,32 @@
 **Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
 
 ---
+
+## Learning-track cross-reference — 2026-08-16
+
+This remains the historical production cutover record. It does not become the
+learning-packet release plan and does not authorize a new merge, deployment,
+Scheduler change, or production learning write.
+
+Packets 1–3 of the current learning sprint are complete. Packet 3 received
+**Implementation GO** after its shared extractor/storage tests, development
+schema and MERGE proof, seven real zero-claim inventories, one zero-claim
+write/retry, and a post-ETL immutability check. The 2026-08-16 production ETL
+returned HTTP 200, processed 7/7 games through all stages in 107 seconds, and
+reported no unregistered-metric exclusions. The frozen DAL–SEA capture retained
+its exact hash and no postgame fields afterward.
+
+Because all seven available canonical preseason captures contained zero claims,
+the first genuine populated-capture write/retry and claim-bearing bounded slate
+are carried as required pre-production operational validations rather than
+manufactured evidence or a blocker to Packet 4 implementation.
+
+The future learning conductor must preserve a per-game/per-stage failure trail.
+A top-level failure alone is insufficient: the operator must be able to identify
+the game, stage, capture/upstream lineage, reconciliation counts, stable reason,
+retryability, and Cloud Logging execution/trace reference while successful
+sibling games remain visible. See the current Sprint, architecture handoff, and
+Packet 4 companion plan for the governing requirements.
 
 ## 1. Plain-language release model
 
