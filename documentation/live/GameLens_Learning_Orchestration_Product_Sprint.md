@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Packet 4 companion plan is active for review  
+**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released and forward-merged; Packet 4 companion plan is active for review  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-16  
 **Owner:** GameLens product stewardship  
@@ -11,6 +11,7 @@
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
 **Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) is documentation-only and ready for review; no Packet 4 code or cloud write has started.  
+**Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, and forward-merged to `dev`.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
 **Production release evidence:** [go_plan.md](./go_plan.md)
@@ -94,7 +95,7 @@ There are almost five weeks from this update to the first regular-season game. T
 planned windows, including per-game observability, zero-claim cloud proof, and
 post-ETL immutability evidence. Packet 4 planning may begin, but the deferred
 Packet 3 genuine populated-data validation remains a pre-production gate and
-Calibrated Matchup Lean parity remains a separate required carry-forward.
+Calibrated Matchup Lean completed its separate main-based release and is now present in both `main` and `dev`.
 
 **Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–6 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
 
@@ -247,9 +248,11 @@ The following work remains useful and is not discarded:
 
 These are pregame-safe feature or calibration ingredients. Some are already visible as metadata. None should silently become winner logic.
 
-### Calibrated Matchup Lean is a required carry-forward
+### Calibrated Matchup Lean is a released shared rule
 
-Do not lose the already-audited `core_area_durability_context_v0` update inside the broader Levels 1–4 work. Its product-facing name remains **Calibrated Matchup Lean**, but its behavior is confidence calibration:
+The already-audited `core_area_durability_context_v0` update was completed as a
+separate, main-based release on 2026-08-16. Its product-facing name remains
+**Calibrated Matchup Lean**, and its behavior is confidence calibration:
 
 ```text
 if outcome_confidence == "High" and core_gap < 0.45:
@@ -271,16 +274,20 @@ The pooled 2023–2025 audit found:
 | Low-confidence games | 421 | 421 |
 | Low-confidence correct rate | 53.99% | 53.99% |
 
-Current state: Admin already exposes the calibrated preview, while `/game` remains unchanged. The sprint must finish the originally intended parity path:
+Current state: `/game` calls one shared helper and records both the raw and
+effective confidence labels. Saved snapshots and future claims copy that
+effective label, and normal Admin views report the stored result rather than
+recalculating it. Admin's existing 2025 calibrated preview remains
+research-only historical evidence.
 
-1. place the rule in one shared calibration helper;
-2. have Admin preview and `/game` call that same helper;
-3. preserve the current Week 1–2 Low-confidence cap in `services/game_service.py`;
-4. recollect into a new QA `run_id`;
-5. reconcile `/game`, BigQuery, and Admin counts; and
-6. capture the first regular-season snapshot only after parity is proven or the feature is deliberately disabled with a documented reason.
+The release passed focused and full tests, a 269-game read-only parity audit,
+and a live candidate comparison before promotion. See
+[GameLens Calibrated Matchup Lean Hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md)
+for the exact build, revision, rollback, and QA receipts.
 
-This is an approved, audit-backed pregame product requirement. It is not permission for each new Level 4 batch to rewrite runtime confidence automatically.
+This is an approved, audit-backed pregame product rule. It is not permission for
+Packet 4, Admin, or a future Level 4 batch to create another calculation path or
+rewrite runtime confidence automatically.
 
 ---
 
@@ -827,7 +834,7 @@ The learning loop is production-ready only when:
 - blank upstream data cannot erase prior good data;
 - game calibration and claim health remain separate;
 - preseason is excluded from production Levels 1–4, Admin learning cohorts, and weekly reports; any rehearsal evidence remains isolated in dev/shadow;
-- Calibrated Matchup Lean uses one shared helper across Admin preview and `/game`, preserves the pick and lean direction, and reconciles on a new QA run before Week 1 capture;
+- Calibrated Matchup Lean uses one shared `/game` helper; snapshots and claims copy the effective label; normal Admin views report stored values; the historical Admin preview remains research-only; and the pick and lean direction stay unchanged;
 - `/admin` populations reconcile;
 - the existing game service, claim extractor, Level workers, metric registry, and Admin queries remain the single calculation paths;
 - the existing daily Scheduler remains the only daily trigger;
@@ -855,10 +862,10 @@ with controlled fixtures and honest real zero-claim cases. Do not manufacture
 claims or reopen the Level 1 design merely to satisfy unavailable preseason
 data.
 
-Do not wire `app.py`, create production learning tables, change production
-`/game`, or change the frontend during Packet 4. Calibrated Matchup Lean parity
-remains a separate required carry-forward and must not be folded accidentally
-into postgame learning.
+Do not wire `app.py`, create production learning tables, or change the
+frontend during Packet 4. Calibrated Matchup Lean is already released as a
+separate shared rule; Packet 4 and Admin must consume its stored result rather
+than reimplement or fold it into postgame learning.
 
 If a regular-season game reaches kickoff without a valid snapshot, record it as
 `capture_missing`. Never rebuild a fake Level 1 snapshot afterward.
@@ -869,7 +876,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff. Packets 1–3 are complete. Packet 3 received Implementation GO after seven real zero-claim captures, a zero-claim write/retry, controlled populated-path tests, and DAL–SEA post-ETL immutability proof. Its first genuine populated-capture write/retry and claim-bearing bounded slate remain pre-production validations because preseason supplied no real claims. Review Packet 4 before code, preserve existing worker calculations, and require per-game/per-stage failure traces that identify the game, stage, lineage, counts, reason, retryability, and log reference. Keep all writes in development. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, change the frontend, or fold Calibrated Matchup Lean parity into Packet 4 accidentally.
+> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff. Packets 1–3 are complete. Packet 3 received Implementation GO after seven real zero-claim captures, a zero-claim write/retry, controlled populated-path tests, and DAL–SEA post-ETL immutability proof. Its first genuine populated-capture write/retry and claim-bearing bounded slate remain pre-production validations because preseason supplied no real claims. Review Packet 4 before code, preserve existing worker calculations, and require per-game/per-stage failure traces that identify the game, stage, lineage, counts, reason, retryability, and log reference. Keep all writes in development. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, change the frontend, or reimplement the already released Calibrated Matchup Lean rule inside Packet 4 or Admin.
 
 ---
 

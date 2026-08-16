@@ -1,13 +1,17 @@
 # GameLens Calibrated Matchup Lean Hotfix
 
-**Status:** Isolated main-based implementation and live read-only parity QA are
-complete. Draft review remains. No merge, build, deployment, traffic promotion,
-or data write has occurred.
+**Status:** Released to production and forward-merged to `dev` on 2026-08-16.
+Revision `nfl-games-app-main-00155-qaf` serves 100% of normal traffic;
+`nfl-games-app-main-00153-jol` is the rollback revision. No historical rebuild
+or data write occurred.
 
 **Branch:** `agent/calibrated-matchup-lean-hotfix`  
 **Base:** `main@7b54cead`  
 **Production branch:** `main`  
-**Long-lived development branch:** `dev`
+**Long-lived development branch:** `dev`  
+**Main merge:** `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`  
+**Dev forward merge:** `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7`  
+**Production build:** `896a7a28-e968-4d1d-a224-db5f1ede8d34`
 
 ## Purpose
 
@@ -133,20 +137,39 @@ preservation of the pick and raw confidence, Week 1–2 precedence, exact visual
 reconciliation, visible failure on conflicting source rows, and compatibility
 with the complete main-based test suite.
 
+## Production release receipt
+
+| Check | Recorded result |
+|---|---|
+| Pull request | [#6](https://github.com/csells10/meow/pull/6), merged to `main` |
+| Main merge | `175e1d0b79ca5d7a61d606cfe08133dd836a95ee` |
+| Cloud Build | `896a7a28-e968-4d1d-a224-db5f1ede8d34`, `SUCCESS` |
+| Candidate revision | `nfl-games-app-main-00155-qaf`, initially 0% normal traffic |
+| Rollback revision | `nfl-games-app-main-00153-jol` |
+| Candidate health | HTTP 200 |
+| Live representative QA | `20250928_GB@DAL`: High → Medium at `core_gap=0.29`; pick, profile, raw signal, Model Outcome, and Model Trust unchanged |
+| Candidate errors | None found in the bounded log review |
+| Promotion | `00155-qaf` deliberately moved to 100% normal traffic |
+| Production health | HTTP 200 after promotion |
+| Post-promotion errors | None found for `00155-qaf` in the 15-minute review window |
+| Main → dev | [#7](https://github.com/csells10/meow/pull/7), merge `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7` |
+| Historical writes | None; the 2025 table was read only |
+
 ## Release sequence
 
 1. Run the focused tests and the live read-only 2025 parity command. **Complete.**
 2. Review the branch diff against current `main` and run the full regression
    suite. **Complete.**
-3. Merge the approved branch into `main`.
+3. Merge the approved branch into `main`. **Complete.**
 4. Allow the existing Cloud Build configuration to create a 0%-traffic
-   candidate.
+   candidate. **Complete.**
 5. Validate health, representative `/game` behavior, revision identity, and
-   rollback anchor.
-6. Promote traffic only after an explicit decision.
+   rollback anchor. **Complete.**
+6. Promote traffic only after an explicit decision. **Complete.**
 7. Merge released `main` forward into `dev`; do not reimplement the rule.
+   **Complete.**
 8. Delete the temporary branch only after both long-lived branches contain the
-   identical released commit.
+   identical released code. **Ready after this documentation receipt is verified.**
 
 ## Current evidence
 
@@ -157,8 +180,13 @@ with the complete main-based test suite.
 - Seven focused tests and six subtests passed locally in 2.22 seconds.
 - The full repository suite passed: 123 tests and 77 subtests in 10.61 seconds.
 - Python compilation passes for all changed Python files.
-- GitHub reports the PR mergeable with no review-thread blockers.
+- Pull request #6 merged to `main`; pull request #7 forward-merged the
+  released code into `dev`.
+- The candidate and normal production URL returned HTTP 200.
+- The live representative comparison passed every preservation check.
+- No severity-ERROR entries were found in the bounded candidate or
+  post-promotion log reviews.
 - No historical data was rebuilt, rewritten, or inserted.
-- Explicit approval to merge into `main` is the next release gate.
 
-No merge or deployment is authorized by this document alone.
+This document records a completed release. Any later confidence-rule change
+requires a new reviewed and traceable release.

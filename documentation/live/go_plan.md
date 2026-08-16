@@ -3,6 +3,7 @@
 **Created:** 2026-08-02
 **Last execution update:** 2026-08-05
 **Learning-track cross-reference:** updated 2026-08-16
+**Separate confidence-hotfix receipt:** updated 2026-08-16
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
 **Backend release branch:** `main`
@@ -38,6 +39,29 @@ the game, stage, capture/upstream lineage, reconciliation counts, stable reason,
 retryability, and Cloud Logging execution/trace reference while successful
 sibling games remain visible. See the current Sprint, architecture handoff, and
 Packet 4 companion plan for the governing requirements.
+
+## Separate Calibrated Matchup Lean release — 2026-08-16
+
+This historical cutover document did not govern the confidence hotfix, but the
+release used the same small, reversible candidate pattern. The complete
+implementation and QA record is
+[GameLens Calibrated Matchup Lean Hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md).
+
+```text
+Main merge: 175e1d0b79ca5d7a61d606cfe08133dd836a95ee
+Cloud Build: 896a7a28-e968-4d1d-a224-db5f1ede8d34 — SUCCESS
+Serving revision: nfl-games-app-main-00155-qaf — 100%
+Rollback revision: nfl-games-app-main-00153-jol
+Candidate and production health: HTTP 200
+Representative live comparison: PASS
+Post-promotion severity-ERROR review: no rows
+Dev forward merge: 0b4d4ad93b6b617b0b6ea2871764353375e0e2c7
+Historical rebuild or BigQuery write: none
+```
+
+The confidence release changed only how loudly a qualifying Matchup Lean is
+labeled. It did not change the pick, production ETL, Scheduler, learning-table
+wiring, or the historical 2025 dataset.
 
 ## 1. Plain-language release model
 
