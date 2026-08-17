@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Development grade ledger created and verified empty on 2026-08-17; read-only DAL–SEA dry grade runner implemented — dry execution pending; no grade row or production behavior change  
+**Status:** DAL–SEA dry grade passed and development-only write/retry runner implemented on 2026-08-17 — first grade insert pending; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -220,7 +220,7 @@ python qa_gamelens_packet4_schema_inventory.py \
 Combined local evidence for the grader and inventory runner:
 
 ```text
-23 tests passed through unittest
+27 tests passed through unittest
 Python compilation passed
 ```
 
@@ -274,13 +274,37 @@ shape, calls the frozen-capture grader and existing outcome/trust builders, and
 asks the storage boundary for a projection only. The command requires explicit
 `--dev-read-only` confirmation and has no grade-write path.
 
+The real DAL–SEA dry execution passed:
+
+- final score: DAL 17, SEA 7;
+- canonical capture:
+  `capture_b387ab5d3545e2c322827756`;
+- source payload hash:
+  `d9ddda20f7fe42291acd4268dd871368def66b604c28b151aad86e7bb71922b1`;
+- final-score hash:
+  `1f51b9658143b067c7f2db42a9e26f7dd5dbd4f7132bcd9ba291d3190aa8a636`;
+- Model Outcome: `No Pick`, because the frozen preseason payload did not name
+  a predicted team;
+- Model Trust: neutral, with no visible matchup advantage or signal set;
+- storage projection: zero existing, one projected, zero conflicts; and
+- `write_performed = false`.
+
+This is truthful preseason evidence: DAL winning does not retroactively create
+a prediction that the frozen payload never made.
+
+Commit `49b7ff6` adds a separate deliberate write runner. It requires a complete
+development runtime, explicit `--confirm-dev-write`, and an attempt ID. It
+uses the same read/grade path, calls the insert-only storage boundary, reads the
+row back, and reports inserted/unchanged/conflict counts. The dry runner remains
+permanently write-free.
+
 ### Next implementation slice
 
-Confirm the repository build for `3980310`, then run the read-only DAL–SEA
-grade plan. The result must show one canonical capture, two final-score rows,
-zero existing grade rows, one projected row, zero conflicts, and
-`write_performed = false`. Review the actual grade and hashes before enabling
-the first insert.
+Confirm the repository build for `49b7ff6`. Then run one deliberate DAL–SEA
+development grade write and read-back. If it reports one inserted row, rerun the
+same frozen grade with a second attempt ID; the retry must report zero inserted,
+one unchanged, one stored, zero conflicts, and no write performed. Do not begin
+the Level 2/3 adapter slice until both receipts reconcile.
 
 ## DRY boundary
 

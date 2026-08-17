@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4's pure capture-aware grader, completed inventory, development grade ledger, and read-only dry-grade runner are implemented; twenty-three combined focused local tests pass. DAL–SEA reconciled to one capture, two final-score rows, 130 Facts rows, zero claims, and one stage receipt. The 13-field `GameLens_dev.game_model_outcomes` ledger is verified empty. No grade row or production behavior change has occurred.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4's capture-aware grader, inventory, development grade ledger, dry-grade proof, and explicit write/retry runner are implemented; twenty-seven focused local tests pass. DAL–SEA graded truthfully as `No Pick` after a 17–7 DAL win because the frozen payload contained no predicted team. Storage projected zero existing, one insert, and zero conflicts. The first development grade insert is pending; production behavior is unchanged.
 
 **Updated:** 2026-08-17  
 **Working branch:** `dev`  
@@ -58,7 +58,7 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - The production 8:00 a.m. workflow is unchanged. No learning stage is wired into `app.py`, and no production learning tables or writes were introduced.
 - Packet 4 inspection confirmed that the existing outcome, Level 2, and Level 3 calculations can be reused, but their current database wrappers are not capture-bounded or development-safe enough to call unchanged.
 - Packet 4's first code slice adds a dry-only capture-aware grader that revalidates the frozen payload and reuses the existing Model Outcome/Trust calculations.
-- Packet 4's inventory found all eight required sources, one DAL–SEA capture, two score rows, 130 Facts rows, zero claims, and one game-stage receipt. The 13-field development grade ledger is now verified empty. The dry runner projects through the existing outcome/trust builders without writing; twenty-three combined focused local tests pass.
+- Packet 4's dry proof reused the frozen capture and existing outcome/trust builders: DAL won 17–7, the frozen no-pick remained `No Pick`, Model Trust remained neutral, and storage projected `0 → 1` with zero conflicts and no write. The explicit dev write/retry runner is implemented; twenty-seven focused local tests pass.
 
 ---
 
@@ -92,6 +92,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 4 explicit read-only launch correction: `474ff41`.
 - Packet 4 capture-aware development grade storage boundary: `5373cd0`.
 - Packet 4 read-only DAL–SEA dry grade runner: `3980310`.
+- Packet 4 deliberate development grade write/retry runner: `49b7ff6`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -101,11 +102,11 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Slice 1 inspection is complete and Calibrated Matchup Lean remains a separate shared rule:
 
-1. confirm the repository build for `3980310`;
-2. run the read-only DAL–SEA dry grade plan;
-3. confirm one capture, two score rows, zero existing and one projected grade;
-4. review the reused Model Outcome/Trust result and deterministic hashes; and
-5. keep the first grade insert disabled until that evidence passes.
+1. confirm the repository build for `49b7ff6`;
+2. run one deliberate DAL–SEA development grade write and capture its receipt;
+3. require one inserted, zero unchanged, zero conflicts, and one stored row;
+4. rerun with a second attempt ID and require zero inserted plus one unchanged; and
+5. review both receipts before starting the Level 2/3 adapter slice.
 
 Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 

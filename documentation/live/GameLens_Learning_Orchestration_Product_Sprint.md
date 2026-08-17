@@ -10,7 +10,7 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection and read-only inventory. DAL–SEA reconciled to one capture, two score rows, 130 Facts rows, zero claims, and one stage receipt. The 13-field capture-aware development grade ledger is created and verified empty. Commit `3980310` adds the read-only dry-grade runner. Twenty-three combined focused local tests pass. Dry grade execution is next; no grade row or production behavior change has occurred.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, and DAL–SEA dry grade. DAL won 17–7; the frozen payload truthfully graded `No Pick`, Model Trust remained neutral, and storage projected zero existing to one proposed with zero conflicts and no write. Commit `49b7ff6` adds the explicit development write/retry runner. Twenty-seven focused local tests pass. First insert and identical retry are next; production behavior is unchanged.  
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -613,8 +613,8 @@ or cloud plumbing failed.
 
 **Status:** In progress. Contract inspection, the pure frozen-capture grader,
 read-only schema inventory, 13-field development grade ledger setup, and
-read-only dry-grade runner are complete. The ledger is empty; dry DAL–SEA
-execution is next. See [GameLens Packet 4 — Postgame Outcome plus
+read-only dry-grade proof are complete. The ledger remains empty; the explicit
+development write/retry runner is implemented and the first insert is next. See [GameLens Packet 4 — Postgame Outcome plus
 Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
 
 **Why this is important:** grades the frozen prediction and turns completed games into claim-learning evidence without rebuilding what GameLens said before kickoff.
