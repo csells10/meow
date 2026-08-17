@@ -2,7 +2,7 @@
 
 **Document status:** Architecture handoff active; Packets 1–3 and the separate Calibrated Matchup Lean release are complete; Packet 4 is next  
 **Created:** 2026-08-03  
-**Last revised:** 2026-08-16  
+**Last revised:** 2026-08-17  
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Branch represented:** `dev` for learning work; `main` remains the production release branch  
@@ -27,7 +27,7 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
 | `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Completed Packet 3 Implementation GO evidence and deferred pre-production real-data validation |
 | `documentation/live/GameLens_Calibrated_Matchup_Lean_Hotfix.md` | Completed separate confidence release and production receipt |
-| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Next bounded working packet; no Packet 4 code started |
+| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Active packet; contract inspection and pure capture-aware grader complete, cloud writes still disabled |
 | `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |

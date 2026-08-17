@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4 Slice 1 contract inspection is complete; no Packet 4 code or cloud write has started.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4 Slice 1 inspection is complete, and Slice 2's pure capture-aware grader is implemented with seven passing focused local tests. No Packet 4 cloud write or production behavior change has occurred.
 
 **Updated:** 2026-08-17  
 **Working branch:** `dev`  
@@ -32,7 +32,7 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 |---|---|---|---|
 | [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–3 complete; Packet 4 plan active | A future packet is implemented merely because it is described |
 | [Calibrated Matchup Lean](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) | Completed separate release receipt | Live in production and forward-merged to dev | Packet 4 or Admin should recreate the rule |
-| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded implementation plan | Slice 1 contract inspection complete; no code or cloud write started | Approval to wire postgame learning into production |
+| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded implementation plan | Slice 2 pure grader implemented; no cloud write or production change | Approval to wire postgame learning into production |
 | [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Completed implementation evidence | Implementation GO; real populated dev validation carried forward | Approval to write production data or proof that genuine claim rows have been observed in cloud |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
@@ -57,6 +57,7 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - The temporary hotfix branch was deleted locally and from GitHub.
 - The production 8:00 a.m. workflow is unchanged. No learning stage is wired into `app.py`, and no production learning tables or writes were introduced.
 - Packet 4 inspection confirmed that the existing outcome, Level 2, and Level 3 calculations can be reused, but their current database wrappers are not capture-bounded or development-safe enough to call unchanged.
+- Packet 4's first code slice adds a dry-only capture-aware grader that revalidates the frozen payload and reuses the existing Model Outcome/Trust calculations; seven focused local tests pass.
 
 ---
 
@@ -84,6 +85,8 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Calibrated Matchup Lean main-to-dev forward merge: `0b4d4ad93b6b617b0b6ea2871764353375e0e2c7`.
 - Release-documentation receipt: `43e2f824860f69a9daeb4cda05fc8fb310f378ce`; both associated `dev` builds succeeded.
 - Temporary hotfix branch cleanup: complete locally and on GitHub.
+- Packet 4 Slice 1 documentation checkpoint: `0cd970e`.
+- Packet 4 pure capture-aware grader and focused tests: `7aa623e`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -93,13 +96,13 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Slice 1 inspection is complete and Calibrated Matchup Lean remains a separate shared rule:
 
-1. run the read-only schema inventory for the existing outcome, claim, and receipt tables;
-2. add focused tests for a pure capture-aware game grader;
-3. implement that grader by reusing the existing Model Outcome/Trust calculations against the frozen snapshot;
-4. keep every write disabled until the dry result and lineage contract pass; and
+1. confirm the repository build for `7aa623e`;
+2. run the read-only schema inventory for the existing outcome, claim, and receipt tables;
+3. design the smallest capture-aware `GameLens_dev` outcome storage and reconciliation boundary;
+4. keep every write disabled until the actual schemas, dry result, and lineage contract pass; and
 5. keep the Packet 3 populated-capture proof as a carried operational gate rather than rebuilding or manufacturing claims.
 
-Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4 planning.
+Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 
 ---
 

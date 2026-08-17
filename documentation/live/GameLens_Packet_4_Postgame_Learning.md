@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Slice 1 contract inspection complete on 2026-08-17 — no Packet 4 code or cloud write has started  
+**Status:** Slice 2 pure capture-aware grader implemented and locally verified on 2026-08-17 — no cloud write or production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -156,12 +156,40 @@ This inventory is read-only. It must confirm whether the repository's inferred
 outcome shape matches the live tables and identify the smallest additive
 development migration. No production table is altered in Packet 4.
 
+### Slice 2 implementation checkpoint — 2026-08-17
+
+Commit `7aa623e` adds
+`services/gamelens_postgame_grading.py` and focused tests. The service:
+
+- accepts one canonical snapshot plus a final score;
+- refuses non-development captures during Packet 4;
+- revalidates capture status, source payload hash, the pregame leakage guard,
+  game identity, and frozen section shapes;
+- lazily calls the existing `build_model_outcome(...)` and
+  `build_model_trust(...)` owners;
+- returns `learning_run_id`, `capture_id`, `game_id`, the source payload
+  hash, a deterministic final-score hash, grade version, Model Outcome, and
+  Model Trust; and
+- performs no BigQuery read, write, route call, product-payload rebuild, or
+  production-table mutation.
+
+Focused local evidence:
+
+```text
+7 tests passed through unittest
+Python compilation passed
+```
+
+The tests cover frozen-section reuse, canonical lineage and hashes,
+development-only refusal, source-hash mismatch, game-identity mismatch,
+postgame leakage, malformed frozen section shape, and incomplete final score.
+
 ### Next implementation slice
 
-Build and test the pure capture-aware game grader first. It should produce a
-dry result with canonical lineage and deterministic outcome/trust content, but
-perform no BigQuery write. Storage, Level 2, Level 3, and the bounded
-coordinator remain later slices.
+Run the read-only cloud schema inventory, then design the smallest
+capture-aware development outcome store and reconciliation tests. Do not add a
+write until the actual table shapes are recorded and the pure grader's
+repository build is confirmed.
 
 ## DRY boundary
 
