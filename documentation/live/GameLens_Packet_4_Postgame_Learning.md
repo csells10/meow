@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Slice 2 pure capture-aware grader implemented and locally verified on 2026-08-17 — no cloud write or production behavior change  
+**Status:** Slice 2 pure grader and read-only schema inventory runner implemented on 2026-08-17 — inventory execution pending; no cloud write or production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -184,12 +184,47 @@ The tests cover frozen-section reuse, canonical lineage and hashes,
 development-only refusal, source-hash mismatch, game-identity mismatch,
 postgame leakage, malformed frozen section shape, and incomplete final score.
 
+### Read-only handoff inventory runner — 2026-08-17
+
+Commit `6354f72` adds
+`qa_gamelens_packet4_schema_inventory.py` and five focused tests. The command
+inspects metadata and optional selected-game row counts for the complete
+Packet 4 handoff:
+
+- `GameLens_dev.pregame_snapshots`;
+- `Scores.scores`;
+- `Analytics.game_team_metric_facts_2026`;
+- existing `Analytics.game_model_outcomes` and
+  `Analytics.game_model_trust_details`;
+- `GameLens_dev.claim_training_examples`;
+- `GameLens_dev.stage_runs` and `stage_game_results`; and
+- the proposed `GameLens_dev.game_model_outcomes` target.
+
+The proposed target is optional during inventory because it is expected not to
+exist yet. Every required source must be available. The tool reads table
+metadata and parameterized per-game counts only, rejects mutation keywords
+locally, and performs no BigQuery write.
+
+Run from the existing Packet 2/3 development environment:
+
+```bash
+python qa_gamelens_packet4_schema_inventory.py \
+  --game-id 20260815_DAL@SEA
+```
+
+Combined local evidence for the grader and inventory runner:
+
+```text
+12 tests passed through unittest
+Python compilation passed
+```
+
 ### Next implementation slice
 
-Run the read-only cloud schema inventory, then design the smallest
-capture-aware development outcome store and reconciliation tests. Do not add a
-write until the actual table shapes are recorded and the pure grader's
-repository build is confirmed.
+Confirm the repository build for `6354f72`, run the read-only inventory, and
+record its JSON output. Then design the smallest capture-aware development
+outcome store and reconciliation tests. Do not add a write until the actual
+table shapes are recorded.
 
 ## DRY boundary
 

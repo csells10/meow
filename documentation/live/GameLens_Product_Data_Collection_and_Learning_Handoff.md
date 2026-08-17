@@ -27,7 +27,7 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Completed snapshot and observability evidence |
 | `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Completed Packet 3 Implementation GO evidence and deferred pre-production real-data validation |
 | `documentation/live/GameLens_Calibrated_Matchup_Lean_Hotfix.md` | Completed separate confidence release and production receipt |
-| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Active packet; contract inspection and pure capture-aware grader complete, cloud writes still disabled |
+| `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Active packet; pure grader and read-only full-handoff inventory runner complete, inventory execution next, cloud writes still disabled |
 | `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |

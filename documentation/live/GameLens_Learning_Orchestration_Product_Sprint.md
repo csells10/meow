@@ -10,7 +10,7 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection and added a pure capture-aware grader in `7aa623e`; seven focused local tests pass. No cloud write or production behavior change has occurred.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, added a pure capture-aware grader in `7aa623e`, and added a read-only full-handoff schema inventory runner in `6354f72`. Twelve combined focused local tests pass. Inventory execution is next; no cloud write or production behavior change has occurred.  
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -471,7 +471,7 @@ Each companion document must answer:
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
 | Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
-| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active; Slice 2 pure grader implemented, cloud writes still disabled |
+| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active; pure grader and read-only inventory runner implemented, cloud writes still disabled |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
 | Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
