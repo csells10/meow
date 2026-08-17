@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4 Slice 1 inspection is complete. Slice 2's pure capture-aware grader and read-only schema inventory runner are implemented; twelve combined focused local tests pass. Inventory execution is next. No Packet 4 cloud write or production behavior change has occurred.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Both `dev` builds completed successfully. Packet 4 Slice 1 inspection is complete. Slice 2's pure capture-aware grader and read-only schema inventory runner are implemented; thirteen combined focused local tests pass. The runner requires explicit `--dev-read-only` confirmation and does not load writable deployment configuration. Inventory execution is next. No Packet 4 cloud write or production behavior change has occurred.
 
 **Updated:** 2026-08-17  
 **Working branch:** `dev`  
@@ -58,7 +58,7 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - The production 8:00 a.m. workflow is unchanged. No learning stage is wired into `app.py`, and no production learning tables or writes were introduced.
 - Packet 4 inspection confirmed that the existing outcome, Level 2, and Level 3 calculations can be reused, but their current database wrappers are not capture-bounded or development-safe enough to call unchanged.
 - Packet 4's first code slice adds a dry-only capture-aware grader that revalidates the frozen payload and reuses the existing Model Outcome/Trust calculations.
-- Packet 4's read-only inventory runner covers snapshots, final scores, 2026 Facts, existing outcome/trust tables, Packet 3 claims, receipts, and the proposed development outcome target. Twelve combined focused local tests pass.
+- Packet 4's read-only inventory runner covers snapshots, final scores, 2026 Facts, existing outcome/trust tables, Packet 3 claims, receipts, and the proposed development outcome target. It requires explicit `--dev-read-only` confirmation without writable deployment configuration. Thirteen combined focused local tests pass.
 
 ---
 
@@ -89,6 +89,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 4 Slice 1 documentation checkpoint: `0cd970e`.
 - Packet 4 pure capture-aware grader and focused tests: `7aa623e`.
 - Packet 4 read-only handoff inventory runner and tests: `6354f72`.
+- Packet 4 explicit read-only launch correction: `474ff41`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -98,8 +99,8 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Slice 1 inspection is complete and Calibrated Matchup Lean remains a separate shared rule:
 
-1. confirm the repository build for `6354f72`;
-2. run `qa_gamelens_packet4_schema_inventory.py --game-id 20260815_DAL@SEA` in the existing development environment;
+1. confirm the repository build for `474ff41`;
+2. run `qa_gamelens_packet4_schema_inventory.py --dev-read-only --game-id 20260815_DAL@SEA` in the existing development environment;
 3. record the read-only JSON inventory in the Packet 4 evidence;
 4. design the smallest capture-aware `GameLens_dev` outcome storage and reconciliation boundary; and
 5. keep every write disabled until the actual schemas, dry result, and lineage contract pass.

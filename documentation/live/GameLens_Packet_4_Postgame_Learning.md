@@ -186,8 +186,12 @@ postgame leakage, malformed frozen section shape, and incomplete final score.
 
 ### Read-only handoff inventory runner — 2026-08-17
 
-Commit `6354f72` adds
-`qa_gamelens_packet4_schema_inventory.py` and five focused tests. The command
+Commit `6354f72` added
+`qa_gamelens_packet4_schema_inventory.py` and five focused tests. Commit `474ff41`
+then corrected the launch boundary after the first local invocation safely
+stopped before cloud access: the runner now requires explicit
+`--dev-read-only` confirmation without loading writable deployment
+configuration. The command
 inspects metadata and optional selected-game row counts for the complete
 Packet 4 handoff:
 
@@ -209,13 +213,14 @@ Run from the existing Packet 2/3 development environment:
 
 ```bash
 python qa_gamelens_packet4_schema_inventory.py \
+  --dev-read-only \
   --game-id 20260815_DAL@SEA
 ```
 
 Combined local evidence for the grader and inventory runner:
 
 ```text
-12 tests passed through unittest
+13 tests passed through unittest
 Python compilation passed
 ```
 
