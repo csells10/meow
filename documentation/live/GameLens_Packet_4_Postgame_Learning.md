@@ -240,8 +240,10 @@ mix the shadow learning ledger with the live product result path.
 
 The first inventory also exposed the legacy `Scores.scores.gameID` spelling.
 Its schema was captured, but the selected-game count was skipped. Commit
-`5373cd0` adds read-only `gameID` alias support so the corrected count can be
-recorded on the next inventory run.
+`5373cd0` added read-only `gameID` alias support. The corrected inventory
+completed at `2026-08-17T22:59:45.563321+00:00` and found exactly two DAL–SEA
+score rows, the expected one-row-per-team grain. A normalized comparison
+confirmed this was the only evidence difference between inventory versions.
 
 Commit `5373cd0` also adds the smallest approved development boundary:
 
@@ -262,11 +264,11 @@ no BigQuery object or row changed.
 
 ### Next implementation slice
 
-Confirm the repository build for `5373cd0`, rerun the corrected read-only
-inventory to record DAL–SEA's score-row count, and review that JSON. Then
-deliberately create/verify the single development grade ledger and run a dry
-grade plan showing zero existing rows and one projected row. Do not insert a
-grade until the setup receipt and dry reconciliation are reviewed.
+Confirm the repository build for `5373cd0`. Then deliberately create/verify
+the single empty `GameLens_dev.game_model_outcomes` ledger and record its setup
+receipt. After setup, run a dry grade plan showing zero existing rows and one
+projected DAL–SEA row. Do not insert the grade until the setup receipt and dry
+reconciliation are reviewed.
 
 ## DRY boundary
 
