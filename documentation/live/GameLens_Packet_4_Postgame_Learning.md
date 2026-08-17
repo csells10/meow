@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Read-only inventory complete and capture-aware development grade storage boundary implemented on 2026-08-17 — table setup and dry grade execution pending; no cloud write or production behavior change  
+**Status:** Development grade ledger created and verified empty on 2026-08-17; read-only DAL–SEA dry grade runner implemented — dry execution pending; no grade row or production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -220,7 +220,7 @@ python qa_gamelens_packet4_schema_inventory.py \
 Combined local evidence for the grader and inventory runner:
 
 ```text
-20 tests passed through unittest
+23 tests passed through unittest
 Python compilation passed
 ```
 
@@ -259,16 +259,28 @@ Commit `5373cd0` also adds the smallest approved development boundary:
 
 Level 2 and Level 3 remain in the existing
 `GameLens_dev.claim_training_examples` rows. No second claim table or trust
-detail table is introduced. The new setup capability has not been executed, so
-no BigQuery object or row changed.
+detail table is introduced.
+
+The setup receipt then verified
+`nfl-stream-406420.GameLens_dev.game_model_outcomes` with 13 fields,
+`graded_at` daily partitioning, clustering by
+`learning_run_id + game_id + grade_version`, and the
+`learning_run_id + capture_id` merge key. This created/verified the empty
+development ledger only; no grade row was inserted.
+
+Commit `3980310` adds `qa_gamelens_packet4_dry_grade.py`. It reads exactly one
+canonical snapshot and two score rows, rebuilds the established final-score
+shape, calls the frozen-capture grader and existing outcome/trust builders, and
+asks the storage boundary for a projection only. The command requires explicit
+`--dev-read-only` confirmation and has no grade-write path.
 
 ### Next implementation slice
 
-Confirm the repository build for `5373cd0`. Then deliberately create/verify
-the single empty `GameLens_dev.game_model_outcomes` ledger and record its setup
-receipt. After setup, run a dry grade plan showing zero existing rows and one
-projected DAL–SEA row. Do not insert the grade until the setup receipt and dry
-reconciliation are reviewed.
+Confirm the repository build for `3980310`, then run the read-only DAL–SEA
+grade plan. The result must show one canonical capture, two final-score rows,
+zero existing grade rows, one projected row, zero conflicts, and
+`write_performed = false`. Review the actual grade and hashes before enabling
+the first insert.
 
 ## DRY boundary
 
