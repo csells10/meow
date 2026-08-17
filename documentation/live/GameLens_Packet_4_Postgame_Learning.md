@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Slice 2 pure grader and read-only schema inventory runner implemented on 2026-08-17 — inventory execution pending; no cloud write or production behavior change  
+**Status:** Read-only inventory complete and capture-aware development grade storage boundary implemented on 2026-08-17 — table setup and dry grade execution pending; no cloud write or production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -220,16 +220,53 @@ python qa_gamelens_packet4_schema_inventory.py \
 Combined local evidence for the grader and inventory runner:
 
 ```text
-13 tests passed through unittest
+20 tests passed through unittest
 Python compilation passed
 ```
 
+### Inventory evidence and storage decision — 2026-08-17
+
+The read-only inventory completed at
+`2026-08-17T20:31:14.740384+00:00` with all eight required tables available.
+For `20260815_DAL@SEA`, it found one canonical Packet 2 capture, 130 accepted
+Facts rows, zero Packet 3 claim rows, and one game-stage receipt. The optional
+`GameLens_dev.game_model_outcomes` target did not exist, as expected.
+
+The inventory proves that the production `Analytics.game_model_outcomes` and
+`Analytics.game_model_trust_details` tables are not valid Packet 4 targets:
+they are keyed by game context and lack `learning_run_id`, `capture_id`,
+source-payload hash, final-score hash, and grade version. Altering them would
+mix the shadow learning ledger with the live product result path.
+
+The first inventory also exposed the legacy `Scores.scores.gameID` spelling.
+Its schema was captured, but the selected-game count was skipped. Commit
+`5373cd0` adds read-only `gameID` alias support so the corrected count can be
+recorded on the next inventory run.
+
+Commit `5373cd0` also adds the smallest approved development boundary:
+
+- one `GameLens_dev.game_model_outcomes` row per
+  `learning_run_id + capture_id`;
+- canonical `game_id`, pregame pipeline lineage, season context,
+  source-payload hash, final-score hash, and grade version;
+- the reused Model Outcome and Model Trust results stored together as JSON;
+- insert-only MERGE behavior;
+- identical retry reported as unchanged;
+- immutable lineage or result disagreement quarantined before write; and
+- setup code that refuses non-development runtime.
+
+Level 2 and Level 3 remain in the existing
+`GameLens_dev.claim_training_examples` rows. No second claim table or trust
+detail table is introduced. The new setup capability has not been executed, so
+no BigQuery object or row changed.
+
 ### Next implementation slice
 
-Confirm the repository build for `6354f72`, run the read-only inventory, and
-record its JSON output. Then design the smallest capture-aware development
-outcome store and reconciliation tests. Do not add a write until the actual
-table shapes are recorded.
+Confirm the repository build for `5373cd0`, rerun the corrected read-only
+inventory to record DAL–SEA's score-row count, and review that JSON. Then
+deliberately create/verify the single development grade ledger and run a dry
+grade plan showing zero existing rows and one projected row. Do not insert a
+grade until the setup receipt and dry reconciliation are reviewed.
 
 ## DRY boundary
 
