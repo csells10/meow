@@ -26,6 +26,10 @@ def _snapshot(payload=None, **overrides):
         "capture_id": "capture_dal_sea",
         "learning_run_id": "gamelens_2026_preseason_v1",
         "game_id": "20260815_DAL@SEA",
+        "season": "2026",
+        "season_type": "Preseason",
+        "game_week": "Preseason 2",
+        "metric_pipeline_run_id": "metric_20260816",
         "environment": "dev",
         "capture_status": "captured",
         "payload_sha256": payload_sha256(payload),
@@ -71,6 +75,8 @@ class FrozenCaptureGradeTests(unittest.TestCase):
             payload["team_comparison"],
         )
         self.assertEqual(result["capture_id"], "capture_dal_sea")
+        self.assertEqual(result["pipeline_run_id"], "metric_20260816")
+        self.assertEqual(result["season_type"], "Preseason")
         self.assertEqual(result["source_payload_sha256"], snapshot["payload_sha256"])
         self.assertEqual(result["final_score_sha256"], payload_sha256(score))
         self.assertEqual(result["grade_version"], "frozen_capture_outcome_v1")

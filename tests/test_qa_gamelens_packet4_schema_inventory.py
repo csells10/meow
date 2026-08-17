@@ -80,8 +80,17 @@ class Packet4InventoryTests(unittest.TestCase):
             "nfl-stream-406420.GameLens_dev.claim_training_examples",
             {"game_id", "capture_id", "learning_run_id"},
         )
-        self.assertIn("game_id IN UNNEST(@game_ids)", query)
+        self.assertIn("`game_id` IN UNNEST(@game_ids)", query)
         self.assertIn("capture_id_populated_count", query)
+        inventory.assert_read_only_sql(query)
+
+    def test_score_game_id_alias_is_counted_read_only(self):
+        query = inventory.build_game_count_query(
+            "nfl-stream-406420.Scores.scores",
+            {"gameID", "homePts", "awayPts"},
+        )
+        self.assertIn("`gameID` AS game_id", query)
+        self.assertIn("WHERE `gameID` IN UNNEST(@game_ids)", query)
         inventory.assert_read_only_sql(query)
 
     def test_mutating_sql_is_rejected(self):

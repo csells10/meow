@@ -76,10 +76,19 @@ def assert_read_only_sql(sql: str) -> None:
 def build_game_count_query(table_id: str, field_names: Iterable[str]) -> str:
     """Build one parameterized, read-only selected-game reconciliation query."""
     fields = set(field_names)
-    if "game_id" not in fields:
-        raise ValueError("game_id field is required for selected-game counts")
+    game_field = (
+        "game_id"
+        if "game_id" in fields
+        else "gameID"
+        if "gameID" in fields
+        else None
+    )
+    if game_field is None:
+        raise ValueError(
+            "game_id or gameID field is required for selected-game counts"
+        )
 
-    select_parts = ["game_id", "COUNT(*) AS row_count"]
+    select_parts = [f"`{game_field}` AS game_id", "COUNT(*) AS row_count"]
     for field in LINEAGE_FIELDS:
         if field != "game_id" and field in fields:
             select_parts.append(
@@ -90,8 +99,8 @@ def build_game_count_query(table_id: str, field_names: Iterable[str]) -> str:
         SELECT
             {',\n            '.join(select_parts)}
         FROM `{table_id}`
-        WHERE game_id IN UNNEST(@game_ids)
-        GROUP BY game_id
+        WHERE `{game_field}` IN UNNEST(@game_ids)
+        GROUP BY `{game_field}`
         ORDER BY game_id
     """
     assert_read_only_sql(query)
@@ -148,7 +157,7 @@ def inspect_table(
     }
 
     selected = sorted({str(game_id).strip() for game_id in game_ids if str(game_id).strip()})
-    if not selected or "game_id" not in field_names:
+    if not selected or not ({"game_id", "gameID"} & set(field_names)):
         return result
 
     query = build_game_count_query(table_id, field_names)

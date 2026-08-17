@@ -133,9 +133,13 @@ def grade_frozen_capture(
 
     return {
         "grade_version": GRADE_VERSION,
+        "pipeline_run_id": snapshot.get("metric_pipeline_run_id"),
         "learning_run_id": learning_run_id,
         "capture_id": capture_id,
         "game_id": game_id,
+        "season": snapshot.get("season"),
+        "season_type": snapshot.get("season_type"),
+        "game_week": snapshot.get("game_week"),
         "source_payload_sha256": stored_payload_hash,
         "final_score_sha256": payload_sha256(dict(final_score)),
         "model_outcome": model_outcome,
