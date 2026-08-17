@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** Ready to begin on 2026-08-17 — plan reviewed; no Packet 4 code or cloud write has started  
+**Status:** Slice 1 contract inspection complete on 2026-08-17 — no Packet 4 code or cloud write has started  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -74,6 +74,94 @@ Inspect the current `dev` versions before designing changes:
 The first implementation step is inspection, not rewriting. Existing CLIs
 remain available and should become thin wrappers over callable shared workers
 where necessary.
+
+## Slice 1 contract inspection — 2026-08-17
+
+The current `dev` code was inspected against the live README, Sprint, completed
+Packet 1–3 contracts, architecture handoff, and the older August readiness plan.
+The architecture is sound, but the existing database wrappers are historical or
+production-shaped and must not be called unchanged by Packet 4.
+
+### Reusable calculation owners
+
+| Responsibility | Reused callable path | Inspection decision |
+|---|---|---|
+| Model Outcome | `services/game_service.py::build_model_outcome(...)` | Reuse with the frozen snapshot's `matchup_lean` and `header`, plus the accepted final score |
+| Model Trust | `services/model_trust_service.py::build_model_trust(...)` | Reuse with frozen `game_profile`, `team_comparison`, and `matchup_lean`; do not rebuild those sections |
+| Level 2 claim semantics | `validate_training_row(...)`, `add_game_level_scores(...)`, and their comparison helpers | Preserve; wrap a bounded selected row set rather than copying the validation rules |
+| Level 3 feature semantics | `build_feature_updates(...)` and the registry-backed feature helpers | Preserve; pass only frozen pregame claim fields and keep the CLI over the same callable worker |
+| Capture and claim identity | Packet 2/3 snapshot, contract, Level 1, and claim-storage services | Reuse unchanged |
+
+### Gaps confirmed by inspection
+
+1. `save_model_results(...)` is not a Packet 4 storage boundary. It writes
+   directly to `Analytics.game_model_outcomes` and
+   `Analytics.game_model_trust_details`, checks only `game_id`, silently
+   returns when a game row already exists, and carries no `learning_run_id`,
+   `capture_id`, payload hash, or upstream input version.
+2. The current Level 2 CLI selects an entire `run_id`; it does not select by
+   capture/game. Its BigQuery staging table is hard-coded into `Analytics`,
+   and its update path reports no inserted/unchanged/conflict reconciliation.
+3. The current Level 3 calculation is already pregame-only, which is the
+   important safety result. Its loader and BigQuery wrapper are still
+   whole-`run_id` and production-default, so they need the same bounded,
+   development-only adapter boundary as Level 2.
+4. `GameLens_dev.stage_game_results` already carries the core attempt, stage,
+   game, capture, learning cohort, counts, reason, and upstream reference. It
+   does not currently carry enough structured detail for failed boundary,
+   payload hash, source/target tables, inserted/unchanged/conflict/unavailable/
+   rejected counts, retryability, exception class, or a log reference.
+5. The existing metric conductor returns a truthful in-memory summary, including
+   Facts completion and row count, but it does not persist a durable execution
+   identifier. Packet 4 therefore needs an explicit, inspectable postgame Facts
+   input version in its receipt; it must not pretend the pregame capture's
+   pipeline lineage is the postgame Facts execution.
+
+### Frozen implementation boundary
+
+- Add a thin capture-aware grading service that loads one canonical snapshot,
+  revalidates its identity and hash, and calls the two existing outcome/trust
+  calculation owners with the frozen sections.
+- Do not call `get_game_details(...)` for grading and do not call
+  `save_model_results(...)`; both would re-read or write through the live
+  product path.
+- Use a development counterpart of the existing logical outcome store only
+  after a read-only schema inventory. Its logical key must include the stable
+  learning cohort and canonical capture, and conflicting immutable lineage must
+  quarantine rather than overwrite.
+- Refactor Level 2 into a callable bounded worker over selected
+  `learning_run_id + capture_id + game_id` claim rows; keep the historical CLI
+  as a wrapper over the same calculations.
+- Keep `build_feature_updates(...)` as the Level 3 calculation owner, but give
+  its loader/writer the same bounded selection and development-only refusal.
+  Pass a pregame-field allowlist so validation and outcome targets cannot enter
+  the feature worker accidentally.
+- Extend the existing receipt pattern additively instead of creating a second
+  orchestration ledger. Exact columns remain gated by the read-only cloud
+  schema inventory.
+- Preserve the existing zero-claim behavior: grade the game, then record Level 2
+  and Level 3 as visible `no_op / zero_claims`.
+
+### Read-only inventory owed before the first schema write
+
+Inspect the actual schemas and selected-game rows for:
+
+- `Analytics.game_model_outcomes`;
+- `Analytics.game_model_trust_details`;
+- `GameLens_dev.claim_training_examples`;
+- `GameLens_dev.stage_runs`; and
+- `GameLens_dev.stage_game_results`.
+
+This inventory is read-only. It must confirm whether the repository's inferred
+outcome shape matches the live tables and identify the smallest additive
+development migration. No production table is altered in Packet 4.
+
+### Next implementation slice
+
+Build and test the pure capture-aware game grader first. It should produce a
+dry result with canonical lineage and deterministic outcome/trust content, but
+perform no BigQuery write. Storage, Level 2, Level 3, and the bounded
+coordinator remain later slices.
 
 ## DRY boundary
 
