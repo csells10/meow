@@ -13,6 +13,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Mapping, Sequence
 
 
+DEFAULT_PROJECT_ID = "nfl-stream-406420"
+
+
 BASE_TABLE_SPECS = (
     ("GameLens_dev", "pregame_snapshots", "packet2_canonical_snapshots", True),
     ("Scores", "scores", "final_score_source", True),
@@ -212,21 +215,36 @@ def main(argv=None) -> int:
         default=[],
         help="Optional game ID to count in each table; repeat for multiple games.",
     )
+    parser.add_argument(
+        "--dev-read-only",
+        action="store_true",
+        help="Confirm that this dev inventory run is read-only.",
+    )
+    parser.add_argument(
+        "--project-id",
+        default=DEFAULT_PROJECT_ID,
+        help=f"BigQuery project to inspect (default: {DEFAULT_PROJECT_ID}).",
+    )
+    parser.add_argument(
+        "--season",
+        default="2026",
+        help="Four-digit NFL season used for season-specific tables (default: 2026).",
+    )
     args = parser.parse_args(argv)
 
+    if not args.dev_read_only:
+        raise ValueError(
+            "Pass --dev-read-only to confirm this Packet 4 inventory is read-only"
+        )
+
     from google.cloud import bigquery
-    from runtime_config import load_runtime_config
 
-    runtime_config = load_runtime_config()
-    if not runtime_config.is_dev:
-        raise ValueError("Packet 4 inventory is allowed only in dev")
-
-    client = bigquery.Client(project=runtime_config.project_id)
+    client = bigquery.Client(project=args.project_id)
     result = inventory_packet4_tables(
         client=client,
         bigquery=bigquery,
-        project_id=runtime_config.project_id,
-        season=runtime_config.active_season,
+        project_id=args.project_id,
+        season=args.season,
         game_ids=args.game_id,
     )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))

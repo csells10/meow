@@ -51,6 +51,10 @@ class _BigQuery:
 
 
 class Packet4InventoryTests(unittest.TestCase):
+    def test_main_requires_explicit_dev_read_only_confirmation(self):
+        with self.assertRaisesRegex(ValueError, "--dev-read-only"):
+            inventory.main([])
+
     def test_table_inventory_is_bounded_to_approved_sources(self):
         self.assertEqual(
             [
