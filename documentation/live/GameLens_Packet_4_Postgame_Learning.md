@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade and Level 2 first/retry proofs plus the real Level 3 preview passed; Level 3 dev update/retry boundary implemented; no production behavior change  
+**Status:** DAL–SEA grade and Level 2 first/retry proofs plus the real Level 3 preview passed; Level 3 dev boundary and additive schema setup implemented; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -456,12 +456,33 @@ refusal, development-only gate, and update-only capture/game-scoped SQL. The
 real DAL–SEA capture remains an honest zero-claim case, so both cloud attempts
 must execute the boundary and still perform no write.
 
+The first real boundary commands stopped before staging or mutation. The
+constructor found that the 117-field Packet 3 claim schema already contained
+the original Level 3 score and formula fields but lacked 15 newer
+registry/hierarchy/support metadata destinations emitted by the existing Level
+3 worker. Both attempts raised the same explicit missing-field error; neither
+could write BigQuery. Their redirected JSON files may be empty and can be
+overwritten by the corrected rerun.
+
+Commit `11378ba` adds `setup_gamelens_level3_columns.py` and a dev-only,
+idempotent schema setup function. It does not create a second claim table. It
+adds only missing nullable Level 3 output fields to the existing
+`GameLens_dev.claim_training_examples` table, refuses incompatible existing
+types, verifies the resulting schema, refuses production before client access,
+and reports added fields plus before/after counts. Seventy-two focused Packet 4
+tests pass.
+
 ### Next implementation slice
 
-Confirm the repository build for `5cd25d7`, then run the bounded DAL–SEA Level
-3 first attempt and identical retry:
+Confirm the repository build for `11378ba`, apply the one-time additive dev
+schema setup, then rerun the bounded DAL–SEA Level 3 first attempt and identical
+retry:
 
 ```bash
+python setup_gamelens_level3_columns.py \
+  --confirm-dev-schema-update \
+  > packet4_level3_schema_setup.json
+
 python run_gamelens_packet4_level3_write.py \
   --confirm-dev-write \
   --game-id 20260815_DAL@SEA \
@@ -475,8 +496,10 @@ python run_gamelens_packet4_level3_write.py \
   > packet4_level3_retry.json
 ```
 
-Both receipts should preserve the same canonical cohort/capture and passed
-Level 2 `no_op / zero_claims` gate, followed by Level 3
+The schema receipt should show 15 added fields, a field count change from 117
+to 132, and `schema_update_performed = true`. A later setup retry would add zero
+fields. Both boundary receipts should then preserve the same canonical
+cohort/capture and passed Level 2 `no_op / zero_claims` gate, followed by Level 3
 `no_op / zero_claims`. Each should show 130 total Facts, 94 Level 2-eligible
 rows, zero features/selected rows/updates/conflicts/rejections, zero postgame
 fields admitted, and `write_performed = false`. Review both receipts before

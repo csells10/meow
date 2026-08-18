@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Packet 4's game grade and Level 2 boundaries are implemented and proved against DAL–SEA: one frozen `No Pick` grade was stored, the grade retry changed nothing, and both Level 2 attempts truthfully returned `no_op / zero_claims` with 130 total Facts, 94 eligible actual rows, and no writes. The real bounded Level 3 preview also passed with the same cohort/counts, a passed Level 2 gate, zero claims/features/rejections/postgame fields admitted, and no write. The capture-scoped Level 3 development update/retry boundary is now implemented; its real zero-claim first/retry attempts are next. Sixty-eight focused Packet 4 tests pass. Production behavior is unchanged.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Packet 4's game grade and Level 2 boundaries are implemented and proved against DAL–SEA: one frozen `No Pick` grade was stored, the grade retry changed nothing, and both Level 2 attempts truthfully returned `no_op / zero_claims` with 130 total Facts, 94 eligible actual rows, and no writes. The real bounded Level 3 preview also passed with the same cohort/counts, a passed Level 2 gate, zero claims/features/rejections/postgame fields admitted, and no write. The first Level 3 boundary attempts safely refused before mutation because the Packet 3 claim table lacked 15 newer Level 3 metadata fields. Commit `11378ba` adds an idempotent dev-only additive schema setup for that existing table; schema setup and then the Level 3 first/retry attempts are next. Seventy-two focused Packet 4 tests pass. Production behavior is unchanged.
 
 **Updated:** 2026-08-18  
 **Working branch:** `dev`  
@@ -61,7 +61,7 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - Packet 4's dry proof reused the frozen capture and existing outcome/trust builders: DAL won 17–7, the frozen no-pick remained `No Pick`, and Model Trust remained neutral. The deliberate first write inserted one row; the identical retry inserted zero, reported one unchanged, and performed no write.
 - Packet 4's bounded Level 2 adapter reuses the existing validation/scoring functions, enforces capture/game identity and Facts readiness, preserves unavailable results, and makes zero claims an explicit no-op. The corrected preview plus both dev boundary attempts passed; 130 total accepted Facts reconcile to 94 Level 2-eligible actual rows.
 - Packet 4's Level 3 preview keeps the existing feature formulas but strips every postgame target before calculation, blocks after Level 2 failure, and allows ordinary unavailable validations. The real DAL–SEA preview passed with zero claims/features/rejections/postgame fields admitted and no write.
-- Packet 4's Level 3 storage boundary updates existing capture-scoped development claims only, refuses inserts and non-development use, protects previously populated formula evidence, and reconciles read-back. Sixty-eight focused tests pass.
+- Packet 4's Level 3 storage boundary updates existing capture-scoped development claims only, refuses inserts and non-development use, protects previously populated formula evidence, and reconciles read-back. Its first cloud launch safely exposed 15 missing additive metadata fields before any write. The dev-only schema setup adds only those missing Level 3 fields to the existing claim table, validates types, and is idempotent. Seventy-two focused tests pass.
 
 ---
 
@@ -101,6 +101,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 4 Level 2 development update/retry boundary: `14a86bc`.
 - Packet 4 bounded leakage-safe Level 3 preview: `861bd57`.
 - Packet 4 capture-scoped Level 3 development update/retry boundary: `5cd25d7`.
+- Packet 4 Level 3 dev-only additive schema setup: `11378ba`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -110,10 +111,11 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Slice 1 inspection is complete and Calibrated Matchup Lean remains a separate shared rule:
 
-1. pull `dev` and confirm the repository build for `5cd25d7`;
-2. run the capture-scoped Level 3 development boundary for DAL–SEA with attempt ID `packet4_level3_dal_sea_first_20260818`;
-3. repeat with attempt ID `packet4_level3_dal_sea_retry_20260818`; and
-4. require both receipts to preserve the canonical capture and passed Level 2 gate while reporting `no_op / zero_claims`, 130 total Facts, 94 eligible Facts, zero selected/updated/conflicting/rejected rows, and no write.
+1. pull `dev` and confirm the repository build for `11378ba`;
+2. run `python setup_gamelens_level3_columns.py --confirm-dev-schema-update > packet4_level3_schema_setup.json` and require exactly the 15 reviewed nullable fields on the existing dev claim table;
+3. run the capture-scoped Level 3 development boundary for DAL–SEA with attempt ID `packet4_level3_dal_sea_first_20260818`;
+4. repeat with attempt ID `packet4_level3_dal_sea_retry_20260818`; and
+5. require both boundary receipts to preserve the canonical capture and passed Level 2 gate while reporting `no_op / zero_claims`, 130 total Facts, 94 eligible Facts, zero selected/updated/conflicting/rejected rows, and no write.
 
 Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 
