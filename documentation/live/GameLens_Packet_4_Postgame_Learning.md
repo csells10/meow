@@ -568,14 +568,35 @@ deleted after Packet 4 documentation records the final attempt IDs and counts.
 
 ### Next implementation slice
 
-Run the existing coordinator—not a second worker—for a healthy DET–CIN plus
-DAL–SEA first run and exact-attempt retry. Require two completed games, zero
-failed games, six ordered stages, seven durable receipts, and stable lineage.
-The first run may insert exactly the missing DET–CIN development grade while
-matching DAL–SEA; the retry must change zero learning or receipt rows. After
-that proof is reviewed, use DAL–SEA plus CAR–ARI for the natural partial-failure
-write/retry. CAR–ARI must fail at the capture/grade boundary and skip both
-downstream stages while DAL–SEA remains successful.
+The healthy DET–CIN plus DAL–SEA first run passed: two games completed, six
+stages ran in order, DET–CIN inserted its one missing grade, DAL–SEA matched its
+existing grade, both Levels 2–3 returned `no_op / zero_claims`, and seven
+receipts were inserted without conflict. The exact retry changed zero learning
+rows, and both games again completed successfully, but receipt reconciliation
+failed closed with `Packet4ReceiptConflictError`.
+
+The failure exposed a receipt-material bug rather than a football or learning
+error. The first execution truthfully recorded DET–CIN as one grade insert;
+the retry truthfully recorded it as one unchanged grade. The receipt comparer
+incorrectly treated those expected execution-effect changes as immutable
+evidence. No receipt was overwritten and no duplicate grade was created.
+
+Commit `8de1cf2` fixes that boundary narrowly: `inserted_count`,
+`updated_count`, `unchanged_count`, and `write_performed` may differ between a
+first execution and its exact retry, while status, reason, lineage, input and
+output counts, conflicts, unavailable/rejected counts, failed boundary,
+retryability, exception details, and log reference remain material and
+conflict-protected. Two regression tests cover the allowed effect transition
+and a still-rejected stable-count change. Replaying the observed two JSON
+summaries through the corrected comparer produces seven unchanged receipts,
+zero inserts, and zero conflicts.
+
+Pull `dev` and rerun only the exact same two-game attempt ID. Require two
+completed games, zero failed games, zero learning writes, seven unchanged
+receipts, zero receipt inserts, and no receipt write. After that proof is
+reviewed, use DAL–SEA plus CAR–ARI for the natural partial-failure write/retry.
+CAR–ARI must fail at the capture/grade boundary and skip both downstream stages
+while DAL–SEA remains successful.
 
 ## DRY boundary
 
