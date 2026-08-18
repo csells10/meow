@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Packet 4's capture-aware grader, inventory, development grade ledger, dry-grade proof, and deliberate write/retry proof are complete. DAL–SEA truthfully stored one frozen `No Pick` grade after a 17–7 DAL win; the identical retry inserted zero, left one row unchanged, and performed no write. The bounded read-only Level 2 preview correctly returned `no_op / zero_claims`. Its 94 calculation-eligible Facts rows reconcile to 130 total accepted Facts; commit `6eb4a9d` makes both counts explicit and the corrected preview rerun is next. Thirty-eight focused Packet 4 tests pass. Production behavior is unchanged.
+**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Packet 4's capture-aware grader, inventory, development grade ledger, dry-grade proof, and deliberate grade write/retry proof are complete. DAL–SEA truthfully stored one frozen `No Pick` grade after a 17–7 DAL win; the identical retry inserted zero, left one row unchanged, and performed no write. Its corrected Level 2 preview passed with 130 total accepted Facts, 94 calculation-eligible rows, and an honest `no_op / zero_claims`. The development-only Level 2 update/retry boundary is implemented; its two zero-claim cloud attempts are next. Forty-nine focused Packet 4 tests pass. Production behavior is unchanged.
 
 **Updated:** 2026-08-18  
 **Working branch:** `dev`  
@@ -32,7 +32,7 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 |---|---|---|---|
 | [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–3 complete; Packet 4 plan active | A future packet is implemented merely because it is described |
 | [Calibrated Matchup Lean](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) | Completed separate release receipt | Live in production and forward-merged to dev | Packet 4 or Admin should recreate the rule |
-| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded implementation plan | Game-grade insert/retry passed; read-only Level 2 adapter implemented | Approval to wire postgame learning into production |
+| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded implementation plan | Game-grade and Level 2 read-only proofs passed; Level 2 dev update boundary implemented | Approval to wire postgame learning into production |
 | [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Completed implementation evidence | Implementation GO; real populated dev validation carried forward | Approval to write production data or proof that genuine claim rows have been observed in cloud |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
@@ -59,7 +59,7 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - Packet 4 inspection confirmed that the existing outcome, Level 2, and Level 3 calculations can be reused, but their current database wrappers are not capture-bounded or development-safe enough to call unchanged.
 - Packet 4's first code slice adds a dry-only capture-aware grader that revalidates the frozen payload and reuses the existing Model Outcome/Trust calculations.
 - Packet 4's dry proof reused the frozen capture and existing outcome/trust builders: DAL won 17–7, the frozen no-pick remained `No Pick`, and Model Trust remained neutral. The deliberate first write inserted one row; the identical retry inserted zero, reported one unchanged, and performed no write.
-- Packet 4's bounded Level 2 adapter reuses the existing validation/scoring functions, enforces capture/game identity and Facts readiness, preserves unavailable results, and makes zero claims an explicit read-only no-op. The first real preview passed; 130 total accepted Facts reconcile to 94 Level 2-eligible actual rows. Thirty-eight focused tests pass.
+- Packet 4's bounded Level 2 adapter reuses the existing validation/scoring functions, enforces capture/game identity and Facts readiness, preserves unavailable results, and makes zero claims an explicit no-op. The corrected real preview passed; 130 total accepted Facts reconcile to 94 Level 2-eligible actual rows. The dev update-only boundary is implemented and forty-nine focused tests pass.
 
 ---
 
@@ -96,6 +96,7 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 4 deliberate development grade write/retry runner: `49b7ff6`.
 - Packet 4 bounded read-only Level 2 adapter and QA runner: `1814052`.
 - Packet 4 total-versus-eligible Facts count clarification: `6eb4a9d`.
+- Packet 4 Level 2 development update/retry boundary: `14a86bc`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -105,10 +106,10 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. Slice 1 inspection is complete and Calibrated Matchup Lean remains a separate shared rule:
 
-1. pull `dev` and confirm the repository build for `6eb4a9d`;
-2. run `python qa_gamelens_packet4_level2.py --dev-read-only --game-id 20260815_DAL@SEA > packet4_level2_preview.json`;
-3. require 130 total accepted Facts, 94 Level 2-eligible actual rows, `no_op / zero_claims`, zero validations, and no write; and
-4. review that receipt before adding the development-only Level 2 update/reconciliation boundary.
+1. pull `dev` and confirm the repository build for `14a86bc`;
+2. run the documented `run_gamelens_packet4_level2_write.py` first attempt and retry for DAL–SEA;
+3. require both receipts to show 130 total Facts, 94 eligible rows, zero claims/validations/updates/conflicts/rejections, `no_op / zero_claims`, and no write; and
+4. review both receipts before starting the bounded Level 3 adapter.
 
 Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 
