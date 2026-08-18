@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade and Level 2 first/retry proofs passed; bounded leakage-safe Level 3 preview implemented; no production behavior change  
+**Status:** DAL–SEA grade and Level 2 first/retry proofs plus the real Level 3 preview passed; Level 3 dev update/retry boundary implemented; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -425,23 +425,62 @@ version, while `postgame_fields_admitted = 0`. Fifty-seven focused Packet 4
 tests pass, including Level 2-failure blocking, unavailable-row continuation,
 target stripping, identity refusal, and the complete earlier Packet 4 suite.
 
+The real DAL–SEA preview then passed. It preserved
+`learning_run_id = gamelens_2026_preseason_v1`,
+`capture_id = capture_b387ab5d3545e2c322827756`, DAL's 17–7 final score, 130
+total accepted Facts, and 94 Level 2-eligible actual rows. The Level 2 gate
+returned `no_op / zero_claims`; Level 3 likewise returned
+`no_op / zero_claims` with zero claims, feature rows, rejections, and postgame
+fields admitted. It performed no write.
+
+### Slice 4 Level 3 development update boundary — 2026-08-18
+
+Commit `5cd25d7` adds `services/gamelens_level3_storage.py`,
+`run_gamelens_packet4_level3_write.py`, and focused tests. It reuses the
+existing Level 3 calculation and adds only the missing capture-aware storage
+boundary. The boundary:
+
+- requires a development runtime plus explicit `--confirm-dev-write`;
+- reads and updates one `learning_run_id + capture_id + game_id` claim set;
+- updates only an existing claim whose `feature_formula_version` is null;
+- cannot insert a missing claim or alter the target table schema;
+- treats an identical replay as unchanged;
+- quarantines conflicting prior feature evidence and incomplete
+  claim/feature reconciliation before mutation;
+- uses only the pregame-safe Level 3 output fields; and
+- reads the bounded rows back and requires full reconciliation.
+
+Sixty-eight focused Packet 4 tests pass. Controlled rows prove the populated
+first update, identical zero-update retry, conflict refusal, missing-feature
+refusal, development-only gate, and update-only capture/game-scoped SQL. The
+real DAL–SEA capture remains an honest zero-claim case, so both cloud attempts
+must execute the boundary and still perform no write.
+
 ### Next implementation slice
 
-Confirm the repository build for `861bd57`, then run the bounded DAL–SEA Level
-3 preview:
+Confirm the repository build for `5cd25d7`, then run the bounded DAL–SEA Level
+3 first attempt and identical retry:
 
 ```bash
-python qa_gamelens_packet4_level3.py \
-  --dev-read-only \
+python run_gamelens_packet4_level3_write.py \
+  --confirm-dev-write \
   --game-id 20260815_DAL@SEA \
-  > packet4_level3_preview.json
+  --attempt-id packet4_level3_dal_sea_first_20260818 \
+  > packet4_level3_first.json
+
+python run_gamelens_packet4_level3_write.py \
+  --confirm-dev-write \
+  --game-id 20260815_DAL@SEA \
+  --attempt-id packet4_level3_dal_sea_retry_20260818 \
+  > packet4_level3_retry.json
 ```
 
-The expected result is a passed Level 2 `no_op / zero_claims` gate followed by
-a Level 3 `no_op / zero_claims`: zero claims/features/rejections, zero postgame
-fields admitted, and `write_performed = false`. The receipt should continue to
-show 130 total Facts and 94 Level 2-eligible rows. Review it before adding the
-Level 3 development update/retry boundary.
+Both receipts should preserve the same canonical cohort/capture and passed
+Level 2 `no_op / zero_claims` gate, followed by Level 3
+`no_op / zero_claims`. Each should show 130 total Facts, 94 Level 2-eligible
+rows, zero features/selected rows/updates/conflicts/rejections, zero postgame
+fields admitted, and `write_performed = false`. Review both receipts before
+adding the thin Packet 4 coordinator and stage receipts.
 
 ## DRY boundary
 
