@@ -2,3 +2,7 @@ qa/
 documentation/
 docs/
 *.md
+
+# Local QA evidence must never enter a submitted Cloud Build context.
+*.json
+packet4_*.json

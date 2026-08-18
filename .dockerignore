@@ -2,3 +2,11 @@
 .vscode
 .idea
 .readmes
+
+# Local QA evidence must never be copied into runtime images.
+*.json
+qa/api_response_runs/
+qa/upload_bundles/
+qa/*_runs/
+qa/*_export*/
+qa/*.zip

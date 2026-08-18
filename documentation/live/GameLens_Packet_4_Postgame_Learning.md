@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade, Levels 2–3, and one-game coordinator receipt/retry proofs passed; bounded multi-game and partial-failure proof remains; no production behavior change  
+**Status:** DAL–SEA grade, Levels 2–3, one-game coordinator receipt/retry, and three-game Slice 6 inventory proofs passed; bounded multi-game and partial-failure proof remains; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -537,32 +537,45 @@ retry all passed:
 This closes the one-game Slice 5 handoff. The receipt table remains audit
 storage only; the grade ledger and claim table remain the evidence owners.
 
+### Slice 6 three-game inventory — 2026-08-18
+
+The read-only inventory passed with all nine source/target tables available
+and zero required tables unavailable. Its three games establish the intended
+admission states:
+
+- DET–CIN has one canonical capture, two final-score rows, 126 Facts rows,
+  zero claim rows, and no Packet 4 development grade;
+- DAL–SEA has one canonical capture, two final-score rows, 130 Facts rows,
+  zero claim rows, and one fully populated Packet 4 development grade;
+- CAR–ARI has two final-score rows and 126 Facts rows but no canonical capture;
+  its one older production outcome row is not frozen Packet 4 evidence and
+  cannot substitute for the missing capture; and
+- the Packet 3 claim table remains honestly empty.
+
+This proves that capture—not score, Facts, or an older outcome—is the first
+Packet 4 admission gate.
+
+### Build-artifact hygiene
+
+Packet 4 CLIs print JSON to standard output; they do not create files unless
+an operator redirects output with `>`. Cloud coordination will emit structured
+logs and durable BigQuery receipts, not repository JSON files. Repository
+`.gitignore` already excludes `*.json`. Packet 4 additionally hardens
+`.dockerignore` and `.gcloudignore` so local receipt/snapshot JSON cannot enter
+a Docker image or locally submitted Cloud Build context. The local
+`packet4_*.json` proof files remain temporary operator evidence and should be
+deleted after Packet 4 documentation records the final attempt IDs and counts.
+
 ### Next implementation slice
 
-Start Slice 6 with a read-only three-game inventory before another write. The
-selection deliberately covers a healthy previously graded game, a healthy
-captured sibling not yet graded through Packet 4, and the documented
-pre-Packet-2 capture gap:
-
-```bash
-python qa_gamelens_packet4_schema_inventory.py \
-  --dev-read-only \
-  --game-id 20260813_DET@CIN \
-  --game-id 20260815_DAL@SEA \
-  --game-id 20260806_CAR@ARI \
-  > packet4_multigame_inventory.json
-```
-
-Review the inventory before writing. It must show canonical captures for
-DET–CIN and DAL–SEA, no invented CAR–ARI capture, final-score/Facts availability
-as actually observed, the current claim count, and the existing outcome rows.
-If those states reconcile, run the existing coordinator—not a second worker
-or a failure-injection path—for (1) a healthy DET–CIN plus DAL–SEA write/retry
-and (2) a DAL–SEA plus CAR–ARI natural partial-failure write/retry. The latter
-must preserve DAL–SEA, fail CAR–ARI at the grade/capture boundary, skip its
-downstream stages, and reconcile seven durable receipts. Because
-`partial_failure` intentionally returns a nonzero process status, preserve and
-review its JSON output rather than treating that exit status as missing proof.
+Run the existing coordinator—not a second worker—for a healthy DET–CIN plus
+DAL–SEA first run and exact-attempt retry. Require two completed games, zero
+failed games, six ordered stages, seven durable receipts, and stable lineage.
+The first run may insert exactly the missing DET–CIN development grade while
+matching DAL–SEA; the retry must change zero learning or receipt rows. After
+that proof is reviewed, use DAL–SEA plus CAR–ARI for the natural partial-failure
+write/retry. CAR–ARI must fail at the capture/grade boundary and skip both
+downstream stages while DAL–SEA remains successful.
 
 ## DRY boundary
 
