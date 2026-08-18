@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade insert/retry passed; bounded read-only Level 2 adapter implemented on 2026-08-18; no production behavior change  
+**Status:** DAL–SEA grade insert/retry passed; bounded Level 2 no-op passed with a Facts-count label correction awaiting rerun; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -344,9 +344,23 @@ Commit `1814052` adds `services/gamelens_level2_validation.py` and
 The controlled populated fixture also ran through the existing Level 2 module:
 one claimed DAL `total_yards` edge produced one validated row, a 100-yard
 actual gap, `dominant_edge`, and the existing
-`good_reasoning_correct_outcome` QA label. Thirty-six focused Packet 4 tests
+`good_reasoning_correct_outcome` QA label. Thirty-eight focused Packet 4 tests
 pass, including the prior grader, storage, inventory, dry-grade, and write-runner
 coverage. Python compilation passes.
+
+The first real DAL–SEA Level 2 preview correctly returned
+`no_op / zero_claims`, zero validations, zero conflicts, and no write. It
+reported 94 rows under the original `accepted_fact_rows` label. Reconciliation
+against the earlier inventory showed that the source table still contains all
+130 accepted Facts rows: 94 are eligible for the existing Level 2 calculation
+after its `value IS NOT NULL` and directional-comparison filters. No source data
+was missing and no validation was skipped because the capture contains zero
+claims.
+
+Commit `6eb4a9d` removes that reporting ambiguity. The read-only preview now
+reports both `accepted_fact_rows_total = 130` and
+`eligible_actual_fact_rows = 94`, and refuses internally inconsistent Facts
+gate/count combinations.
 
 ### Next implementation slice
 
@@ -360,9 +374,10 @@ python qa_gamelens_packet4_level2.py \
   > packet4_level2_preview.json
 ```
 
-The known real input has 130 accepted Facts rows and zero Packet 3 claims, so
-the honest expected result is `status = no_op`, `reason = zero_claims`, zero
-validations, and `write_performed = false`. Review that receipt before adding
+The known real input has 130 accepted Facts rows, 94 Level 2-eligible actual
+rows, and zero Packet 3 claims. The honest expected result is
+`status = no_op`, `reason = zero_claims`, zero validations, and
+`write_performed = false`. Review the corrected receipt before adding
 the development-only Level 2 update/reconciliation boundary. Do not invent
 claims to force a populated cloud result; the controlled fixture covers that
 calculation path until a genuine claim-bearing capture exists.
@@ -595,4 +610,3 @@ Those constraints remain outside Packet 4; later capabilities require their own 
 - Are all writes still development-only?
 
 After these answers are confirmed, begin with Slice 1 inspection only.
-

@@ -10,7 +10,7 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, DAL–SEA dry grade, and game-grade insert/retry proof. The first write inserted one frozen `No Pick` grade; the identical retry inserted zero, left one row unchanged, and performed no write. Commit `1814052` adds the bounded read-only Level 2 adapter and QA runner while reusing the existing validation semantics. Thirty-six focused Packet 4 tests pass. The real zero-claim Level 2 preview is next; production behavior is unchanged.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, DAL–SEA dry grade, and game-grade insert/retry proof. The first write inserted one frozen `No Pick` grade; the identical retry inserted zero, left one row unchanged, and performed no write. The bounded read-only Level 2 preview correctly returned `no_op / zero_claims`; its 94 calculation-eligible Facts rows reconcile to 130 total accepted rows. Commit `6eb4a9d` makes both counts explicit. Thirty-eight focused Packet 4 tests pass. The corrected preview rerun is next; production behavior is unchanged.  
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -615,7 +615,8 @@ or cloud plumbing failed.
 read-only schema inventory, 13-field development grade ledger setup, dry-grade
 proof, and deliberate insert/retry are complete. The ledger contains one
 canonical DAL–SEA grade and the identical retry performed no write. The bounded
-read-only Level 2 adapter is implemented; its real zero-claim preview is next.
+read-only Level 2 adapter is implemented; its real zero-claim behavior passed,
+and a corrected total-versus-eligible Facts count receipt is next.
 See [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
 
 **Why this is important:** grades the frozen prediction and turns completed games into claim-learning evidence without rebuilding what GameLens said before kickoff.
@@ -854,8 +855,8 @@ Do not begin by wiring all Levels into `app.py`.
 
 Packets 1–3 are complete. Review
 [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md),
-then run the bounded read-only Level 2 preview for DAL–SEA. Review its expected
-`no_op / zero_claims` receipt before adding the development-only Level 2
+then rerun the bounded read-only Level 2 preview for DAL–SEA. Review its expected
+130-total/94-eligible, `no_op / zero_claims` receipt before adding the development-only Level 2
 update/reconciliation boundary. Packet 4 must continue to reuse the existing
 calculations, apply capture/score/Facts gates, and return a per-game/per-stage
 diagnostic funnel.
