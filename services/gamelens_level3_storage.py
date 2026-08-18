@@ -199,6 +199,84 @@ def level3_staging_schema(*, bigquery: Any, calculation_module: Any = None):
     return schema
 
 
+def _canonical_field_type(field_type: str) -> str:
+    normalized = str(field_type or "").upper()
+    return {
+        "BOOLEAN": "BOOL",
+        "FLOAT64": "FLOAT",
+        "INT64": "INTEGER",
+    }.get(normalized, normalized)
+
+
+def ensure_level3_target_columns(
+    *,
+    client: Any,
+    runtime_config: Any,
+    bigquery_module: Any,
+    calculation_module: Any = None,
+) -> dict[str, Any]:
+    """Add only missing nullable Level 3 output columns to the dev claim table."""
+    if not runtime_config.is_dev:
+        raise ValueError("Packet 4 Level 3 schema setup is allowed only in dev")
+    calculation = calculation_module or import_module(LEVEL3_CALCULATION_MODULE)
+    target = (
+        f"{runtime_config.project_id}.{GAMELENS_DEV_DATASET}."
+        f"{CLAIM_TRAINING_EXAMPLES_TABLE}"
+    )
+    desired = {
+        field.name: field
+        for field in calculation.feature_update_schema(bigquery_module)
+        if field.name in LEVEL3_EVIDENCE_FIELDS
+    }
+    unspecified = sorted(set(LEVEL3_EVIDENCE_FIELDS) - set(desired))
+    if unspecified:
+        raise ValueError(
+            "Level 3 calculation schema is missing evidence fields: "
+            + ",".join(unspecified)
+        )
+
+    table = client.get_table(target)
+    before = {field.name: field for field in table.schema}
+    mismatched = sorted(
+        name
+        for name in set(before) & set(desired)
+        if _canonical_field_type(before[name].field_type)
+        != _canonical_field_type(desired[name].field_type)
+    )
+    if mismatched:
+        raise ValueError(
+            "Packet 4 Level 3 target has incompatible field types: "
+            + ",".join(mismatched)
+        )
+
+    added = sorted(set(desired) - set(before))
+    if added:
+        table.schema = list(table.schema) + [desired[name] for name in added]
+        client.update_table(table, ["schema"])
+
+    verified = client.get_table(target)
+    after = {field.name: field for field in verified.schema}
+    missing_after = sorted(set(desired) - set(after))
+    mismatched_after = sorted(
+        name
+        for name in set(after) & set(desired)
+        if _canonical_field_type(after[name].field_type)
+        != _canonical_field_type(desired[name].field_type)
+    )
+    if missing_after or mismatched_after:
+        raise RuntimeError("Packet 4 Level 3 schema setup did not reconcile")
+    return {
+        "environment": "dev",
+        "target_table": target,
+        "field_count_before": len(before),
+        "field_count_after": len(after),
+        "added_field_count": len(added),
+        "added_fields": added,
+        "required_level3_fields": sorted(desired),
+        "schema_update_performed": bool(added),
+    }
+
+
 class BigQueryLevel3FeatureStorage:
     """Capture-scoped, update-only storage for existing development claims."""
 

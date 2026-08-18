@@ -77,7 +77,114 @@ class _MemoryStorage(storage.BigQueryLevel3FeatureStorage):
         return len(rows)
 
 
+class _Field:
+    def __init__(self, name, field_type, mode="NULLABLE"):
+        self.name = name
+        self.field_type = field_type
+        self.mode = mode
+
+
+class _BigQuery:
+    SchemaField = _Field
+
+
+class _Calculation:
+    @staticmethod
+    def feature_update_schema(bigquery):
+        types = {
+            "clean_hierarchy_path_flag": "BOOL",
+            "missing_hierarchy_parent_flag": "BOOL",
+            "offensive_efficiency_support_score": "FLOAT",
+            "offense_finish_score": "FLOAT",
+            "defensive_suppression_score": "FLOAT",
+            "two_way_edge_score": "FLOAT",
+            "updated_at": "TIMESTAMP",
+        }
+        return [
+            bigquery.SchemaField(name, types.get(name, "STRING"))
+            for name in (
+                "run_id",
+                "claim_key",
+                *storage.LEVEL3_UPDATE_FIELDS,
+            )
+        ]
+
+
+class _SchemaClient:
+    def __init__(self, fields):
+        self.table = SimpleNamespace(schema=list(fields))
+        self.updated = 0
+
+    def get_table(self, table_id):
+        self.table_id = table_id
+        return self.table
+
+    def update_table(self, table, fields):
+        self.asserted_fields = fields
+        self.table = table
+        self.updated += 1
+        return table
+
+
 class Level3StorageTests(unittest.TestCase):
+    def test_schema_setup_adds_only_missing_level3_fields_and_is_idempotent(self):
+        existing = [
+            _Field("claim_key", "STRING", "REQUIRED"),
+            _Field("feature_notes", "STRING"),
+            _Field("feature_formula_version", "STRING"),
+            _Field("offense_finish_score", "FLOAT64"),
+            _Field("defensive_suppression_score", "FLOAT"),
+            _Field("two_way_edge_score", "FLOAT"),
+        ]
+        client = _SchemaClient(existing)
+        runtime = SimpleNamespace(is_dev=True, project_id="project")
+        first = storage.ensure_level3_target_columns(
+            client=client,
+            runtime_config=runtime,
+            bigquery_module=_BigQuery,
+            calculation_module=_Calculation,
+        )
+        retry = storage.ensure_level3_target_columns(
+            client=client,
+            runtime_config=runtime,
+            bigquery_module=_BigQuery,
+            calculation_module=_Calculation,
+        )
+        self.assertEqual(first["added_field_count"], 15)
+        self.assertTrue(first["schema_update_performed"])
+        self.assertEqual(first["field_count_before"], 6)
+        self.assertEqual(first["field_count_after"], 21)
+        self.assertEqual(retry["added_field_count"], 0)
+        self.assertFalse(retry["schema_update_performed"])
+        self.assertEqual(client.updated, 1)
+        self.assertEqual(client.asserted_fields, ["schema"])
+
+    def test_schema_setup_refuses_incompatible_existing_type(self):
+        client = _SchemaClient([_Field("two_way_context", "INTEGER")])
+        with self.assertRaisesRegex(ValueError, "incompatible field types"):
+            storage.ensure_level3_target_columns(
+                client=client,
+                runtime_config=SimpleNamespace(
+                    is_dev=True, project_id="project"
+                ),
+                bigquery_module=_BigQuery,
+                calculation_module=_Calculation,
+            )
+        self.assertEqual(client.updated, 0)
+
+    def test_schema_setup_refuses_production_before_client_access(self):
+        class NoCalls:
+            def get_table(self, _):
+                raise AssertionError("client must not be touched")
+
+        with self.assertRaisesRegex(ValueError, "only in dev"):
+            storage.ensure_level3_target_columns(
+                client=NoCalls(),
+                runtime_config=SimpleNamespace(is_dev=False),
+                bigquery_module=_BigQuery,
+                calculation_module=_Calculation,
+            )
+
     def test_zero_claims_is_update_free_no_op(self):
         boundary = _MemoryStorage([])
         result = boundary.store_features(
