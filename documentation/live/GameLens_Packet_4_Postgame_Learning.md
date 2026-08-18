@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA dry grade passed and development-only write/retry runner implemented on 2026-08-17 — first grade insert pending; no production behavior change  
+**Status:** DAL–SEA grade insert/retry passed; bounded read-only Level 2 adapter implemented on 2026-08-18; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -298,13 +298,74 @@ uses the same read/grade path, calls the insert-only storage boundary, reads the
 row back, and reports inserted/unchanged/conflict counts. The dry runner remains
 permanently write-free.
 
+### Game-grade write/retry evidence — 2026-08-17
+
+The deliberate DAL–SEA development write and identical retry both passed.
+Attempt `packet4_grade_dal_sea_first_20260817` found zero existing rows and
+inserted exactly one. Attempt `packet4_grade_dal_sea_retry_20260817` found that
+one row unchanged, inserted zero, reported zero conflicts, and performed no
+write. The ledger remained at one row.
+
+Both attempts preserved the same canonical evidence:
+
+- `learning_run_id = gamelens_2026_preseason_v1`;
+- `capture_id = capture_b387ab5d3545e2c322827756`;
+- `pipeline_run_id = observed_prod_2026_asof_20260814_f1272_w1460_r2073`;
+- source payload SHA-256
+  `d9ddda20f7fe42291acd4268dd871368def66b604c28b151aad86e7bb71922b1`;
+- final-score SHA-256
+  `1f51b9658143b067c7f2db42a9e26f7dd5dbd4f7132bcd9ba291d3190aa8a636`;
+- DAL as the actual winner; and
+- the frozen `No Pick` outcome and neutral Model Trust result.
+
+A normalized field-level comparison removed only attempt and reconciliation
+metadata; every remaining grade/evidence field was identical. This closes the
+game-grade persistence slice and authorizes the Level 2 adapter slice.
+
+### Slice 3 bounded Level 2 adapter — 2026-08-18
+
+Commit `1814052` adds `services/gamelens_level2_validation.py` and
+`qa_gamelens_packet4_level2.py`. The adapter owns only the missing boundary:
+
+- selects one `learning_run_id + capture_id + game_id` claim set;
+- refuses cross-cohort, cross-capture, cross-game, missing-key, and duplicate
+  claim inputs;
+- requires the final score and accepted postgame Facts before validation;
+- returns visible `deferred / waiting_accepted_facts` and
+  `no_op / zero_claims` states;
+- lazily delegates comparison and scoring to the existing Level 2
+  `build_actual_index(...)`, `validate_training_row(...)`, and
+  `add_game_level_scores(...)` functions;
+- preserves ordinary unavailable validations as data;
+- reconciles claims in, validations out, unavailable, rejected, and conflicts;
+  and
+- is permanently read-only in this QA slice.
+
+The controlled populated fixture also ran through the existing Level 2 module:
+one claimed DAL `total_yards` edge produced one validated row, a 100-yard
+actual gap, `dominant_edge`, and the existing
+`good_reasoning_correct_outcome` QA label. Thirty-six focused Packet 4 tests
+pass, including the prior grader, storage, inventory, dry-grade, and write-runner
+coverage. Python compilation passes.
+
 ### Next implementation slice
 
-Confirm the repository build for `49b7ff6`. Then run one deliberate DAL–SEA
-development grade write and read-back. If it reports one inserted row, rerun the
-same frozen grade with a second attempt ID; the retry must report zero inserted,
-one unchanged, one stored, zero conflicts, and no write performed. Do not begin
-the Level 2/3 adapter slice until both receipts reconcile.
+Confirm the repository build for `1814052`, then run the bounded DAL–SEA Level
+2 preview:
+
+```bash
+python qa_gamelens_packet4_level2.py \
+  --dev-read-only \
+  --game-id 20260815_DAL@SEA \
+  > packet4_level2_preview.json
+```
+
+The known real input has 130 accepted Facts rows and zero Packet 3 claims, so
+the honest expected result is `status = no_op`, `reason = zero_claims`, zero
+validations, and `write_performed = false`. Review that receipt before adding
+the development-only Level 2 update/reconciliation boundary. Do not invent
+claims to force a populated cloud result; the controlled fixture covers that
+calculation path until a genuine claim-bearing capture exists.
 
 ## DRY boundary
 

@@ -1,8 +1,8 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released, forward-merged, and closed; Packet 4 Slice 2 is in progress  
+**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released, forward-merged, and closed; Packet 4 Slice 3 is in progress  
 **Created:** 2026-08-06  
-**Updated:** 2026-08-17  
+**Updated:** 2026-08-18  
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Active development branch:** `dev`  
@@ -10,7 +10,7 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, and DAL–SEA dry grade. DAL won 17–7; the frozen payload truthfully graded `No Pick`, Model Trust remained neutral, and storage projected zero existing to one proposed with zero conflicts and no write. Commit `49b7ff6` adds the explicit development write/retry runner. Twenty-seven focused local tests pass. First insert and identical retry are next; production behavior is unchanged.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, DAL–SEA dry grade, and game-grade insert/retry proof. The first write inserted one frozen `No Pick` grade; the identical retry inserted zero, left one row unchanged, and performed no write. Commit `1814052` adds the bounded read-only Level 2 adapter and QA runner while reusing the existing validation semantics. Thirty-six focused Packet 4 tests pass. The real zero-claim Level 2 preview is next; production behavior is unchanged.  
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -471,7 +471,7 @@ Each companion document must answer:
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
 | Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
-| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active; pure grader and read-only inventory runner implemented, cloud writes still disabled |
+| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active; game-grade write/retry proved in dev and bounded read-only Level 2 adapter implemented |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
 | Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
@@ -612,10 +612,11 @@ or cloud plumbing failed.
 ### Packet 4 — Postgame outcome plus Levels 2–3
 
 **Status:** In progress. Contract inspection, the pure frozen-capture grader,
-read-only schema inventory, 13-field development grade ledger setup, and
-read-only dry-grade proof are complete. The ledger remains empty; the explicit
-development write/retry runner is implemented and the first insert is next. See [GameLens Packet 4 — Postgame Outcome plus
-Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
+read-only schema inventory, 13-field development grade ledger setup, dry-grade
+proof, and deliberate insert/retry are complete. The ledger contains one
+canonical DAL–SEA grade and the identical retry performed no write. The bounded
+read-only Level 2 adapter is implemented; its real zero-claim preview is next.
+See [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
 
 **Why this is important:** grades the frozen prediction and turns completed games into claim-learning evidence without rebuilding what GameLens said before kickoff.
 
@@ -853,10 +854,11 @@ Do not begin by wiring all Levels into `app.py`.
 
 Packets 1–3 are complete. Review
 [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md),
-then inspect the existing outcome/trust, Level 2 validation, and Level 3 feature
-workers before choosing the smallest adapter and storage changes. Packet 4 must
-reuse those calculations, apply capture/score/Facts gates, and return a
-per-game/per-stage diagnostic funnel.
+then run the bounded read-only Level 2 preview for DAL–SEA. Review its expected
+`no_op / zero_claims` receipt before adding the development-only Level 2
+update/reconciliation boundary. Packet 4 must continue to reuse the existing
+calculations, apply capture/score/Facts gates, and return a per-game/per-stage
+diagnostic funnel.
 
 The Packet 3 genuine populated-capture proof stays on the pre-production gate
 list. If genuine claim data appears during Packet 4, run that existing proof
