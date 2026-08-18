@@ -2,7 +2,7 @@
 
 **Created:** 2026-08-02
 **Last execution update:** 2026-08-05
-**Learning-track cross-reference:** updated 2026-08-16
+**Learning-track cross-reference:** updated 2026-08-18
 **Separate confidence-hotfix receipt:** updated 2026-08-16
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
@@ -10,23 +10,84 @@
 **Target service:** `nfl-games-app-main`
 **Current status:** **GATE H COMPLETE — AUTOMATIC PRODUCTION RUN PASSED**
 **Scope boundary:** Historical cutover evidence for the existing production app. This is not the current GameLens learning-packet plan; use [GameLens_Learning_Orchestration_Product_Sprint.md](./GameLens_Learning_Orchestration_Product_Sprint.md) for current work.
-**Purpose:** Move Packet 4 from proven isolated-dev behavior to production through small, reversible gates while keeping the current frontend live until the candidate is explicitly approved.
+**Purpose:** Preserve the completed historical application cutover and provide the current go-day gate list for the separate GameLens learning track. Historical references to “Packet 4” below mean the August 1–5 ETL/cutover work, not the current Packet 4 postgame-learning implementation.
 
 ---
 
-## Learning-track cross-reference — 2026-08-16
+## Current learning go posture — 2026-08-18
+
+The existing production application cutover and Gate H are complete. The
+separate learning track is **not production GO**.
+
+| Learning packet | Current status | Production meaning |
+|---|---|---|
+| Packets 1–2 | Complete | Capture contract and development shadow evidence proven; no production capture wiring |
+| Packet 3 | Implementation GO | Development Level 1 boundary proven; first genuine claim-bearing write/retry remains a pre-production validation |
+| Packet 4 | Implementation GO | Frozen grade, Levels 2–3, six-table development storage, receipts, retries, and partial-failure isolation proven; no production wiring |
+| Packet 5 | Next | Admin/ledger reconciliation plan must be reviewed before code |
+| Packet 6 | Future | Level 4 and weekly evidence plan not yet implemented |
+| Packet 7 | Future release gate | Production dataset, migration automation, IAM, orchestration, kill switch, deployment, activation, and rollback |
+
+`GameLens_dev` currently contains six packet-owned tables. Their code-owned
+schemas, grains, partitions, clustering, clean development setup order, and
+structure-versus-evidence boundary are documented in
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
+
+### Learning go-day prerequisites
+
+Before learning may be enabled in production:
+
+1. Packet 5 must reconcile the existing protected Admin experience with the
+   canonical six-table grains and avoid an unproven duplicate warehouse.
+2. Packet 6 must prove controlled Level 4/weekly behavior, sparse-evidence
+   honesty, and immutable weekly comparisons.
+3. Packet 3's first genuine claim-bearing development write/retry and bounded
+   slate must pass when a real capture finally supplies claims.
+4. Packet 7 must approve production dataset names, location, IAM, retention,
+   service/job topology, Scheduler handoff, kill switch, and rollback.
+5. Packet 7 must provide one reviewed, versioned migration entry point that
+   imports the same schema owners used in development, recreates an empty
+   namespace in dependency order, verifies layout, and refuses destructive
+   behavior by default.
+6. Schema creation, optional evidence migration, deployment, and write
+   activation must remain separate reviewable gates.
+7. The migration must be rehearsed on a clean disposable development
+   namespace and recorded with the exact commit and verification output.
+8. The learning-capable revision must be validated at 0% normal traffic with
+   learning disabled/read-only before the smallest approved write is enabled.
+9. One game must be followed through the complete two-clock lifecycle while
+   the prior production revision and learning kill switch remain usable.
+
+Packet 1–4 Implementation GO does not authorize `main`, production BigQuery
+objects, Scheduler changes, or learning writes. The existing 8:00 a.m. ETL,
+`/game`, frontend, and released Calibrated Matchup Lean remain unchanged.
+
+### Artifact and evidence cost posture
+
+Packet 4 runners emit JSON to stdout. Local proof files were created only by
+shell redirection and are excluded from Git, Docker, and local Cloud Build
+contexts. They may be deleted after review. BigQuery evidence tables and
+Artifact Registry container images are different billing surfaces: preserve
+canonical evidence according to the future retention policy, and manage old
+images with a deliberate Artifact Registry cleanup policy.
+
+## Learning-track cross-reference — 2026-08-18
 
 This remains the historical production cutover record. It does not become the
 learning-packet release plan and does not authorize a new merge, deployment,
 Scheduler change, or production learning write.
 
-Packets 1–3 of the current learning sprint are complete. Packet 3 received
+Packets 1–4 of the current learning sprint are complete. Packet 3 received
 **Implementation GO** after its shared extractor/storage tests, development
 schema and MERGE proof, seven real zero-claim inventories, one zero-claim
-write/retry, and a post-ETL immutability check. The 2026-08-16 production ETL
-returned HTTP 200, processed 7/7 games through all stages in 107 seconds, and
-reported no unregistered-metric exclusions. The frozen DAL–SEA capture retained
-its exact hash and no postgame fields afterward.
+write/retry, and a post-ETL immutability check. Packet 4 received
+**Implementation GO** after frozen grading, bounded Levels 2–3, additive
+schema setup, durable receipts, healthy multi-game retry, and natural
+partial-failure isolation/retry. The final proof preserved DAL–SEA and honestly
+refused missing-capture CAR–ARI. The 2026-08-16 production ETL returned HTTP
+200, processed 7/7 games through all stages in 107 seconds, and reported no
+unregistered-metric exclusions. The frozen DAL–SEA capture retained its exact
+hash and no postgame fields afterward.
 
 Because all seven available canonical preseason captures contained zero claims,
 the first genuine populated-capture write/retry and claim-bearing bounded slate
@@ -1438,6 +1499,9 @@ Until all criteria pass, describe the state precisely: **candidate deployed**, *
 
 ## 18. Reference documentation
 
+- [GameLens Learning Orchestration Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md)
+- [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)
+- [GameLens Runtime Configuration Guide](./runtime_configuration.md)
 - [Cloud Run rollouts, rollbacks, traffic migration, and tagged revisions](https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration)
 - [Cloud Run HTTPS and tagged URL formats](https://docs.cloud.google.com/run/docs/triggering/https-request)
 - [Cloud Scheduler pause command](https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/pause)
@@ -1611,3 +1675,16 @@ Gate H incomplete
 ```
 
 Do not remove the no-traffic/tag release flags or change the retry policy before the first repaired automatic production run is proven.
+
+---
+
+## Current supersession note — 2026-08-18
+
+Sections 19–20 intentionally preserve the moment when the repaired August 5
+automatic run was still pending. That observation later passed and Gate H is
+complete, as recorded at the top of this document and in Section 5D. Do not use
+the historical “pending” language as a current action.
+
+The current next release work is the separate learning track described in
+“Current learning go posture.” Packets 1–4 have development Implementation GO;
+Packet 5 planning is next, and production learning remains disabled.

@@ -1157,7 +1157,15 @@ coverage proof, runtime evidence, source/write boundaries, production impact,
 and deliberately deferred optional hardening.
 
 Packet 3 later consumed these canonical snapshots without rebuilding GameLens
-and received Implementation GO on 2026-08-16. The next active review is
-[GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
-Packet 2 remains the capture/evidence authority; Packet 4 must not reinterpret
-its missed-game or immutable-snapshot rules.
+and received Implementation GO on 2026-08-16. Packet 4 then received
+Implementation GO on 2026-08-18 after grading canonical captures, preserving
+zero-claim no-ops, reconciling retries, and naturally refusing CAR–ARI at the
+missing-capture boundary while preserving DAL–SEA.
+
+Packet 2 remains the capture/evidence authority. Its three development tables
+are the first dependency group in the
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md):
+`pregame_snapshots`, `stage_runs`, and `stage_game_results`. The setup code can
+recreate their empty structure, but it cannot and must not reconstruct their
+historical rows. Packet 5 is the next active review and must reconcile these
+receipt grains before proposing any additional Admin storage.

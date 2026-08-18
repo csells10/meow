@@ -257,6 +257,23 @@ Packet 1's framework is understood and preserved. Production remains unchanged.
 Packet 2 was authorized under these constraints and later passed its one-game
 proof, deterministic retry, six-game slate rehearsal, exact live-`/game`
 parity, per-game observability amendment, and coverage audit. Packet 1 remains
-the capture rulebook; Packet 2 is the execution evidence. Packet 3 is now the
-next reviewed plan and must continue to avoid `app.py` wiring, production
-Level 1 writes, and frontend changes until its own release boundary.
+the capture rulebook; later packets are execution evidence and must not weaken
+this contract.
+
+## Downstream completion note — 2026-08-18
+
+Packets 2–4 have now consumed this contract without changing it:
+
+- Packet 2 saved canonical captures and preserved the honest CAR–ARI
+  `capture_missing` gap;
+- Packet 3 read only those captures, carried their identities into Level 1,
+  and kept zero claims visible; and
+- Packet 4 graded frozen captures, refused CAR–ARI because no canonical
+  capture existed, and skipped its Levels 2–3 work without harming DAL–SEA.
+
+That natural partial-failure proof is the strongest confirmation of Packet 1's
+fail-closed rule. A final score and accepted Facts do not authorize anyone to
+reconstruct a missing pregame snapshot. The six-table development inventory
+and recreation order are documented in
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
+Packet 5 is next and may reconcile the evidence, but it must not rewrite it.

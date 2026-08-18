@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–4 are complete. Packet 3 received **Implementation GO** on 2026-08-16 with its first genuine populated-capture write/retry retained as a non-blocking pre-production validation. Packet 4 received **Implementation GO** on 2026-08-18 after its frozen-capture grade, Level 2/3 zero-claim boundaries, additive schema setup, one-game receipt/retry, three-game inventory, healthy multi-game insert/retry, receipt-effect correction, and natural partial-failure isolation/retry all passed. The final partial-failure proof preserved DAL–SEA while CAR–ARI failed at the missing-capture grade boundary and skipped Levels 2–3; its first run inserted seven receipts and its exact retry matched all seven unchanged. The full Packet 4 local split passes 86 tests. Generated JSON is excluded from Git, Docker, and local Cloud Build contexts and may now be deleted locally. Production behavior remains unchanged; Packet 5 planning is next.
+**Current status:** Packets 1–4 are complete. Packet 3 received **Implementation GO** on 2026-08-16 with its first genuine populated-capture write/retry retained as a non-blocking pre-production validation. Packet 4 received **Implementation GO** on 2026-08-18 after its frozen-capture grade, Level 2/3 zero-claim boundaries, additive schema setup, one-game receipt/retry, three-game inventory, healthy multi-game insert/retry, receipt-effect correction, and natural partial-failure isolation/retry all passed. The final partial-failure proof preserved DAL–SEA while CAR–ARI failed at the missing-capture grade boundary and skipped Levels 2–3; its first run inserted seven receipts and its exact retry matched all seven unchanged. The full Packet 4 local split passes 86 tests. `GameLens_dev` now contains six code-owned tables, and their structure-only recreation order is documented. Generated JSON is excluded from Git, Docker, and local Cloud Build contexts and may be deleted locally. Production behavior remains unchanged; Packet 5 planning is next.
 
 **Updated:** 2026-08-18  
 **Working branch:** `dev`  
@@ -14,15 +14,16 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 
 1. [GameLens Learning Orchestration Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) — current sprint status, packet order, gates, and next action.
 2. [Calibrated Matchup Lean Hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) — completed rule, QA evidence, production receipt, rollback, and branch handoff.
-3. [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — the active review plan; read before Packet 4 code.
+3. [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — completed implementation evidence and the Packet 5 handoff.
 4. [Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — completed implementation evidence and deferred real-data validation.
 5. [Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) — completed implementation and cloud proof that Packet 3 inherits.
 6. [Packet 1 — Pregame Capture Contract](./GameLens_Packet_1_Pregame_Capture_Contract.md) — the locked contract and invariants.
 7. [Product Data Collection and Learning Handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) — architecture, level boundaries, and failure-trace contract.
-8. [Runtime Configuration](./runtime_configuration.md) — deployment and environment controls; use when a packet reaches cloud validation.
-9. [Go Plan](./go_plan.md) — historical production-cutover evidence with learning-track and hotfix cross-references. It is not the current learning-packet plan.
+8. [Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md) — six-table inventory, schema owners, clean rebuild order, verification, and Packet 7 production-migration requirement.
+9. [Runtime Configuration](./runtime_configuration.md) — deployment, environment, six-table runtime posture, and Packet 5 boundaries.
+10. [Go Plan](./go_plan.md) — historical production-cutover evidence plus the current learning go-day gate list. It is not the current learning-packet checklist.
 
-**Packet-numbering note:** older files under `documentation/August/` whose titles also say “Packet 4” describe the completed controlled 2025 ETL replay from August 1–2. They are historical evidence, not the authority for the active Packet 4 postgame-learning work.
+**Packet-numbering note:** older files under `documentation/August/` whose titles also say “Packet 4” describe the completed controlled 2025 ETL replay from August 1–2. They are historical evidence, not the authority for the completed current Packet 4 postgame-learning work.
 
 ---
 
@@ -37,14 +38,15 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
 | [Architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) | Stable system design and level boundaries | Active | Architecture prose is a live execution receipt |
+| [Dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md) | Code-owned schema inventory and release prerequisite | Six development tables documented; production runner still belongs to Packet 7 | Current dev-only scripts are approved for production |
 | [Runtime configuration](./runtime_configuration.md) | Environment and deployment reference | Active, with dated inventory sections | Every listed inventory value is timeless |
-| [Go plan](./go_plan.md) | Historical release/cutover record | Retained for breadcrumbs | It is the current packet checklist |
+| [Go plan](./go_plan.md) | Historical release/cutover record plus current learning go posture | Gate H historical; learning Packets 5–7 remain | Packet 1–4 Implementation GO equals production GO |
 
 If two files appear to conflict, use this order: current Sprint status, current packet, completed packet evidence, Packet 1 contract, architecture handoff, then historical/reference documents.
 
 ---
 
-## Stable truths as of 2026-08-16
+## Stable truths as of 2026-08-18
 
 - Packet 2 established canonical, immutable pregame snapshots with exact `/game` parity, honest coverage gaps, attempt receipts, and per-game results.
 - Packet 3 reads only canonical `pregame_snapshots`, uses one shared Level 1 extraction path, and writes development-only claim examples through a game-scoped idempotent MERGE.
@@ -69,6 +71,9 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - The healthy two-game first run inserted DET–CIN's missing grade and seven receipts while preserving DAL–SEA. Its retry changed zero learning rows but exposed an expected-effect receipt conflict; `8de1cf2` narrows immutable comparison so first-write versus unchanged-retry effects do not conflict while stable evidence still does.
 - The corrected healthy retry matched seven unchanged receipts. The natural partial-failure first/retry preserved DAL–SEA, rejected missing-capture CAR–ARI, skipped its downstream stages, and reconciled `7 inserted → 7 unchanged` with zero learning writes.
 - Packet 4 has **Implementation GO** with 86 local tests passing. Genuine claim-bearing development validation remains a pre-production gate because no real preseason capture contained claims.
+- `GameLens_dev` contains six packet-owned tables: `pregame_snapshots`, `stage_runs`, `stage_game_results`, `claim_training_examples`, `game_model_outcomes`, and `postgame_learning_stage_receipts`.
+- Empty development structure is reproducible from five fail-closed setup entry points in dependency order. The claim table is created at the Packet 3 base shape and then expanded by the Packet 4 Level 3 migration (`117 → 132`). Setup does not restore evidence rows.
+- Production table names, migration automation, IAM, retention, and activation remain Packet 7 decisions. Current setup scripts refuse non-development runtimes.
 
 ---
 
@@ -119,12 +124,17 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Packet 4 is closed with Implementation GO. Delete the temporary local
-`packet4_*.json` evidence after previewing the exact file list, then begin a
-fresh Packet 5 chat by creating and reviewing
+Packet 4 is closed with Implementation GO. Temporary local `packet4_*.json`
+evidence may be deleted after review. Begin a fresh Packet 5 chat by creating
+and reviewing
 `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Packet 5
 must reconcile existing canonical tables and ledgers without creating a
 duplicate Admin warehouse unless inspection proves one is necessary.
+
+Read the [dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)
+and [runtime guide](./runtime_configuration.md) during Packet 5 inventory. Keep
+the production migration entry point, final dataset names, IAM, retention, and
+activation in Packet 7.
 
 Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 
@@ -132,7 +142,7 @@ Do not modify `app.py`, create production learning tables, or merge the learning
 
 ## Fresh-chat handoff prompt
 
-> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff in that order. Packets 1–4 have Implementation GO. Packet 3's first genuine claim-bearing validation remains a pre-production operational gate because all seven available preseason captures contained zero claims. Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Inspect the existing Admin service and canonical snapshot, claim, grade, feature, and receipt tables first; do not create a duplicate summary warehouse unless a concrete gap is proven. Preserve DRY worker reuse, per-game/per-stage traceability, development-only writes, the production 8:00 a.m. load, `/game`, and the frontend. Do not manufacture claims, reconstruct missed captures, wire production learning, or reimplement the released Calibrated Matchup Lean rule.
+> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, architecture handoff, development dataset recreation runbook, runtime guide, and current learning-go section of `go_plan.md`. Packets 1–4 have Implementation GO. Packet 3's first genuine claim-bearing validation remains a pre-production operational gate because all seven available preseason captures contained zero claims. Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Reconcile the existing Admin service with the six `GameLens_dev` tables and their grains first; do not create a duplicate summary warehouse unless a concrete gap is proven. Preserve DRY worker reuse, per-game/per-stage traceability, development-only writes, the production 8:00 a.m. load, `/game`, and the frontend. Do not manufacture claims, reconstruct missed captures, wire production learning, treat dev-only setup scripts as production migrations, or reimplement the released Calibrated Matchup Lean rule.
 
 ---
 
@@ -145,3 +155,4 @@ When a packet closes:
 3. update this index’s current status and stable truths;
 4. add the next packet companion plan before implementation begins;
 5. preserve historical records, but add explicit scope notes wherever old future-tense language could mislead a new reader.
+6. update the dataset recreation runbook in the same commit whenever a table, field migration, partition, clustering rule, or schema owner changes.

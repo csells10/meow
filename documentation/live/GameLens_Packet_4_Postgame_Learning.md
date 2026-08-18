@@ -853,6 +853,24 @@ Packet 4 does not:
 
 Those constraints remain outside Packet 4; later capabilities require their own packet or explicit release decision.
 
+## Packet 5 and go-day handoff — 2026-08-18
+
+Packet 4 leaves `GameLens_dev` with six canonical tables. It added the
+capture-aware `game_model_outcomes` grade ledger, 15 nullable Level 3 fields on
+the existing `claim_training_examples` table, and the immutable
+`postgame_learning_stage_receipts` table. It reused Packet 2's three tables and
+Packet 3's claim table; it did not create duplicate Level 2 or Level 3 tables.
+
+The complete table grains, setup owners, clean-namespace order, structure-only
+recreation commands, JSON/build-context behavior, and Packet 7 production
+migration requirement are in
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
+
+Packet 5 must start by reconciling the existing protected Admin service against
+those six tables. It may add storage only after inspection proves a missing
+grain or retention need. Packet 4 does not authorize production table creation
+or automatic orchestration.
+
 ## Review questions before implementation
 
 - Does the admission funnel match the intended product behavior?

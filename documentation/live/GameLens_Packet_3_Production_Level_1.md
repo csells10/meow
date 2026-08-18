@@ -615,17 +615,33 @@ validation, not hidden unfinished code.
 
 ## Documentation handoff
 
-This plan is completed evidence. A new Packet 4 chat should read, in order:
+This plan is completed evidence. Packet 4 subsequently received Implementation
+GO on 2026-08-18. A new Packet 5 chat should read, in order:
 
 1. [Live documentation index](./README.md);
 2. [Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md);
-3. [Packet 4 plan](./GameLens_Packet_4_Postgame_Learning.md);
+3. [completed Packet 4 evidence](./GameLens_Packet_4_Postgame_Learning.md);
 4. this completed Packet 3 evidence;
 5. [Packet 2 evidence](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md);
 6. [Packet 1 rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md); and
-7. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md).
+7. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md); and
+8. [development dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
 
-Then inspect the current `dev` versions of the outcome/trust service, Level 2
-validation worker, Level 3 feature worker, Level 1 service/storage boundary,
-learning contract, and handoff tests before changing code. The plan governs
-the boundary; current code governs implementation details.
+Then inspect the current `dev` Admin service and queries, the six canonical
+development tables, and their distinct grains before changing code. The plan
+governs the boundary; current code governs implementation details.
+
+### Downstream completion note — 2026-08-18
+
+Packet 4 used Packet 3's `learning_run_id + capture_id + claim_key` contract
+for Level 2 and Level 3. The seven genuine preseason captures still contain
+zero real claims, so both downstream stages correctly returned capture-scoped
+no-ops and wrote no claim rows. Controlled populated fixtures continue to
+prove the shared claim-bearing path; the first genuine populated-capture
+write/retry remains a pre-production operational validation.
+
+Packet 4 expanded `GameLens_dev.claim_training_examples` additively from 117
+to 132 fields so the existing row can hold Level 3 evidence. It did not create
+a second feature table or a second claim identity. The base table plus
+additive migration order is recorded in the
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).

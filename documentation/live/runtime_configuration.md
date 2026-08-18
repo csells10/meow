@@ -1,10 +1,11 @@
 # GameLens Runtime Configuration Guide
 
 **Created:** 2026-08-04  
+**Updated:** 2026-08-18  
 **Repository:** csells10/meow  
 **Branch:** dev  
-**Scope:** Cloud Run runtime configuration for GameLens dev testing  
-**Source of truth:** runtime_config.py plus the live Cloud Run service configuration
+**Scope:** Cloud Run runtime configuration plus the Packet 1–4 development learning-data boundary  
+**Source of truth:** `runtime_config.py`, code-owned table schemas, and the live Cloud Run service configuration  
 **Snapshot boundary:** Section 3 records the 2026-08-04 controlled-replay service. It is historical evidence, not the current Packet 2 local-shadow configuration and not permission to reuse those dated values. Re-read live configuration before every cloud action.
 
 ---
@@ -82,6 +83,33 @@ Observed after restoration on 2026-08-04 for ready revision nfl-games-app-dev-00
 | Runtime service account | gamelens-dev-replay@nfl-stream-406420.iam.gserviceaccount.com | Supplies the deployed app's Google Cloud permissions. |
 
 This is an evidence snapshot, not a permanent assumption. Re-read the live service before every cloud test.
+
+### Packet 1–4 learning runtime posture — 2026-08-18
+
+The historical service snapshot above describes the existing ingestion/metric
+runtime. Packet 1–4 learning work is separately proven on `dev` and is not yet
+wired into `app.py`, Cloud Scheduler, or a production Cloud Run service.
+
+Current learning boundaries:
+
+| Boundary | Current truth |
+|---|---|
+| Environment gate | Setup and write entry points require `GAMELENS_ENVIRONMENT=dev` and fail closed otherwise. |
+| Development target | `nfl-stream-406420.GameLens_dev` |
+| Table inventory | Six tables: `pregame_snapshots`, `stage_runs`, `stage_game_results`, `claim_training_examples`, `game_model_outcomes`, and `postgame_learning_stage_receipts` |
+| Upstream reads used by Packet 4 proof | Existing League/Scores/Analytics sources; writes remained confined to `GameLens_dev` |
+| Production target | Not approved or created |
+| Orchestration | Manual bounded runners only; no `app.py` or Scheduler wiring |
+| JSON output | QA/setup runners print to stdout; they do not save repository files themselves |
+| Build context | `*.json` is excluded by Git, Docker, and local gcloud ignore rules |
+
+The table inventory, schema owners, partitions, clustering, clean recreation
+order, and production migration requirement are in
+[GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
+
+Packet 5 should read these tables and the existing protected Admin service. It
+must not assume that runtime deployment, production dataset creation, or
+automatic scheduling already exists. Packet 7 owns those release decisions.
 
 ---
 
@@ -311,6 +339,33 @@ Active season: 2025
 Replay date: 2025-09-18
 ~~~
 
-This completes the dev proof of the Gate H remediation. It does not complete Gate H in production.
+This completed the dev proof of the Gate H remediation at that historical
+checkpoint. Later production evidence closed Gate H; see `go_plan.md`. It does
+not authorize learning deployment.
 
-The next authorization boundary is documentation review followed by a fresh Git and production-state inspection. Only then may the proven history move to `main`, create a new no-traffic production candidate, and proceed through candidate validation and deliberate promotion.
+## 12. Packet 5 and future production runtime checklist
+
+Packet 5 remains development-only. Before any future cloud validation, inspect
+the live revision, identity, environment variables, dataset permissions, and
+the six-table inventory again rather than copying the August 4 snapshot.
+
+Before Packet 7 production activation, require all of the following:
+
+1. approved production dataset name and BigQuery location;
+2. least-privilege runtime and migration identities;
+3. one reviewed schema migration entry point that imports the same schema
+   owners used by development;
+4. clean-namespace rehearsal plus post-migration schema/partition/clustering
+   verification;
+5. retention and evidence-migration decisions;
+6. feature flags and a kill switch that leave the existing ETL and frontend
+   operational;
+7. a no-traffic candidate and read-only/shadow checks before learning writes;
+8. a separate authorization for table creation, data migration, deployment,
+   and write activation; and
+9. a receipt containing commit, revision, identity, targets, migration result,
+   and rollback anchor.
+
+Do not make normal application traffic or the 8:00 a.m. Scheduler lazily create
+missing learning tables. Schema migration must finish and reconcile before the
+learning feature is enabled.
