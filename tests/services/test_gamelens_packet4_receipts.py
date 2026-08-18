@@ -128,6 +128,28 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(conflict["conflict_count"], 1)
         self.assertIn("status", conflict["conflicts"][0]["fields"])
 
+    def test_retry_effect_counts_do_not_conflict_with_first_write_receipt(self):
+        stored = receipts.normalize_receipt_row(
+            _row(inserted_count=1, unchanged_count=0, write_performed=True)
+        )
+        retry = receipts.plan_receipt_merge(
+            incoming_rows=[
+                _row(inserted_count=0, unchanged_count=1, write_performed=False)
+            ],
+            existing_rows=[stored],
+        )
+        self.assertEqual(retry["expected_inserted"], 0)
+        self.assertEqual(retry["expected_unchanged"], 1)
+        self.assertEqual(retry["conflict_count"], 0)
+
+    def test_retry_still_conflicts_when_stable_reconciliation_changes(self):
+        stored = receipts.normalize_receipt_row(_row())
+        conflict = receipts.plan_receipt_merge(
+            incoming_rows=[_row(output_count=2)], existing_rows=[stored]
+        )
+        self.assertEqual(conflict["conflict_count"], 1)
+        self.assertIn("output_count", conflict["conflicts"][0]["fields"])
+
     def test_merge_sql_is_insert_only_by_receipt_key(self):
         storage = object.__new__(receipts.BigQueryPacket4ReceiptStorage)
         storage.table = "project.GameLens_dev.receipts"

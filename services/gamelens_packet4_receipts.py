@@ -43,6 +43,12 @@ RECEIPT_FIELD_SPECS = (
     ("details_json", "STRING", "REQUIRED"),
     ("recorded_at", "TIMESTAMP", "REQUIRED"),
 )
+RETRY_EFFECT_FIELDS = {
+    "inserted_count",
+    "updated_count",
+    "unchanged_count",
+    "write_performed",
+}
 MATERIAL_FIELDS = tuple(
     name
     for name, _, _ in RECEIPT_FIELD_SPECS
@@ -53,6 +59,7 @@ MATERIAL_FIELDS = tuple(
         "duration_ms",
         "details_json",
         "recorded_at",
+        *RETRY_EFFECT_FIELDS,
     }
 )
 
