@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade insert/retry and corrected Level 2 no-op preview passed; development-only Level 2 update/retry boundary implemented; no production behavior change  
+**Status:** DAL–SEA grade and Level 2 first/retry proofs passed; bounded leakage-safe Level 3 preview implemented; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -391,31 +391,57 @@ scope, and compatibility with later Level 3 stage metadata. The real DAL–SEA
 capture remains an honest zero-claim case, so its cloud attempts must execute
 the boundary and still perform no write.
 
+Both real DAL–SEA Level 2 boundary attempts then passed. The first attempt and
+retry preserved the same canonical capture, DAL 17–7 score, 130 total accepted
+Facts, and 94 Level 2-eligible actual rows. Each reported zero claims,
+validations, selected rows, updates, conflicts, and rejections with
+`no_op / zero_claims` and `write_performed = false`. This closes Level 2 for
+the available real zero-claim evidence. The first genuine populated update and
+retry remain on the pre-production validation list.
+
+### Slice 4 bounded Level 3 preview — 2026-08-18
+
+Commit `861bd57` adds `services/gamelens_level3_features.py`,
+`qa_gamelens_packet4_level3.py`, and focused tests. It retains the existing
+`build_feature_updates(...)` calculation owner while replacing the historical
+whole-run boundary with one `learning_run_id + capture_id + game_id` adapter.
+
+The adapter:
+
+- runs only after Level 2 returns `completed` or the truthful zero-claim
+  `no_op`;
+- blocks Level 3 after a real Level 2 failure or incomplete stage;
+- permits ordinary Level 2 `unavailable` validation rows to continue;
+- projects an explicit calculation allowlist before calling the existing
+  worker;
+- strips final score, winner, Model Outcome/Trust, validation labels, actual
+  sides/teams/gaps, QA outcome reads, and all other postgame targets;
+- reconciles claim keys and counts against feature outputs; and
+- remains permanently write-free in this preview slice.
+
+The controlled populated fixture also ran through the real Level 3 module. One
+claim produced one registry-backed feature row under the existing formula
+version, while `postgame_fields_admitted = 0`. Fifty-seven focused Packet 4
+tests pass, including Level 2-failure blocking, unavailable-row continuation,
+target stripping, identity refusal, and the complete earlier Packet 4 suite.
+
 ### Next implementation slice
 
-Confirm the repository build for `14a86bc`, then run the deliberate DAL–SEA
-Level 2 development attempt and identical retry:
+Confirm the repository build for `861bd57`, then run the bounded DAL–SEA Level
+3 preview:
 
 ```bash
-python run_gamelens_packet4_level2_write.py \
-  --confirm-dev-write \
+python qa_gamelens_packet4_level3.py \
+  --dev-read-only \
   --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_level2_dal_sea_first_20260818 \
-  > packet4_level2_first.json
-
-python run_gamelens_packet4_level2_write.py \
-  --confirm-dev-write \
-  --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_level2_dal_sea_retry_20260818 \
-  > packet4_level2_retry.json
+  > packet4_level3_preview.json
 ```
 
-Both receipts must report 130 total Facts, 94 Level 2-eligible actual rows,
-zero claims/validations/selected rows/updates/conflicts/rejections,
-`no_op / zero_claims`, and `write_performed = false`. Do not invent claims to
-force a populated cloud result; the controlled fixture covers that calculation
-path until a genuine claim-bearing capture exists. Review both receipts before
-starting the bounded Level 3 adapter.
+The expected result is a passed Level 2 `no_op / zero_claims` gate followed by
+a Level 3 `no_op / zero_claims`: zero claims/features/rejections, zero postgame
+fields admitted, and `write_performed = false`. The receipt should continue to
+show 130 total Facts and 94 Level 2-eligible rows. Review it before adding the
+Level 3 development update/retry boundary.
 
 ## DRY boundary
 
