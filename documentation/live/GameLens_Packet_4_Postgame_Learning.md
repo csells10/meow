@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade and Level 2 first/retry proofs plus the real Level 3 preview passed; Level 3 dev boundary and additive schema setup implemented; no production behavior change  
+**Status:** DAL–SEA grade and Levels 2–3 proofs passed; bounded coordinator and durable stage receipts implemented; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -472,38 +472,82 @@ types, verifies the resulting schema, refuses production before client access,
 and reports added fields plus before/after counts. Seventy-two focused Packet 4
 tests pass.
 
+The real schema and Level 3 receipts then passed together:
+
+- schema setup added exactly the reviewed 15 nullable fields, moving the
+  existing claim table from 117 to 132 fields;
+- both Level 3 attempts preserved
+  `learning_run_id = gamelens_2026_preseason_v1` and
+  `capture_id = capture_b387ab5d3545e2c322827756`;
+- both preserved DAL 17–7, 130 total accepted Facts, and 94 eligible actual
+  rows;
+- both passed the Level 2 `no_op / zero_claims` gate;
+- both reported zero claims, features, selected rows, updates, conflicts,
+  rejections, unavailable rows, and postgame fields admitted; and
+- both performed no learning write.
+
+This closes the available real-data Level 3 proof. A genuine populated feature
+update/retry remains on the pre-production validation list.
+
+### Slice 5 bounded coordinator and durable receipts — 2026-08-18
+
+Commit `9b21f88` adds `services/gamelens_packet4_coordinator.py`,
+`services/gamelens_packet4_receipts.py`, the setup/run CLIs, and focused tests.
+The coordinator is deliberately thin: it calls the already-proven grade,
+Level 2, and Level 3 boundaries in order and performs no football calculation.
+
+It:
+
+- accepts an explicit bounded game list and development attempt ID;
+- preserves the canonical cohort/capture identity between stages;
+- stops downstream work after the failed boundary;
+- preserves a successful sibling game when another game fails;
+- distinguishes learning-data writes from receipt writes;
+- emits the required per-game visual funnel;
+- records stable reasons, retryability, exception class/message, lineage,
+  counts, timestamps, failed boundary, and optional log reference; and
+- writes one immutable attempt receipt plus one receipt per game/stage.
+
+The dedicated `GameLens_dev.postgame_learning_stage_receipts` table is audit
+storage, not a second claim or feature table. It is necessary because the
+existing Packet 2 receipt schemas cannot carry Packet 4's full failure and
+reconciliation contract without breaking their exact schema verification.
+Receipt MERGE is insert-only by deterministic logical key, so an exact retry
+of the same attempt preserves the first receipts and inserts zero. Eighty-four
+focused Packet 4 tests pass, including controlled sibling isolation and
+receipt-storage failure behavior.
+
 ### Next implementation slice
 
-Confirm the repository build for `11378ba`, apply the one-time additive dev
-schema setup, then rerun the bounded DAL–SEA Level 3 first attempt and identical
-retry:
+Confirm the repository build for `9b21f88`, create/verify the development
+receipt table, then run the bounded DAL–SEA coordinator twice with the exact
+same attempt ID:
 
 ```bash
-python setup_gamelens_level3_columns.py \
-  --confirm-dev-schema-update \
-  > packet4_level3_schema_setup.json
+python setup_gamelens_packet4_receipts.py \
+  --confirm-dev-setup \
+  > packet4_coordinator_receipt_setup.json
 
-python run_gamelens_packet4_level3_write.py \
+python run_gamelens_packet4_coordinator.py \
   --confirm-dev-write \
   --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_level3_dal_sea_first_20260818 \
-  > packet4_level3_first.json
+  --attempt-id packet4_coordinator_dal_sea_20260818 \
+  > packet4_coordinator_first.json
 
-python run_gamelens_packet4_level3_write.py \
+python run_gamelens_packet4_coordinator.py \
   --confirm-dev-write \
   --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_level3_dal_sea_retry_20260818 \
-  > packet4_level3_retry.json
+  --attempt-id packet4_coordinator_dal_sea_20260818 \
+  > packet4_coordinator_retry.json
 ```
 
-The schema receipt should show 15 added fields, a field count change from 117
-to 132, and `schema_update_performed = true`. A later setup retry would add zero
-fields. Both boundary receipts should then preserve the same canonical
-cohort/capture and passed Level 2 `no_op / zero_claims` gate, followed by Level 3
-`no_op / zero_claims`. Each should show 130 total Facts, 94 Level 2-eligible
-rows, zero features/selected rows/updates/conflicts/rejections, zero postgame
-fields admitted, and `write_performed = false`. Review both receipts before
-adding the thin Packet 4 coordinator and stage receipts.
+The setup receipt should verify one 31-field, `recorded_at`-partitioned audit
+table. Both coordinator runs should show one completed game, grade `success`,
+Levels 2–3 `no_op / zero_claims`, zero failed games, and
+`learning_write_performed = false`. The first coordinator run should insert
+four receipts (one attempt plus three stages); the identical retry should
+report four unchanged receipts, zero inserts, and no receipt write. Review all
+three receipts before the bounded multi-game and partial-failure cloud proofs.
 
 ## DRY boundary
 
