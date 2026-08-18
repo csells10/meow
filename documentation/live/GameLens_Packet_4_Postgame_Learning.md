@@ -1,6 +1,6 @@
 # GameLens Packet 4 — Postgame Outcome plus Levels 2–3
 
-**Status:** DAL–SEA grade and Levels 2–3 proofs passed; bounded coordinator and durable stage receipts implemented; no production behavior change  
+**Status:** DAL–SEA grade, Levels 2–3, and one-game coordinator receipt/retry proofs passed; bounded multi-game and partial-failure proof remains; no production behavior change  
 **Created:** 2026-08-16  
 **Branch:** `dev`  
 **Predecessor:** [Packet 3 — Production-Safe Level 1](./GameLens_Packet_3_Production_Level_1.md)  
@@ -517,37 +517,52 @@ of the same attempt preserves the first receipts and inserts zero. Eighty-four
 focused Packet 4 tests pass, including controlled sibling isolation and
 receipt-storage failure behavior.
 
+### One-game coordinator cloud proof — 2026-08-18
+
+The repository build, receipt table, first coordinator run, and identical
+retry all passed:
+
+- `GameLens_dev.postgame_learning_stage_receipts` verified with 31 fields,
+  `recorded_at` partitioning, and the intended attempt/game/stage logical key;
+- attempt `packet4_coordinator_dal_sea_20260818` completed one requested game
+  with zero failed games;
+- DAL–SEA preserved the canonical `learning_run_id`, capture ID, pipeline run,
+  and source-payload hash across grade, Level 2, and Level 3;
+- grade returned `success`; Levels 2–3 returned `no_op / zero_claims`;
+- the first run inserted four receipts and the exact-attempt retry matched four
+  unchanged receipts with zero inserts;
+- both runs performed zero learning writes; and
+- the terminal funnel, stage order, and durable receipt counts reconciled.
+
+This closes the one-game Slice 5 handoff. The receipt table remains audit
+storage only; the grade ledger and claim table remain the evidence owners.
+
 ### Next implementation slice
 
-Confirm the repository build for `9b21f88`, create/verify the development
-receipt table, then run the bounded DAL–SEA coordinator twice with the exact
-same attempt ID:
+Start Slice 6 with a read-only three-game inventory before another write. The
+selection deliberately covers a healthy previously graded game, a healthy
+captured sibling not yet graded through Packet 4, and the documented
+pre-Packet-2 capture gap:
 
 ```bash
-python setup_gamelens_packet4_receipts.py \
-  --confirm-dev-setup \
-  > packet4_coordinator_receipt_setup.json
-
-python run_gamelens_packet4_coordinator.py \
-  --confirm-dev-write \
+python qa_gamelens_packet4_schema_inventory.py \
+  --dev-read-only \
+  --game-id 20260813_DET@CIN \
   --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_coordinator_dal_sea_20260818 \
-  > packet4_coordinator_first.json
-
-python run_gamelens_packet4_coordinator.py \
-  --confirm-dev-write \
-  --game-id 20260815_DAL@SEA \
-  --attempt-id packet4_coordinator_dal_sea_20260818 \
-  > packet4_coordinator_retry.json
+  --game-id 20260806_CAR@ARI \
+  > packet4_multigame_inventory.json
 ```
 
-The setup receipt should verify one 31-field, `recorded_at`-partitioned audit
-table. Both coordinator runs should show one completed game, grade `success`,
-Levels 2–3 `no_op / zero_claims`, zero failed games, and
-`learning_write_performed = false`. The first coordinator run should insert
-four receipts (one attempt plus three stages); the identical retry should
-report four unchanged receipts, zero inserts, and no receipt write. Review all
-three receipts before the bounded multi-game and partial-failure cloud proofs.
+Review the inventory before writing. It must show canonical captures for
+DET–CIN and DAL–SEA, no invented CAR–ARI capture, final-score/Facts availability
+as actually observed, the current claim count, and the existing outcome rows.
+If those states reconcile, run the existing coordinator—not a second worker
+or a failure-injection path—for (1) a healthy DET–CIN plus DAL–SEA write/retry
+and (2) a DAL–SEA plus CAR–ARI natural partial-failure write/retry. The latter
+must preserve DAL–SEA, fail CAR–ARI at the grade/capture boundary, skip its
+downstream stages, and reconcile seven durable receipts. Because
+`partial_failure` intentionally returns a nonzero process status, preserve and
+review its JSON output rather than treating that exit status as missing proof.
 
 ## DRY boundary
 
