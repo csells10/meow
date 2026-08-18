@@ -1,6 +1,6 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–3 are complete. Packet 3 received **Implementation GO** on 2026-08-16 after its code, dev table, seven-capture dry inventory, zero-claim receipt/retry, and post-ETL snapshot-immutability proofs passed. Its first genuine populated-capture write/retry remains a required but non-blocking operational validation before production promotion. The separate Calibrated Matchup Lean hotfix is released, present in both `main` and `dev`, and fully cleaned up. Packet 4's game grade and Level 2 boundaries are implemented and proved against DAL–SEA: one frozen `No Pick` grade was stored, the grade retry changed nothing, and both Level 2 attempts truthfully returned `no_op / zero_claims` with 130 total Facts, 94 eligible actual rows, and no writes. The Level 3 schema setup added exactly the 15 reviewed nullable fields to the existing claim table (`117 → 132`), and both corrected Level 3 boundary attempts then passed with the same cohort/counts, passed Level 2 gate, zero claims/features/conflicts/rejections, and no learning write. Commit `9b21f88` adds the bounded grade → Level 2 → Level 3 coordinator plus durable attempt/game/stage receipts. The one-game coordinator proof passes: the first DAL–SEA run inserted four receipts, the identical retry matched four unchanged receipts with zero inserts, and neither run wrote learning data. The Slice 6 inventory also passes: DET–CIN and DAL–SEA are captured/final/Facts-ready, while CAR–ARI has final scores and Facts but no canonical capture and remains inadmissible. The healthy two-game first run passed and inserted only DET–CIN's missing grade plus seven receipts. Its learning retry changed zero rows but exposed an audit-comparison defect because insert-versus-unchanged execution effects were treated as immutable. Commit `8de1cf2` fixes only those retry-effect fields while preserving lineage, status, counts in/out, and failure protection; the same-attempt cloud retry must now be repeated. The natural partial-failure proof remains. Production behavior is unchanged.
+**Current status:** Packets 1–4 are complete. Packet 3 received **Implementation GO** on 2026-08-16 with its first genuine populated-capture write/retry retained as a non-blocking pre-production validation. Packet 4 received **Implementation GO** on 2026-08-18 after its frozen-capture grade, Level 2/3 zero-claim boundaries, additive schema setup, one-game receipt/retry, three-game inventory, healthy multi-game insert/retry, receipt-effect correction, and natural partial-failure isolation/retry all passed. The final partial-failure proof preserved DAL–SEA while CAR–ARI failed at the missing-capture grade boundary and skipped Levels 2–3; its first run inserted seven receipts and its exact retry matched all seven unchanged. The full Packet 4 local split passes 86 tests. Generated JSON is excluded from Git, Docker, and local Cloud Build contexts and may now be deleted locally. Production behavior remains unchanged; Packet 5 planning is next.
 
 **Updated:** 2026-08-18  
 **Working branch:** `dev`  
@@ -30,9 +30,9 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 
 | File | Role | Current state | Do not infer |
 |---|---|---|---|
-| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–3 complete; Packet 4 plan active | A future packet is implemented merely because it is described |
+| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–4 complete; Packet 5 plan next | A future packet is implemented merely because it is described |
 | [Calibrated Matchup Lean](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) | Completed separate release receipt | Live in production and forward-merged to dev | Packet 4 or Admin should recreate the rule |
-| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Active bounded implementation plan | One-game grade, Levels 2–3, and coordinator receipt/retry proofs passed | Approval to wire postgame learning into production |
+| [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Completed implementation evidence | Implementation GO; all Slice 6 proofs passed | Approval to wire postgame learning into production |
 | [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Completed implementation evidence | Implementation GO; real populated dev validation carried forward | Approval to write production data or proof that genuine claim rows have been observed in cloud |
 | [Packet 2](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) | Completed handoff evidence | GO, with exact parity and per-game observability proven in dev | The August 6 game has a recoverable pregame snapshot |
 | [Packet 1](./GameLens_Packet_1_Pregame_Capture_Contract.md) | Locked behavioral contract | Complete | Its older point-in-time status overrides later Packet 2 evidence |
@@ -67,6 +67,8 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - Packet 4's three-game read-only inventory proved the real admission split: DET–CIN and DAL–SEA have canonical captures; CAR–ARI has final scores and Facts but no capture, so its older production outcome cannot admit it to Packet 4.
 - Packet 4 QA commands emit JSON only to standard output. Git, Docker, and local Cloud Build contexts exclude generated JSON; temporary `packet4_*.json` files are deleted locally after final documentation closure.
 - The healthy two-game first run inserted DET–CIN's missing grade and seven receipts while preserving DAL–SEA. Its retry changed zero learning rows but exposed an expected-effect receipt conflict; `8de1cf2` narrows immutable comparison so first-write versus unchanged-retry effects do not conflict while stable evidence still does.
+- The corrected healthy retry matched seven unchanged receipts. The natural partial-failure first/retry preserved DAL–SEA, rejected missing-capture CAR–ARI, skipped its downstream stages, and reconciled `7 inserted → 7 unchanged` with zero learning writes.
+- Packet 4 has **Implementation GO** with 86 local tests passing. Genuine claim-bearing development validation remains a pre-production gate because no real preseason capture contained claims.
 
 ---
 
@@ -108,6 +110,8 @@ Packet 3 implements **Level 1 claim extraction** from already captured pregame s
 - Packet 4 capture-scoped Level 3 development update/retry boundary: `5cd25d7`.
 - Packet 4 Level 3 dev-only additive schema setup: `11378ba`.
 - Packet 4 bounded coordinator and durable stage receipts: `9b21f88`.
+- Packet 4 JSON build-context hygiene: `a985670`.
+- Packet 4 first-write versus retry receipt reconciliation fix: `8de1cf2`.
 
 The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain in the completed Packet 2 document. They are intentionally not duplicated in every file.
 
@@ -115,12 +119,12 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Continue [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) from `dev`. The one-game coordinator, three-game inventory, and healthy multi-game first run are closed. Pull commit `8de1cf2`, then repeat only the exact DET–CIN plus DAL–SEA attempt ID. Require two completed games, zero failures, zero learning writes, seven unchanged receipts, zero inserts/conflicts, and no receipt write.
-
-After that proof is reviewed, run DAL–SEA plus the documented CAR–ARI capture
-gap for the natural partial-failure write/retry. Do not add a duplicate
-calculation path or manufacture a capture, claim, outcome, or failure. Delete
-temporary local `packet4_*.json` files only after Packet 4 closure is recorded.
+Packet 4 is closed with Implementation GO. Delete the temporary local
+`packet4_*.json` evidence after previewing the exact file list, then begin a
+fresh Packet 5 chat by creating and reviewing
+`GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Packet 5
+must reconcile existing canonical tables and ledgers without creating a
+duplicate Admin warehouse unless inspection proves one is necessary.
 
 Do not modify `app.py`, create production learning tables, or merge the learning flow to `main` as part of Packet 4.
 
@@ -128,7 +132,7 @@ Do not modify `app.py`, create production learning tables, or merge the learning
 
 ## Fresh-chat handoff prompt
 
-> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff in that order. Packets 1–3 are complete; Packet 3 has Implementation GO with its first genuine populated-capture write/retry carried as a pre-production operational validation because all seven available preseason captures contained zero claims. Review Packet 4 before code. Preserve DRY worker reuse, per-game/per-stage failure traceability, development-only writes, the production 8:00 a.m. load, `/game`, and the frontend. Do not manufacture claims to close the deferred Packet 3 proof. Calibrated Matchup Lean is already released and forward-merged; use its shared helper and do not reimplement it inside Packet 4 or Admin.
+> Work from branch `dev`. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff in that order. Packets 1–4 have Implementation GO. Packet 3's first genuine claim-bearing validation remains a pre-production operational gate because all seven available preseason captures contained zero claims. Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Inspect the existing Admin service and canonical snapshot, claim, grade, feature, and receipt tables first; do not create a duplicate summary warehouse unless a concrete gap is proven. Preserve DRY worker reuse, per-game/per-stage traceability, development-only writes, the production 8:00 a.m. load, `/game`, and the frontend. Do not manufacture claims, reconstruct missed captures, wire production learning, or reimplement the released Calibrated Matchup Lean rule.
 
 ---
 

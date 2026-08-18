@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–3 complete; Packet 3 has Implementation GO with one deferred real-data validation; Calibrated Matchup Lean is released, forward-merged, and closed; Packet 4 Slice 5 passed and Slice 6 cloud proof is in progress  
+**Document status:** Packets 1–4 complete with Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 5 planning is next  
 **Created:** 2026-08-06  
 **Updated:** 2026-08-18  
 **Owner:** GameLens product stewardship  
@@ -10,7 +10,7 @@
 **Second-pass baseline reviewed:** `main` at `d9640adc498178e0f626cd0160ab8fce55276587`  
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
-**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) completed its contract inspection, inventory, ledger setup, DAL–SEA game-grade insert/retry, and Level 2 plus Level 3 boundary proofs. The Level 3 setup added exactly 15 reviewed nullable fields to the existing claim table (`117 → 132`); both corrected attempts preserved 130 total/94 eligible Facts rows, returned `no_op / zero_claims`, and performed no learning writes. Commit `9b21f88` adds the bounded grade → Level 2 → Level 3 coordinator and durable attempt/game/stage receipts. The one-game coordinator proof passed: four receipts were inserted on the first run, the exact retry matched four unchanged with zero inserts, and both runs wrote zero learning rows. Slice 6's three-game inventory also passed: DET–CIN and DAL–SEA are captured, final, and Facts-ready; CAR–ARI has final scores and Facts but no canonical capture and remains inadmissible. The healthy two-game first run inserted only DET–CIN's missing grade and seven receipts; its learning retry changed zero rows but exposed an audit comparison bug for first-write versus unchanged-retry effects. Commit `8de1cf2` fixes that narrow receipt boundary while keeping stable evidence conflict-protected; the same-attempt cloud retry is next. Generated JSON is excluded from Git, Docker images, and local Cloud Build contexts. Slice 6 then moves to natural partial-failure cloud proof; production behavior is unchanged.  
+**Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) received Implementation GO on 2026-08-18. Frozen-capture grading, Level 2/3 zero-claim boundaries, the 15-field additive Level 3 schema setup (`117 → 132`), one-game receipts, three-game inventory, healthy multi-game first/retry, receipt-effect correction `8de1cf2`, and natural partial-failure first/retry all passed. The final proof preserved DAL–SEA while missing-capture CAR–ARI failed at `game_grade` and skipped Levels 2–3; receipts reconciled `7 inserted → 7 unchanged`, and both attempts wrote zero learning rows. The complete local Packet 4 split passes 86 tests. Generated JSON is excluded from Git, Docker images, and local Cloud Build contexts. The first genuine claim-bearing development validation remains a documented pre-production gate; production behavior is unchanged.  
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -471,7 +471,7 @@ Each companion document must answer:
 | Packet 1 | [GameLens Packet 1 — The Pregame Snapshot Rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md) |
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
 | Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
-| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — active; game-grade write/retry proved in dev and bounded read-only Level 2 adapter implemented |
+| Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — Implementation GO; all development-cloud and partial-failure proofs passed |
 | Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — create and review before Packet 5 code |
 | Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
 | Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
@@ -611,13 +611,11 @@ or cloud plumbing failed.
 
 ### Packet 4 — Postgame outcome plus Levels 2–3
 
-**Status:** In progress. Contract inspection, game-grade insert/retry, and the
-Level 2 read-only plus development-boundary proofs are complete. The ledger
-contains one canonical DAL–SEA grade; the grade retry and both Level 2 attempts
-performed no writes. The bounded Level 3 preview, additive schema setup, and
-both zero-claim boundary attempts passed. The bounded coordinator, durable
-stage receipt table, and one-game write/retry proof passed. Slice 6 now requires
-the bounded multi-game and natural partial-failure cloud proofs.
+**Status:** Complete — **Implementation GO on 2026-08-18**. Contract inspection,
+frozen-capture game grading, Level 2/3 boundaries, additive schema setup,
+durable coordinator receipts, healthy multi-game idempotency, and natural
+partial-failure isolation/retry all passed in development. Eighty-six tests
+pass. Production wiring remains explicitly out of scope.
 See [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
 
 **Why this is important:** grades the frozen prediction and turns completed games into claim-learning evidence without rebuilding what GameLens said before kickoff.
@@ -856,14 +854,13 @@ Do not begin by wiring all Levels into `app.py`.
 
 Packets 1–3 are complete. Review
 [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md).
-The Packet 4 one-game coordinator, three-game inventory, and healthy two-game
-first run passed. Pull `8de1cf2` and repeat the exact DET–CIN plus DAL–SEA
-attempt ID; require zero learning writes and seven unchanged receipts. After
-that closes, run the DAL–SEA plus CAR–ARI natural partial-failure write/retry.
-The healthy sibling must survive; the missing capture must fail at the grade
-boundary and skip Levels 2–3; terminal output and all seven receipts must
-reconcile. Delete temporary local Packet 4 JSON only after its exact evidence
-is recorded.
+Packet 4 has Implementation GO. Preview and delete temporary local
+`packet4_*.json` files, then create and review
+`GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Packet 5
+must reconcile captured games, Level 1, grades, Level 2 labels, Level 3
+features, and operational receipts through existing canonical tables. Do not
+create a duplicate Admin summary warehouse or refresh job unless inspection
+proves a missing operational need.
 
 The Packet 3 genuine populated-capture proof stays on the pre-production gate
 list. If genuine claim data appears during Packet 4, run that existing proof
@@ -886,7 +883,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, Packet 4 plan, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff. Packets 1–3 are complete. Packet 3 received Implementation GO after seven real zero-claim captures, a zero-claim write/retry, controlled populated-path tests, and DAL–SEA post-ETL immutability proof. Its first genuine populated-capture write/retry and claim-bearing bounded slate remain pre-production validations because preseason supplied no real claims. Review Packet 4 before code, preserve existing worker calculations, and require per-game/per-stage failure traces that identify the game, stage, lineage, counts, reason, retryability, and log reference. Keep all writes in development. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game`, change the frontend, or reimplement the already released Calibrated Matchup Lean rule inside Packet 4 or Admin.
+> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, and architecture handoff. Packets 1–4 have Implementation GO. Packet 3's first genuine claim-bearing write/retry remains a pre-production validation because preseason supplied no real claims. Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Inspect the existing Admin service and canonical snapshot, claim, grade, feature, and receipt tables; reconcile their grains before proposing storage. Preserve per-game/per-stage traceability and development-only work. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game` or the frontend, add a duplicate Admin warehouse without a proven gap, or reimplement the released Calibrated Matchup Lean rule.
 
 ---
 
@@ -897,7 +894,6 @@ Use this handoff in a fresh chat:
 - `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md`
 - `documentation/live/GameLens_Packet_3_Production_Level_1.md`
 - `documentation/live/GameLens_Packet_4_Postgame_Learning.md`
-- `documentation/live/GameLens_Packet_3_Production_Level_1.md`
 - `documentation/live/README.md`
 - `documentation/live/go_plan.md`
 - `documentation/August/GameLens_Backend_August_Readiness_Plan.md` as historical planning evidence only
