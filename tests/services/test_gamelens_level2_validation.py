@@ -61,6 +61,7 @@ class BoundedLevel2ValidationTests(unittest.TestCase):
             "claim_rows": [],
             "actual_fact_rows": [{"game_id": "game-1", "metric": "x"}],
             "facts_accepted": True,
+            "accepted_fact_row_count": 1,
             "calculation_module": _Calculation,
         }
         kwargs.update(overrides)
@@ -68,7 +69,8 @@ class BoundedLevel2ValidationTests(unittest.TestCase):
 
     def test_waits_for_accepted_facts_before_validation(self):
         result = self.run_worker(
-            claim_rows=[_claim()], actual_fact_rows=[], facts_accepted=False
+            claim_rows=[_claim()], actual_fact_rows=[], facts_accepted=False,
+            accepted_fact_row_count=0,
         )
         self.assertEqual(result["status"], "deferred")
         self.assertEqual(result["reason"], "waiting_accepted_facts")
@@ -115,6 +117,15 @@ class BoundedLevel2ValidationTests(unittest.TestCase):
             self.run_worker(
                 actual_fact_rows=[{"game_id": "game-2", "metric": "x"}]
             )
+
+    def test_reports_total_and_level2_eligible_fact_counts_separately(self):
+        result = self.run_worker(accepted_fact_row_count=3)
+        self.assertEqual(result["source_counts"]["accepted_fact_rows_total"], 3)
+        self.assertEqual(result["source_counts"]["eligible_actual_fact_rows"], 1)
+
+    def test_refuses_inconsistent_fact_acceptance_count(self):
+        with self.assertRaisesRegex(ValueError, "facts_accepted disagrees"):
+            self.run_worker(facts_accepted=False, accepted_fact_row_count=1)
 
 
 if __name__ == "__main__":

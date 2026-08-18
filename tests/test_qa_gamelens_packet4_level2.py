@@ -96,6 +96,14 @@ class Packet4Level2PreviewTests(unittest.TestCase):
         self.assertEqual(result["reason"], "zero_claims")
         self.assertEqual(result["learning_run_id"], "cohort")
         self.assertEqual(result["capture_id"], "capture")
+        self.assertEqual(
+            result["source_counts"],
+            {
+                "claims": 0,
+                "accepted_fact_rows_total": 1,
+                "eligible_actual_fact_rows": 0,
+            },
+        )
         self.assertFalse(result["write_performed"])
 
     def test_cli_requires_explicit_read_only_confirmation(self):

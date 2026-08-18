@@ -68,6 +68,7 @@ def run_bounded_level2_validation(
     claim_rows: Sequence[Mapping[str, Any]],
     actual_fact_rows: Sequence[Mapping[str, Any]],
     facts_accepted: bool,
+    accepted_fact_row_count: int | None = None,
     abs_tol: float = 0.0001,
     pct_tol: float = 0.02,
     reasoning_valid_threshold: float = 0.60,
@@ -84,6 +85,17 @@ def run_bounded_level2_validation(
     game = _required_identity(game_id, "game_id")
     claims = [dict(row) for row in claim_rows]
     actuals = [dict(row) for row in actual_fact_rows]
+    accepted_count = (
+        len(actuals)
+        if accepted_fact_row_count is None
+        else int(accepted_fact_row_count)
+    )
+    if accepted_count < len(actuals):
+        raise ValueError(
+            "accepted fact row count cannot be smaller than eligible facts"
+        )
+    if facts_accepted != (accepted_count > 0):
+        raise ValueError("facts_accepted disagrees with accepted fact row count")
 
     _assert_bounded_rows(
         claims,
@@ -99,7 +111,8 @@ def run_bounded_level2_validation(
         "game_id": game,
         "source_counts": {
             "claims": len(claims),
-            "accepted_fact_rows": len(actuals) if facts_accepted else 0,
+            "accepted_fact_rows_total": accepted_count,
+            "eligible_actual_fact_rows": len(actuals),
         },
         "write_performed": False,
     }

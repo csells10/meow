@@ -72,8 +72,6 @@ def load_accepted_fact_rows(
             comparison_direction
         FROM `{project_id}.Analytics.game_team_metric_facts_{int(season)}`
         WHERE game_id = @game_id
-          AND value IS NOT NULL
-          AND comparison_direction IN ('higher', 'lower')
         ORDER BY team_type, metric
     """
     return _query_rows(
@@ -121,13 +119,20 @@ def build_packet4_level2_preview(
         season=season,
         game_id=game_id,
     )
+    eligible_facts = [
+        row
+        for row in facts
+        if row.get("value") is not None
+        and row.get("comparison_direction") in {"higher", "lower"}
+    ]
     result = run_bounded_level2_validation(
         learning_run_id=learning_run_id,
         capture_id=capture_id,
         game_id=game_id,
         claim_rows=claims,
-        actual_fact_rows=facts,
+        actual_fact_rows=eligible_facts,
         facts_accepted=bool(facts),
+        accepted_fact_row_count=len(facts),
         calculation_module=calculation_module,
     )
     return {
