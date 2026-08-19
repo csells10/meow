@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 import qa_gamelens_packet5_admin_service as preview
 from services.gamelens_admin_run_visibility_service import (
+    DevelopmentRunVisibilityUnavailable,
+    GameVisibilityNotFound,
     build_admin_run_visibility_response,
     get_admin_run_visibility,
 )
@@ -208,7 +210,9 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
             calls.append(kwargs)
             return _report()
 
-        with self.assertRaisesRegex(ValueError, "dev-only"):
+        with self.assertRaisesRegex(
+            DevelopmentRunVisibilityUnavailable, "dev-only"
+        ):
             get_admin_run_visibility(
                 client=object(),
                 bigquery=object(),
@@ -263,13 +267,17 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
 
     def test_response_rejects_unbounded_or_unknown_selection(self):
         cases = (
-            ({"game_limit": 0}, "game_limit"),
-            ({"game_id": "DAL-SEA"}, "canonical"),
-            ({"game_id": "20260815_BUF@CAR"}, "not in the requested slate"),
+            ({"game_limit": 0}, ValueError, "game_limit"),
+            ({"game_id": "DAL-SEA"}, ValueError, "canonical"),
+            (
+                {"game_id": "20260815_BUF@CAR"},
+                GameVisibilityNotFound,
+                "not in the requested slate",
+            ),
         )
-        for kwargs, message in cases:
+        for kwargs, error_type, message in cases:
             with self.subTest(kwargs=kwargs):
-                with self.assertRaisesRegex(ValueError, message):
+                with self.assertRaisesRegex(error_type, message):
                     build_admin_run_visibility_response(_report(), **kwargs)
 
     def test_service_rejects_a_date_range_over_31_days(self):
