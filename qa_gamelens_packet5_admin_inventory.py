@@ -133,10 +133,27 @@ def _iso(value: Any) -> str | None:
 def build_grain_query(spec: TableSpec) -> str:
     """Return a read-only logical-key reconciliation query for one table."""
     struct = ", ".join(f"`{field}` AS `{field}`" for field in spec.logical_key)
-    missing = " OR ".join(
+    required_missing = lambda field: (
         f"`{field}` IS NULL OR TRIM(CAST(`{field}` AS STRING)) = ''"
-        for field in spec.logical_key
     )
+    if spec.table_name == "postgame_learning_stage_receipts":
+        attempt_missing = " OR ".join(
+            required_missing(field) for field in ("attempt_id", "receipt_scope")
+        )
+        game_stage_missing = " OR ".join(
+            required_missing(field) for field in spec.logical_key
+        )
+        missing = (
+            "(receipt_scope = 'attempt' AND ("
+            f"{attempt_missing} OR game_id IS NOT NULL OR stage_name IS NOT NULL)) "
+            "OR (receipt_scope = 'game_stage' AND ("
+            f"{game_stage_missing})) "
+            "OR receipt_scope NOT IN ('attempt', 'game_stage')"
+        )
+    else:
+        missing = " OR ".join(
+            required_missing(field) for field in spec.logical_key
+        )
     query = f"""
         SELECT
             COUNT(*) AS row_count,
@@ -476,46 +493,53 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
             source="League.schedule",
         )
     ]
-    if capture_id and raw.get("metric_source_date"):
-        facts_status, facts_reason = "complete", "frozen_prior_evidence_source_recorded"
+    pipeline_run_id = _text(raw.get("metric_pipeline_run_id"))
+    if capture_id and (raw.get("metric_source_date") or pipeline_run_id):
+        facts_status, facts_reason = "complete", "frozen_prior_evidence_lineage_recorded"
     elif capture_id:
         facts_status, facts_reason = "warning", "snapshot_missing_metric_source_date"
     else:
-        facts_status, facts_reason = "warning", "not_observable_without_snapshot"
+        facts_status, facts_reason = "not_applicable", "no_frozen_snapshot_evidence"
     pregame.append(
         _stage(
             "prior_facts",
             facts_status,
             facts_reason,
             source="pregame_snapshots.metric_source_date",
-            details={"as_of": _iso(raw.get("metric_source_date"))},
+            details={
+                "as_of": _iso(raw.get("metric_source_date")),
+                "metric_pipeline_run_id": pipeline_run_id,
+            },
         )
     )
-    if capture_id and raw.get("metric_source_date"):
+    if capture_id and (raw.get("metric_source_date") or pipeline_run_id):
         window_status, window_reason = "complete", "pregame_context_frozen"
     elif capture_id:
         window_status, window_reason = "warning", "window_source_date_not_recorded"
     else:
-        window_status, window_reason = "warning", "not_observable_without_snapshot"
+        window_status, window_reason = "not_applicable", "no_frozen_snapshot_evidence"
     pregame.append(
         _stage(
             "windowed",
             window_status,
             window_reason,
             source="pregame_snapshots.metric_source_date",
-            details={"as_of": _iso(raw.get("metric_source_date"))},
+            details={
+                "as_of": _iso(raw.get("metric_source_date")),
+                "metric_pipeline_run_id": pipeline_run_id,
+            },
         )
     )
     ranking_available = raw.get("ranking_context_available")
     if capture_id and ranking_available is True:
         ranking_status, ranking_reason = "complete", "ranking_context_frozen"
     elif capture_id and ranking_available is False:
-        ranking_status = "warning"
+        ranking_status = "no_work_needed"
         ranking_reason = _text(raw.get("ranking_context_reason")) or "ranking_context_unavailable"
     elif capture_id:
         ranking_status, ranking_reason = "warning", "ranking_context_availability_unknown"
     else:
-        ranking_status, ranking_reason = "warning", "not_observable_without_snapshot"
+        ranking_status, ranking_reason = "not_applicable", "no_frozen_snapshot_evidence"
     pregame.append(
         _stage(
             "rankings",
@@ -528,9 +552,14 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
     if capture_id:
         snapshot_status, snapshot_reason = "complete", "canonical_capture_present"
     else:
-        receipt_status = _receipt_status(raw.get("snapshot_receipt_status"))
-        if receipt_status == "failed" or kickoff_passed:
+        raw_snapshot_status = _text(raw.get("snapshot_receipt_status"))
+        receipt_status = _receipt_status(raw_snapshot_status)
+        if receipt_status == "failed":
             snapshot_status, snapshot_reason = "failed", (
+                _text(raw.get("snapshot_receipt_reason")) or "snapshot_capture_failed"
+            )
+        elif raw_snapshot_status == "skipped" or kickoff_passed:
+            snapshot_status, snapshot_reason = "warning", (
                 _text(raw.get("snapshot_receipt_reason")) or "capture_missing_after_kickoff"
             )
         else:
@@ -550,15 +579,21 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
             },
         )
     )
-    level1_status = _receipt_status(raw.get("level1_receipt_status"))
-    if not raw.get("level1_receipt_status") and not capture_id:
+    raw_level1_status = _text(raw.get("level1_receipt_status"))
+    level1_status = _receipt_status(raw_level1_status)
+    if not raw_level1_status and not capture_id:
         level1_status = "not_applicable"
+    elif not raw_level1_status and capture_id and kickoff_passed:
+        level1_status = "warning"
     level1_count = int(raw.get("claim_count") or 0)
     level1_reason = _text(raw.get("level1_receipt_reason"))
     if level1_status == "complete" and level1_count == 0:
         level1_reason = level1_reason or "processed_with_zero_claims"
     elif not level1_reason:
-        level1_reason = "awaiting_level1" if capture_id else "capture_required"
+        if level1_status == "warning":
+            level1_reason = "level1_receipt_missing_after_kickoff"
+        else:
+            level1_reason = "awaiting_level1" if capture_id else "capture_required"
     pregame.append(
         _stage(
             "level1",
@@ -593,12 +628,16 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         ),
     ]
     grade_count = int(raw.get("grade_count") or 0)
-    grade_status = "complete" if grade_count == 1 else _receipt_status(raw.get("grade_status"))
-    grade_reason = (
-        "canonical_frozen_grade_present"
-        if grade_count == 1
-        else _text(raw.get("grade_reason")) or "awaiting_game_grade"
-    )
+    if grade_count == 1:
+        grade_status, grade_reason = "complete", "canonical_frozen_grade_present"
+    elif _receipt_status(raw.get("grade_status")) == "failed":
+        grade_status = "failed"
+        grade_reason = _text(raw.get("grade_reason")) or "game_grade_failed"
+    elif not capture_id:
+        grade_status, grade_reason = "not_applicable", "canonical_capture_required"
+    else:
+        grade_status = _receipt_status(raw.get("grade_status"))
+        grade_reason = _text(raw.get("grade_reason")) or "awaiting_game_grade"
     postgame.append(
         _stage(
             "game_grade",
@@ -619,13 +658,17 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
     ):
         count = int(raw.get(count_field) or 0)
         claim_count = int(raw.get("claim_count") or 0)
-        if claim_count == 0 and level1_status == "complete":
-            status, reason = "no_work_needed", "zero_level1_claims"
-        elif not capture_id:
+        raw_receipt_status = _text(raw.get(receipt_field))
+        raw_reason = _text(raw.get(reason_field))
+        if not capture_id:
             status, reason = "not_applicable", "canonical_capture_required"
+        elif raw_receipt_status == "no_op" and raw_reason == "zero_claims":
+            status, reason = "no_work_needed", "zero_level1_claims"
+        elif claim_count == 0 and level1_status == "complete":
+            status, reason = "no_work_needed", "zero_level1_claims"
         else:
-            status = _receipt_status(raw.get(receipt_field))
-            reason = _text(raw.get(reason_field)) or f"awaiting_{stage_name}"
+            status = _receipt_status(raw_receipt_status)
+            reason = raw_reason or f"awaiting_{stage_name}"
         postgame.append(
             _stage(
                 stage_name,
@@ -781,12 +824,14 @@ def _stage_map(game: Mapping[str, Any], clock: str) -> dict[str, str]:
     }
 
 
-def _render_rows(headers: Sequence[str], rows: Iterable[Sequence[Any]]) -> str:
+def _render_rows(
+    headers: Sequence[str], rows: Iterable[Sequence[Any]], *, max_width: int = 38
+) -> str:
     values = [[str(value if value is not None else "") for value in row] for row in rows]
     widths = [len(header) for header in headers]
     for row in values:
         for index, value in enumerate(row):
-            widths[index] = min(38, max(widths[index], len(value)))
+            widths[index] = min(max_width, max(widths[index], len(value)))
     def line(row: Sequence[str]) -> str:
         return " | ".join(value[: widths[i]].ljust(widths[i]) for i, value in enumerate(row))
     divider = "-+-".join("-" * width for width in widths)
@@ -810,8 +855,27 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
             f"{game_summary['game_with_issue_count']} with warning/failure"
         ),
         "",
-        "PREGAME CLOCK",
+        "SOURCE GRAINS",
     ]
+    source_headers = (
+        "Table", "Rows", "Logical keys", "Duplicates", "Invalid keys", "Status",
+    )
+    source_rows = [
+        (
+            str(table["table"]).rsplit(".", 1)[-1],
+            table.get("row_count", table.get("metadata_row_count", "")),
+            table.get("logical_key_count", ""),
+            table.get("duplicate_key_count", ""),
+            table.get("missing_key_row_count", ""),
+            table.get("status", ""),
+        )
+        for table in report.get("tables", [])
+    ]
+    lines.extend([
+        _render_rows(source_headers, source_rows),
+        "",
+        "PREGAME CLOCK",
+    ])
     pre_headers = (
         "Game", "Matchup", "Schedule", "Prior facts", "Windowed",
         "Rankings", "Snapshot", "L1", "First issue",
@@ -844,6 +908,32 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
             )
         )
     lines.append(_render_rows(post_headers, post_rows))
+    review_rows = []
+    for game in report["games"]:
+        for clock in ("pregame", "postgame"):
+            for stage in game.get(clock, []):
+                if stage["status"] in {"warning", "failed"}:
+                    review_rows.append(
+                        (
+                            game["game_id"],
+                            clock,
+                            stage["stage"],
+                            _STATUS_TOKEN[stage["status"]],
+                            stage["reason"],
+                        )
+                    )
+    if review_rows:
+        lines.extend(
+            [
+                "",
+                "REVIEW ITEMS",
+                _render_rows(
+                    ("Game", "Clock", "Stage", "Status", "Reason"),
+                    review_rows,
+                    max_width=72,
+                ),
+            ]
+        )
     return "\n".join(lines)
 
 
