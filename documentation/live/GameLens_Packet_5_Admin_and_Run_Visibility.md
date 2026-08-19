@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Game Journey product design reviewed and approved; implementation has not started  
+**Status:** Game Journey product design approved; Slice 1 authorized and starting  
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -285,11 +285,23 @@ For the development source:
   grade counts.
 - existing historical response fields remain backward compatible.
 
-### E. Add a separate protected Game Journey read contract
+### E. Add the protected API doorway for Game Journey
 
 The existing claim-health endpoint deliberately contains no game-level rows.
+This new protected endpoint is the doorway the future Admin screen will call.
+It promises one stable response shape — scheduled games, clocks, stage statuses,
+and detail — while the service initially assembles that response from clear
+joins across Schedule and the six canonical tables.
+
+The API promise and the storage choice are deliberately separate. If Week 1
+measurements later prove that direct joins are too slow, expensive, or hard to
+operate, the same API may read from an approved materialized Game Journey read
+model without changing the frontend. Packet 5 must first prove the exact grain,
+freshness rules, and partial-failure behavior. It must not create that seventh
+derived table from convenience or assumption.
+
 Operational diagnosis requires one scheduled-game row plus bounded stage
-detail. That is a proven API-grain gap, not a reason to build another table.
+detail. That is a proven API-grain gap, not yet a proven storage gap.
 
 The proposed bounded protected route remains:
 
@@ -436,6 +448,30 @@ evidence only.
 ---
 
 ## 8. Implementation slices after review
+
+### Visual review checkpoints
+
+Packet 5 is intentionally delivered in small, behavior-sized commits rather
+than one atomic implementation. Christian reviews the data shape between
+checkpoints:
+
+| Checkpoint | Deliverable Christian can inspect | Work allowed afterward |
+|---|---|---|
+| 0 — Plan | This approved two-clock Game Journey and API-doorway explanation | Slice 1 only |
+| 1 — Source inventory | Six-table grain/count/identity report with warnings | Assemble the read-only journey sample |
+| 2 — Game Journey sample | Human-readable table plus JSON for every scheduled sample game | Refine joins and status meanings |
+| 3 — Focused tests | Invariant results and deliberately missing/failed examples | Consider service integration |
+| 4 — Protected API | Authenticated local response with bounded filters | Consider frontend work separately |
+| 5 — Week 1 proof | Real claim-bearing slate, timing, cost, and freshness evidence | Decide whether live joins remain sufficient or a stored read model is justified |
+
+At each checkpoint, pause for visual inspection of row counts, representative
+games, warnings, and stage meanings. No checkpoint requires every row to be
+green. A later checkpoint may adjust the presentation without rewriting
+canonical Packet 1–4 evidence.
+
+Commit boundaries should normally match one behavior: documentation, inventory
+queries, journey assembly, focused tests, API service, and route registration.
+Avoid unrelated cleanup.
 
 ### Slice 1 — read-only source, grain, and Game Journey inventory
 
