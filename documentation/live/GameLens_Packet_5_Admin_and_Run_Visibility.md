@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Checkpoint 1 accepted; hierarchical read-service slice authorized
+**Status:** Checkpoint 2 accepted; protected route slice authorized
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -8,8 +8,8 @@
 **Development schema authority:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
 **Production behavior changed:** No  
 **Production learning data written:** No  
-**Packet 5 code authorized by this document:** Accepted read-only inventory plus
-hierarchical backend service contract; no route registration or frontend yet
+**Packet 5 code authorized by this document:** Accepted read-only inventory and
+hierarchical backend service plus protected route registration; no frontend yet
 
 ---
 
@@ -801,3 +801,62 @@ The unselected response must not return every stage's diagnostic payload. A
 selected `game_id` may return the full detail for exactly that game. This keeps
 the frontend scannable while preserving the clear joins and evidence needed
 for QA.
+
+---
+
+## 14. Checkpoint 2 accepted service shape — 2026-08-19
+
+Christian accepted the hierarchical read-service preview against the saved
+Checkpoint 1 report.
+
+The default response correctly showed:
+
+- six of six healthy canonical table grains;
+- seven scheduled games, one captured game, zero Needs Attention games, and
+  seven Known Gap games;
+- one compact game row per scheduled game;
+- separate Daily Data Load, GameLens Pregame, and Postgame Learning rollups;
+- quiet Known Gaps rather than false active alarms; and
+- bounded recent attempt history that does not alter per-game grain.
+
+Selecting DAL–SEA correctly opened only that game's detailed evidence:
+
+- the canonical `capture_id` and stable `learning_run_id`;
+- complete target Score/Stats, Facts, Windowed Metrics, and Rankings;
+- complete snapshot and frozen-context capture;
+- the known missing Level 1 receipt after kickoff;
+- one canonical frozen game grade;
+- completed Level 2 and Level 3 zero-claim receipts; and
+- honest Level 4 not-applicable state.
+
+The CLI table truncates long source labels for readability; the underlying
+selected-game JSON retains the complete values. The frontend should keep Recent
+Runs collapsed by default and render `no_ranking_rows_found` as a secondary
+availability note beneath a completed frozen-context capture, not as an active
+failure.
+
+### Authorized protected route checkpoint
+
+Register the existing proposed route:
+
+```text
+GET /admin/gamelens/run-visibility
+```
+
+The route must:
+
+- reuse `require_admin_auth` without creating a second auth mechanism;
+- require `season_type`, `learning_run_id`, `start_date`, and `end_date`;
+- accept optional `season`, canonical `game_id`, and bounded `limit`;
+- reuse the accepted hierarchical service without duplicating SQL or stage
+  classification;
+- return safe 400 responses for malformed filters, 404 for a selected game
+  outside the requested slate, and a generic 500 for unexpected query failure;
+- reject the development source outside a validated dev runtime;
+- preserve the compact default response and one-game drill response exactly;
+- remain GET-only and read-only; and
+- make no frontend, Scheduler, `/game`, table, production-learning, or 8:00 a.m.
+  pipeline change.
+
+After local route/auth tests pass, pause for a visual HTTP-response checkpoint
+before any frontend component is added.
