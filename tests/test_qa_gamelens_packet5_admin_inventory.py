@@ -58,6 +58,7 @@ def _captured_row(**overrides):
         "capture_id": "capture_dal_sea",
         "captured_at": "2026-08-15T14:00:00+00:00",
         "metric_source_date": "2026-08-14",
+        "metric_pipeline_run_id": "metric_pipeline_20260814",
         "ranking_as_of_date": "2026-08-14",
         "ranking_context_available": True,
         "ranking_context_reason": None,
@@ -122,6 +123,18 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertIn("`game_id` AS `game_id`", query)
         inventory.assert_read_only_sql(query)
 
+    def test_attempt_scope_receipts_allow_intentionally_null_game_and_stage(self):
+        query = inventory.build_grain_query(inventory.TABLE_SPECS[5])
+        self.assertIn("receipt_scope = 'attempt'", query)
+        self.assertIn("game_id IS NOT NULL", query)
+        self.assertIn("receipt_scope = 'game_stage'", query)
+        self.assertNotIn(
+            "COUNTIF(`attempt_id` IS NULL OR TRIM(CAST(`attempt_id` AS STRING)) = '' OR "
+            "`receipt_scope` IS NULL OR TRIM(CAST(`receipt_scope` AS STRING)) = '' OR "
+            "`game_id` IS NULL",
+            query,
+        )
+
     def test_inspect_table_reports_counts_and_missing_fields(self):
         spec = inventory.TABLE_SPECS[0]
         fields = list(spec.required_fields)
@@ -165,6 +178,51 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(_stage(game, "postgame", "level2")["status"], "no_work_needed")
         self.assertEqual(_stage(game, "postgame", "level3")["status"], "no_work_needed")
         self.assertEqual(_stage(game, "postgame", "level4")["status"], "not_applicable")
+
+    def test_pipeline_lineage_supports_pregame_context_when_date_columns_are_blank(self):
+        game = inventory.build_game_journey(
+            _captured_row(
+                metric_source_date=None,
+                ranking_as_of_date=None,
+                ranking_context_available=False,
+                ranking_context_reason="no_ranking_rows_found",
+                level1_receipt_status=None,
+                level1_receipt_reason=None,
+            ),
+            now=datetime(2026, 8, 19, tzinfo=timezone.utc),
+        )
+        self.assertEqual(_stage(game, "pregame", "prior_facts")["status"], "complete")
+        self.assertEqual(_stage(game, "pregame", "windowed")["status"], "complete")
+        self.assertEqual(
+            _stage(game, "pregame", "rankings")["status"],
+            "no_work_needed",
+        )
+        self.assertEqual(_stage(game, "pregame", "level1")["status"], "warning")
+        self.assertEqual(_stage(game, "postgame", "level2")["status"], "no_work_needed")
+        self.assertEqual(_stage(game, "postgame", "level3")["status"], "no_work_needed")
+
+    def test_kickoff_skip_is_warning_not_worker_failure(self):
+        game = inventory.build_game_journey(
+            _captured_row(
+                capture_id=None,
+                captured_at=None,
+                metric_source_date=None,
+                metric_pipeline_run_id=None,
+                ranking_as_of_date=None,
+                ranking_context_available=None,
+                snapshot_receipt_status="skipped",
+                snapshot_receipt_reason="kickoff_reached",
+                level1_receipt_status=None,
+                grade_count=0,
+                grade_status=None,
+            ),
+            now=datetime(2026, 8, 19, tzinfo=timezone.utc),
+        )
+        self.assertEqual(_stage(game, "pregame", "prior_facts")["status"], "not_applicable")
+        self.assertEqual(_stage(game, "pregame", "snapshot")["status"], "warning")
+        self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "not_applicable")
+        self.assertEqual(game["first_issue"]["stage"], "snapshot")
+        self.assertEqual(game["first_issue"]["reason"], "kickoff_reached")
 
     def test_missing_capture_and_failed_grade_are_visible_without_hiding_game(self):
         game = inventory.build_game_journey(
@@ -217,10 +275,22 @@ class Packet5AdminInventoryTests(unittest.TestCase):
                 "game_with_issue_count": 0,
             },
             "games": [game],
+            "tables": [
+                {
+                    "table": "nfl-stream-406420.GameLens_dev.pregame_snapshots",
+                    "row_count": 7,
+                    "logical_key_count": 7,
+                    "duplicate_key_count": 0,
+                    "missing_key_row_count": 0,
+                    "status": "available",
+                }
+            ],
         }
         rendered = inventory.render_visual_report(report)
+        self.assertIn("SOURCE GRAINS", rendered)
         self.assertIn("PREGAME CLOCK", rendered)
         self.assertIn("POSTGAME CLOCK", rendered)
+        self.assertIn("pregame_snapshots", rendered)
         self.assertIn("20260815_DAL@SEA", rendered)
         self.assertIn("NO WORK", rendered)
 
