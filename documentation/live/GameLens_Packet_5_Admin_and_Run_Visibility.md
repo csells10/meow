@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Plan complete and ready for owner review; Packet 5 code has not started  
+**Status:** Game Journey product design reviewed and approved; implementation has not started  
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -8,7 +8,7 @@
 **Development schema authority:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
 **Production behavior changed:** No  
 **Production learning data written:** No  
-**Packet 5 code authorized by this document:** No — review this plan first
+**Packet 5 code authorized by this document:** Slice 1 read-only inventory and sample response only
 
 ---
 
@@ -47,8 +47,10 @@ The key result is:
 > storage in Packet 5 unless a later read-only proof demonstrates a question
 > that the existing grains cannot answer.
 
-This plan is intentionally stopped before code so the response contracts,
-source binding, and first read-only slice can be reviewed.
+Christian reviewed and approved the Game Journey product direction on
+2026-08-19. This plan now authorizes only Slice 1's read-only backend inventory
+and sample response. It does not authorize a route, frontend work, a new table,
+pipeline changes, or production learning.
 
 ---
 
@@ -166,9 +168,95 @@ project, dataset, table name, or SQL fragment.
 
 ---
 
-## 4. Smallest safe Admin shape
+## 4. Approved protected Admin product shape — 2026-08-19
 
-### A. Preserve the existing claim-health endpoint
+The protected Admin product keeps two views with different grains:
+
+1. the existing aggregate **Claim Health** scorecard; and
+2. a separate **Game Journey** operations view with one row per scheduled game.
+
+The existing aggregate sections — Overview, Game Calibration, Core Areas,
+Pillars, Features, and Technical Debug — remain aggregate-only. Game Journey is
+the fast QA surface: an operator scans the slate, sees where each game is in
+the lifecycle, and opens one game for evidence and retry detail.
+
+### A. Game Journey is anchored on Schedule
+
+Schedule supplies the expected game row. All evidence is attached with explicit
+`LEFT JOIN` relationships so missing data becomes a visible state rather than
+removing the game or failing the whole response.
+
+The primary table should show:
+
+- game ID, matchup, kickoff, game status, and current clock;
+- pregame and postgame stage status chips;
+- the first warning or failure, when present; and
+- a details action.
+
+Approved status vocabulary:
+
+```text
+complete
+waiting
+no_work_needed
+not_applicable
+warning
+failed
+```
+
+A click opens the game's details: stage, canonical source and lineage,
+`capture_id`, counts, status reason, timestamps, and safe retry guidance. One
+failed game must not hide or invalidate healthy sibling games.
+
+### B. Two clocks describe the game journey
+
+| Clock | Displayed stages | Meaning |
+|---|---|---|
+| Pregame | Schedule → prior evidence/Facts readiness → Windowed Metrics → Rankings → Snapshot → Level 1 | The frozen pregame context and claim extraction available before kickoff |
+| Postgame | Final Score + Stats → target-game Facts → frozen game grade → Level 2 → Level 3 → Level 4 relationship | The completed-game evidence, evaluation, and learning progression after final |
+
+These labels are a user-facing journey, not permission to rewrite worker grains.
+
+Windowed Metrics and Rankings are context built from prior games. Their cells
+must say that the **pregame context was ready as of a specific source date or
+capture**, not imply that those workers processed the target game. Stored
+snapshot evidence and source dates own that display; current values must not be
+substituted for what the model saw pregame.
+
+Level 4 is weekly/batch work, not a per-game worker. Until its contract is
+implemented, Game Journey may display only the game's relationship to that
+batch:
+
+```text
+not_eligible
+waiting_for_completed_week
+eligible
+included_in_week_<n>
+excluded
+```
+
+An excluded state must include a reason. Packet 5 does not run Level 4 or invent
+a game-grain Level 4 record.
+
+### C. Explicit joins preserve the six grains
+
+The read path normalizes Schedule `gameID` to canonical `game_id`, then uses
+only approved identities:
+
+- snapshot, claim, and outcome lineage joins through
+  `learning_run_id + capture_id + game_id`;
+- claim detail adds `claim_key`;
+- capture receipts join through `attempt_id + stage_name + game_id`;
+- postgame receipts join through
+  `attempt_id + receipt_scope + game_id + stage_name`; and
+- Windowed Metrics and Rankings use the stored snapshot source dates/evidence
+  needed to describe the frozen pregame context.
+
+A join may classify absence as waiting, not applicable, capture missing, or
+failed. It may not fabricate a row, coalesce across cohorts/phases, reconstruct
+a capture, or turn a current upstream value into historical pregame evidence.
+
+### D. Preserve the existing claim-health endpoint
 
 Keep the existing route, authentication, historical default behavior, section
 names, and aggregate-only contract.
@@ -197,19 +285,20 @@ For the development source:
   grade counts.
 - existing historical response fields remain backward compatible.
 
-### B. Add a separate protected run-visibility read contract
+### E. Add a separate protected Game Journey read contract
 
 The existing claim-health endpoint deliberately contains no game-level rows.
-Operational diagnosis requires game/stage rows. That is a proven API-grain gap,
-not a reason to build another table.
+Operational diagnosis requires one scheduled-game row plus bounded stage
+detail. That is a proven API-grain gap, not a reason to build another table.
 
-The proposed bounded protected route is:
+The proposed bounded protected route remains:
 
 ```text
 GET /admin/gamelens/run-visibility
 ```
 
-It should accept reviewed filters such as:
+The frontend name is **Game Journey**. The route may accept reviewed filters
+such as:
 
 - `learning_run_id`;
 - `attempt_id`;
@@ -218,8 +307,8 @@ It should accept reviewed filters such as:
 - `season_type`; and
 - a bounded result limit.
 
-It reads the three existing receipt tables and may join canonical snapshot,
-claim, or outcome counts only for reconciliation. It does not recompute
+It reads Schedule plus the six existing development tables. It may reconcile
+canonical snapshot, claim, outcome, and receipt counts; it does not recompute
 football results.
 
 The response should contain:
@@ -229,7 +318,7 @@ scope
 source_profile
 filters
 cohort_summary
-attempts
+games
 game_stage_results
 reconciliation
 warnings
@@ -249,10 +338,10 @@ the public frontend.
 
 ### Why two read contracts are preferable
 
-The existing endpoint is an aggregate scorecard. Run visibility is an
-operational diagnostic. Combining unbounded per-game receipts into the
-aggregate claim-health response would violate its current grain and make the
-historical frontend contract harder to preserve.
+The existing endpoint is an aggregate scorecard. Game Journey is an operational
+diagnostic. Combining unbounded per-game receipts into the aggregate
+claim-health response would violate its current grain and make the historical
+frontend contract harder to preserve.
 
 Two protected read contracts share source adapters and identifiers without
 sharing response grains or creating duplicate storage.
@@ -348,7 +437,7 @@ evidence only.
 
 ## 8. Implementation slices after review
 
-### Slice 1 — read-only source and grain inventory
+### Slice 1 — read-only source, grain, and Game Journey inventory
 
 Before route or service changes:
 
@@ -358,10 +447,19 @@ Before route or service changes:
 - detect duplicate keys, orphan captures/claims/grades, and alias disagreement;
 - report latest attempt/receipt timestamps and statuses;
 - prove the seven current preseason captures remain an honest zero-claim
-  cohort; and
+  cohort;
+- emit one read-only Game Journey row for each scheduled preseason game;
+- classify every pregame and postgame stage with the approved status vocabulary;
+- include expandable-detail evidence in the JSON shape, including lineage,
+  counts, reasons, timestamps, and retry guidance; and
 - perform no write.
 
-Output one compact JSON report to stdout. Do not create an inventory table.
+Output one compact JSON report to stdout. Do not create an inventory table,
+route, or frontend component. Tests must protect identities and lifecycle
+invariants, not freeze today's exact row counts or require every game to be
+green. The seven-game sample is sufficient for the first pass because it
+contains success, honest zero-claim processing, a missing capture, partial
+failure, and exact retry evidence.
 
 ### Slice 2 — trusted source bindings and reconciliation queries
 
@@ -401,8 +499,12 @@ Using the current development evidence:
 - reproduce DAL–SEA success beside CAR–ARI capture-missing failure and skipped
   downstream stages;
 - prove the identical retry is distinguishable from the first write;
-- prove preseason cannot appear in a production learning source profile; and
-- record query scope, counts, duration, and result limit.
+- prove preseason cannot appear in a production learning source profile;
+- record query scope, counts, duration, and result limit; and
+- rerun the response against the first Week 1 slate and first genuine
+  claim-bearing games when available, treating that as the planned real-data
+  expansion and operational revalidation point rather than retroactively
+  manufacturing preseason evidence.
 
 ### Slice 6 — documentation closure
 
@@ -441,8 +543,15 @@ Using the current development evidence:
 
 ### Run visibility tests
 
-- success, no-op, skipped, failure, and partial failure are distinguishable;
+- every scheduled game remains visible through Schedule-anchored `LEFT JOIN`
+  relationships even when downstream evidence is absent;
+- success, no-op, skipped, waiting, not-applicable, warning, failure, and
+  partial failure are distinguishable;
 - a true zero displays as zero;
+- tests do not require exact current row counts or an all-green slate;
+- Windowed Metrics and Rankings report frozen pregame source timing rather than
+  implying target-game processing;
+- Level 4 is represented only as a weekly/batch eligibility relationship;
 - latest Packet 2 per-game status does not replace the canonical snapshot;
 - Packet 4 attempt and game-stage receipts retain their separate grains;
 - DAL–SEA remains visible when CAR–ARI fails;
@@ -519,19 +628,30 @@ alone is not a concrete gap.
 
 ---
 
-## 12. Review questions
+## 12. Owner review decision — 2026-08-19
 
-Before Slice 1 code, confirm:
+Christian approved the first-pass Admin product direction:
 
-- Is preserving the existing aggregate claim-health route while adding a
-  separate bounded run-visibility route the right product split?
-- Should `development_learning` be the reviewed name for the dev-only source
-  profile?
-- Does the lifecycle coverage list answer what Christian needs to see after a
-  run?
-- Are the receipt-table roles clear enough that none should be consolidated?
-- Is it correct that Packet 5 adds no storage unless the read-only inventory
-  proves a missing question or retention requirement?
+- preserve the existing aggregate Claim Health view;
+- add a separate protected Game Journey view with one row per scheduled game;
+- split each row into pregame and postgame clocks;
+- show clear stage statuses and open a game for source, lineage, counts, reason,
+  timestamps, and retry detail;
+- represent Level 4 honestly as a weekly/batch relationship rather than a
+  per-game stage;
+- use clear Schedule-anchored `LEFT JOIN` relationships and preserve the six
+  canonical development grains;
+- create no Admin summary warehouse or new table; and
+- use Week 1 and the first genuine claim-bearing games to expand and revalidate
+  the display without manufacturing preseason claims.
 
-After review, begin Slice 1 only. Do not start with a route, a new table, or an
-`app.py` change.
+Product details may evolve after real Week 1 data is visible. That expected
+iteration is not a reason to over-lock the first pass. Tests should enforce
+architectural and lineage invariants while allowing honest missing, waiting,
+zero, failed, and not-applicable states.
+
+### Authorized next action
+
+Begin Slice 1 only: produce the read-only six-table inventory and seven-game
+Game Journey JSON sample for review. Do not start with a route, frontend work, a
+new table, an `app.py` change, pipeline wiring, or production learning.
