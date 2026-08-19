@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Checkpoint 1 accepted; hierarchical read-service slice authorized  
+**Status:** Checkpoint 1 accepted; hierarchical read-service slice authorized
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
