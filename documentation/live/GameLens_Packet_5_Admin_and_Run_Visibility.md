@@ -208,20 +208,27 @@ A click opens the game's details: stage, canonical source and lineage,
 `capture_id`, counts, status reason, timestamps, and safe retry guidance. One
 failed game must not hide or invalidate healthy sibling games.
 
-### B. Two clocks describe the game journey
+### B. Three clocks keep data loading separate from frozen GameLens evidence
 
 | Clock | Displayed stages | Meaning |
 |---|---|---|
-| Pregame | Schedule → prior evidence/Facts readiness → Windowed Metrics → Rankings → Snapshot → Level 1 | The frozen pregame context and claim extraction available before kickoff |
-| Postgame | Final Score + Stats → target-game Facts → frozen game grade → Level 2 → Level 3 → Level 4 relationship | The completed-game evidence, evaluation, and learning progression after final |
+| Daily Data Load | Schedule → Final Score + Stats → target-game Facts → target-game Windowed Metrics → game-date Rankings | Whether the production 8:00 a.m. pipeline loaded the completed game through each canonical data stage |
+| GameLens Pregame | Snapshot → frozen context → Level 1 | What GameLens actually preserved before kickoff and whether claim extraction has a receipt |
+| Postgame Learning | Frozen game grade → Level 2 → Level 3 → Level 4 relationship | The completed-game evaluation and learning progression after final |
 
 These labels are a user-facing journey, not permission to rewrite worker grains.
 
-Windowed Metrics and Rankings are context built from prior games. Their cells
-must say that the **pregame context was ready as of a specific source date or
-capture**, not imply that those workers processed the target game. Stored
-snapshot evidence and source dates own that display; current values must not be
-substituted for what the model saw pregame.
+The Daily Data Load clock and frozen pregame context answer different questions.
+For the load clock, Facts are checked directly by target `game_id`; Windowed
+Metrics are checked by `latest_included_game_id`; and Rankings are checked for
+both scheduled teams on the game date and the phase-appropriate window. The
+rankings table has no `game_id`, so Packet 5 must not invent one.
+
+The frozen-context stage continues to read only the canonical snapshot's
+source dates, pipeline lineage, ranking availability, and evidence context. A
+successful next-morning load does not prove that GameLens captured those values
+before kickoff. Conversely, a missed snapshot does not mean the daily ETL
+failed. The Admin view must display both truths independently.
 
 Level 4 is weekly/batch work, not a per-game worker. Until its contract is
 implemented, Game Journey may display only the game's relationship to that
@@ -249,8 +256,12 @@ only approved identities:
 - capture receipts join through `attempt_id + stage_name + game_id`;
 - postgame receipts join through
   `attempt_id + receipt_scope + game_id + stage_name`; and
-- Windowed Metrics and Rankings use the stored snapshot source dates/evidence
-  needed to describe the frozen pregame context.
+- production Scores join by normalized target `game_id`;
+- target Facts join by `game_id`;
+- target Windowed Metrics join by `latest_included_game_id`;
+- target Rankings join by Schedule game date, away/home team, and reviewed
+  phase window because their canonical grain contains no `game_id`; and
+- frozen pregame context uses only stored snapshot source dates/evidence.
 
 A join may classify absence as waiting, not applicable, capture missing, or
 failed. It may not fabricate a row, coalesce across cohorts/phases, reconstruct
@@ -319,9 +330,10 @@ such as:
 - `season_type`; and
 - a bounded result limit.
 
-It reads Schedule plus the six existing development tables. It may reconcile
-canonical snapshot, claim, outcome, and receipt counts; it does not recompute
-football results.
+It reads Schedule, the approved production read-only Score/Facts/Windowed/
+Rankings sources, and the six existing development tables. It may reconcile
+canonical data-load, snapshot, claim, outcome, and receipt counts; it does not
+recompute football results.
 
 The response should contain:
 
@@ -457,7 +469,7 @@ checkpoints:
 
 | Checkpoint | Deliverable Christian can inspect | Work allowed afterward |
 |---|---|---|
-| 0 — Plan | This approved two-clock Game Journey and API-doorway explanation | Slice 1 only |
+| 0 — Plan | The approved Game Journey and API-doorway explanation | Slice 1 only |
 | 1 — Source inventory | Six-table grain/count/identity report with warnings | Assemble the read-only journey sample |
 | 2 — Game Journey sample | Human-readable table plus JSON for every scheduled sample game | Refine joins and status meanings |
 | 3 — Focused tests | Invariant results and deliberately missing/failed examples | Consider service integration |
@@ -485,7 +497,8 @@ Before route or service changes:
 - prove the seven current preseason captures remain an honest zero-claim
   cohort;
 - emit one read-only Game Journey row for each scheduled preseason game;
-- classify every pregame and postgame stage with the approved status vocabulary;
+- classify every daily-load, pregame, and postgame-learning stage with the
+  approved status vocabulary;
 - include expandable-detail evidence in the JSON shape, including lineage,
   counts, reasons, timestamps, and retry guidance; and
 - perform no write.
@@ -585,8 +598,9 @@ Using the current development evidence:
   partial failure are distinguishable;
 - a true zero displays as zero;
 - tests do not require exact current row counts or an all-green slate;
-- Windowed Metrics and Rankings report frozen pregame source timing rather than
-  implying target-game processing;
+- target Facts, Windowed Metrics, and Rankings use their canonical daily-load
+  relationships, while frozen pregame context remains snapshot-owned;
+- a completed daily load cannot turn a missed snapshot into a capture;
 - Level 4 is represented only as a weekly/batch eligibility relationship;
 - latest Packet 2 per-game status does not replace the canonical snapshot;
 - Packet 4 attempt and game-stage receipts retain their separate grains;
@@ -670,7 +684,8 @@ Christian approved the first-pass Admin product direction:
 
 - preserve the existing aggregate Claim Health view;
 - add a separate protected Game Journey view with one row per scheduled game;
-- split each row into pregame and postgame clocks;
+- split each row into Daily Data Load, GameLens Pregame, and Postgame Learning
+  clocks so target-game ETL readiness is not confused with frozen evidence;
 - show clear stage statuses and open a game for source, lineage, counts, reason,
   timestamps, and retry detail;
 - represent Level 4 honestly as a weekly/batch relationship rather than a
