@@ -26,6 +26,14 @@ _GAME_ID_PATTERN = re.compile(r"20\d{6}_[A-Z0-9]+@[A-Z0-9]+")
 ReportLoader = Callable[..., dict[str, Any]]
 
 
+class DevelopmentRunVisibilityUnavailable(PermissionError):
+    """The development-only source was requested outside a dev runtime."""
+
+
+class GameVisibilityNotFound(LookupError):
+    """The selected game is not present in the bounded requested slate."""
+
+
 def _validate_game_limit(game_limit: int) -> int:
     if isinstance(game_limit, bool) or not isinstance(game_limit, int):
         raise ValueError("game_limit must be an integer")
@@ -213,7 +221,9 @@ def build_admin_run_visibility_response(
             None,
         )
         if selected is None:
-            raise ValueError("selected game_id is not in the requested slate")
+            raise GameVisibilityNotFound(
+                "selected game_id is not in the requested slate"
+            )
 
     game_summary = dict(report.get("game_summary") or {})
     inventory_summary = dict(report.get("inventory_summary") or {})
@@ -270,7 +280,9 @@ def get_admin_run_visibility(
 ) -> dict[str, Any]:
     """Load and adapt Game Journey evidence behind a fail-closed dev guard."""
     if not runtime_config.is_dev:
-        raise ValueError("GameLens development run visibility is dev-only")
+        raise DevelopmentRunVisibilityUnavailable(
+            "GameLens development run visibility is dev-only"
+        )
     if str(season) != str(runtime_config.active_season):
         raise ValueError("season must match the configured active dev season")
     if end_date < start_date:
