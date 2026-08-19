@@ -204,6 +204,23 @@ warning
 failed
 ```
 
+The status and the operator's attention level are separate. A completed stage
+with a valid zero-row result is successful, not missing. For example, a Level
+2 or Level 3 `no_op / zero_claims` receipt displays as **OK (0)** because the
+worker ran and correctly found no Level 1 claims to process.
+
+The primary screen separates exceptions into two quiet lists:
+
+- **Needs Attention** contains only current failures and unexpected warnings
+  that an operator can investigate or retry.
+- **Known Gaps** contains truthful historical or non-repairable conditions,
+  including `kickoff_reached` for the six missed preseason captures and the
+  DAL–SEA Level 1 receipt gap after kickoff.
+
+Known gaps remain visible in the affected game's details, but they do not ring
+the same alarm as an actionable failure. Waiting and not-applicable stages do
+not appear in either exception list.
+
 A click opens the game's details: stage, canonical source and lineage,
 `capture_id`, counts, status reason, timestamps, and safe retry guidance. One
 failed game must not hide or invalidate healthy sibling games.
@@ -229,6 +246,14 @@ source dates, pipeline lineage, ranking availability, and evidence context. A
 successful next-morning load does not prove that GameLens captured those values
 before kickoff. Conversely, a missed snapshot does not mean the daily ETL
 failed. The Admin view must display both truths independently.
+
+Above the game clocks, a bounded **Run Summary** preserves attempt-level truth.
+Packet 2 capture/Level 1 attempts come from `stage_runs`; Packet 4 learning
+attempts come from the `receipt_scope = 'attempt'` rows in
+`postgame_learning_stage_receipts`. The summary shows attempt ID, stage,
+status/reason, input/output counts, duration, and finish time. It does not
+force attempt-level rows onto individual games. Per-game cells continue to use
+the canonical snapshot, game-stage receipt, claim, and grade owners.
 
 Level 4 is weekly/batch work, not a per-game worker. Until its contract is
 implemented, Game Journey may display only the game's relationship to that
@@ -499,6 +524,11 @@ Before route or service changes:
 - emit one read-only Game Journey row for each scheduled preseason game;
 - classify every daily-load, pregame, and postgame-learning stage with the
   approved status vocabulary;
+- show successful zero-row Level 2/3 receipts as `OK (0)` rather than implying
+  those workers did not run;
+- render a bounded attempt-grain Run Summary from `stage_runs` and Packet 4
+  attempt receipts without joining those attempts onto arbitrary games;
+- separate actionable Needs Attention items from non-repairable Known Gaps;
 - include expandable-detail evidence in the JSON shape, including lineage,
   counts, reasons, timestamps, and retry guidance; and
 - perform no write.
@@ -597,6 +627,9 @@ Using the current development evidence:
 - success, no-op, skipped, waiting, not-applicable, warning, failure, and
   partial failure are distinguishable;
 - a true zero displays as zero;
+- a successful `no_op / zero_claims` receipt displays as `OK (0)`;
+- known historical gaps remain visible without inflating Needs Attention;
+- the attempt-grain Run Summary is bounded and does not alter game grain;
 - tests do not require exact current row counts or an all-green slate;
 - target Facts, Windowed Metrics, and Rankings use their canonical daily-load
   relationships, while frozen pregame context remains snapshot-owned;
@@ -688,6 +721,9 @@ Christian approved the first-pass Admin product direction:
   clocks so target-game ETL readiness is not confused with frozen evidence;
 - show clear stage statuses and open a game for source, lineage, counts, reason,
   timestamps, and retry detail;
+- show completed zero-row learning stages as `OK (0)`, and separate actionable
+  Needs Attention items from visible Known Gaps so the page is not a noisy
+  gong;
 - represent Level 4 honestly as a weekly/batch relationship rather than a
   per-game stage;
 - use clear Schedule-anchored `LEFT JOIN` relationships and preserve the six
