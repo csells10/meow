@@ -258,7 +258,9 @@ class AdminRunVisibilityRouteTests(unittest.TestCase):
         options = self.client.options("/admin/gamelens/run-visibility")
 
         self.assertEqual(post.status_code, 405)
-        self.assertEqual(options.status_code, 200)\n        self.assertIn("GET", options.headers.get("Allow", ""))\n        self.assertIn("OPTIONS", options.headers.get("Allow", ""))
+        self.assertEqual(options.status_code, 200)
+        self.assertIn("GET", options.headers.get("Allow", ""))
+        self.assertIn("OPTIONS", options.headers.get("Allow", ""))
 
     def test_visual_route_checkpoint_entrypoint_is_executable(self):
         result = subprocess.run(
