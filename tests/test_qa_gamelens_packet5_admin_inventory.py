@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import qa_gamelens_packet5_admin_inventory as inventory
 
@@ -97,6 +100,16 @@ def _captured_row(**overrides):
 
 
 class Packet5AdminInventoryTests(unittest.TestCase):
+    def test_script_entrypoint_is_executable(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(inventory.__file__)), "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Read-only Packet 5 inventory", result.stdout)
+
     def test_inventory_is_bounded_to_the_six_canonical_tables(self):
         self.assertEqual(
             [spec.table_name for spec in inventory.TABLE_SPECS],
