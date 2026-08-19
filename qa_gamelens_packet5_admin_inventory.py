@@ -1198,3 +1198,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Confirm that this command may only read approved sources.",
     )
+    parser.add_argument(
+        "--visual",
+        action="store_true",
+        help="Print human-readable lifecycle tables to stderr before JSON stdout.",
+    )
+    args = parser.parse_args(argv)
+    if not args.dev_read_only:
+        raise ValueError("Pass --dev-read-only to confirm this run is read-only")
+
+    from google.cloud import bigquery
+
+    report = build_packet5_inventory(
+        client=bigquery.Client(project=PROJECT_ID),
+        bigquery=bigquery,
+        season=args.season,
+        season_type=args.season_type,
+        learning_run_id=args.learning_run_id,
+        start_date=args.start_date,
+        end_date=args.end_date,
+    )
+    if args.visual:
+        print(render_visual_report(report), file=sys.stderr)
+    print(json.dumps(report, indent=2, sort_keys=True, default=str))
+    summary = report["inventory_summary"]
+    return 0 if not summary["warning_count"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
