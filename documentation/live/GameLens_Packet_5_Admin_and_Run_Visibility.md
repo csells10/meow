@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Game Journey product design approved; Slice 1 authorized and starting  
+**Status:** Checkpoint 1 accepted; hierarchical read-service slice authorized  
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -8,7 +8,8 @@
 **Development schema authority:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
 **Production behavior changed:** No  
 **Production learning data written:** No  
-**Packet 5 code authorized by this document:** Slice 1 read-only inventory and sample response only
+**Packet 5 code authorized by this document:** Accepted read-only inventory plus
+hierarchical backend service contract; no route registration or frontend yet
 
 ---
 
@@ -739,6 +740,64 @@ zero, failed, and not-applicable states.
 
 ### Authorized next action
 
-Begin Slice 1 only: produce the read-only six-table inventory and seven-game
-Game Journey JSON sample for review. Do not start with a route, frontend work, a
-new table, an `app.py` change, pipeline wiring, or production learning.
+Turn the accepted Slice 1 assembly into a development-only, bounded backend
+read service. The default response must be compact and hierarchical; full
+source, reason, lineage, and retry evidence is returned only for a selected
+game. Do not register a route, change the frontend, create a new table, change
+`app.py`, wire the pipeline, or enable production learning in this checkpoint.
+
+---
+
+## 13. Checkpoint 1 accepted evidence — 2026-08-19
+
+Christian accepted the data shape after running the read-only command against
+the 2026-08-15 preseason slate.
+
+### Observed canonical source health
+
+| Table | Rows | Logical keys | Duplicates | Invalid keys |
+|---|---:|---:|---:|---:|
+| `pregame_snapshots` | 7 | 7 | 0 | 0 |
+| `stage_runs` | 5 | 5 | 0 | 0 |
+| `stage_game_results` | 17 | 17 | 0 | 0 |
+| `claim_training_examples` | 0 | 0 | 0 | 0 |
+| `game_model_outcomes` | 2 | 2 | 0 | 0 |
+| `postgame_learning_stage_receipts` | 18 | 18 | 0 | 0 |
+
+All six tables were available. No duplicate or invalid logical keys were
+reported, and the command performed no write.
+
+### Accepted seven-game interpretation
+
+- all seven scheduled games completed Schedule, Score/Stats, target Facts,
+  target Windowed Metrics, and game-date Rankings;
+- six games truthfully retain the known `kickoff_reached` snapshot gap;
+- DAL–SEA has its canonical snapshot and frozen context;
+- DAL–SEA has one canonical frozen grade;
+- DAL–SEA Level 2 and Level 3 both ran successfully with zero claims and display
+  `OK (0)` while preserving the raw `no_op / zero_claims` receipts;
+- DAL–SEA's missing Level 1 receipt after kickoff remains a Known Gap;
+- the slate has zero Needs Attention games and seven Known Gap games; and
+- Level 4 remains not applicable because Packet 5 does not implement its
+  weekly contract.
+
+The attempt-grain Run Summary also reconciled Packet 2 capture attempts and
+Packet 4 learning attempts without forcing those rows onto individual games.
+The historical Packet 4 partial-failure attempt remains visible as raw run
+history; it is not automatically promoted into a current-slate alarm.
+
+### Approved drill-down hierarchy for the backend contract
+
+The future QA surface should reveal information progressively:
+
+| Level | Default content | Opened content |
+|---|---|---|
+| 1 — Overview | Source health, scheduled/captured counts, Needs Attention, Known Gaps, recent attempts | Source-table counts and attempt reasons |
+| 2 — Game row | Game ID, matchup, kickoff, overall state, three clock rollups, stage chips, first issue | One selected game |
+| 3 — Clock | Daily Data Load, GameLens Pregame, or Postgame Learning rollup | All stages within that clock |
+| 4 — Stage evidence | Status and count | Reason, canonical source, lineage/details, timestamps, and retry evidence |
+
+The unselected response must not return every stage's diagnostic payload. A
+selected `game_id` may return the full detail for exactly that game. This keeps
+the frontend scannable while preserving the clear joins and evidence needed
+for QA.
