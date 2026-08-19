@@ -117,6 +117,17 @@ def _validate_season(value: str) -> str:
     return season
 
 
+def _window_type_for_phase(season_type: str) -> str:
+    phase = str(season_type or "").strip().casefold()
+    if phase == "preseason":
+        return "preseason_to_date"
+    if phase in {"regular season", "regular_season"}:
+        return "regular_season_to_date"
+    if phase in {"postseason", "post season"}:
+        return "regular_plus_postseason_to_date"
+    raise ValueError("season_type must be Preseason, Regular Season, or Postseason")
+
+
 def _text(value: Any) -> str | None:
     value = str(value or "").strip()
     return value or None
@@ -382,6 +393,35 @@ def build_game_journey_query(season: str) -> str:
                   AND seasonType = @season_type
             )
             GROUP BY game_id
+        ),
+        windowed_counts AS (
+            SELECT
+                latest_included_game_id AS game_id,
+                COUNT(*) AS windowed_row_count
+            FROM `{PROJECT_ID}.Analytics.team_metrics_windowed_{season}`
+            WHERE latest_included_game_id IN (
+                SELECT CAST(gameID AS STRING)
+                FROM `{PROJECT_ID}.League.schedule`
+                WHERE gameDate BETWEEN @start_date AND @end_date
+                  AND CAST(season AS STRING) = @season
+                  AND seasonType = @season_type
+            )
+            GROUP BY game_id
+        ),
+        ranking_counts AS (
+            SELECT
+                CAST(schedule.gameID AS STRING) AS game_id,
+                COUNT(rankings.metric) AS ranking_row_count,
+                COUNT(DISTINCT rankings.team_abv) AS ranking_team_count
+            FROM `{PROJECT_ID}.League.schedule` AS schedule
+            LEFT JOIN `{PROJECT_ID}.Analytics.team_metric_rankings_{season}` AS rankings
+                ON rankings.as_of_date = schedule.gameDate
+               AND rankings.team_abv IN (schedule.away, schedule.home)
+               AND rankings.window_type = @window_type
+            WHERE schedule.gameDate BETWEEN @start_date AND @end_date
+              AND CAST(schedule.season AS STRING) = @season
+              AND schedule.seasonType = @season_type
+            GROUP BY game_id
         )
         SELECT
             CAST(schedule.gameID AS STRING) AS game_id,
@@ -405,7 +445,10 @@ def build_game_journey_query(season: str) -> str:
             grades.graded_at,
             postgame.* EXCEPT(game_id),
             COALESCE(scores.score_row_count, 0) AS score_row_count,
-            COALESCE(facts.fact_row_count, 0) AS fact_row_count
+            COALESCE(facts.fact_row_count, 0) AS fact_row_count,
+            COALESCE(windowed.windowed_row_count, 0) AS windowed_row_count,
+            COALESCE(rankings.ranking_row_count, 0) AS ranking_row_count,
+            COALESCE(rankings.ranking_team_count, 0) AS ranking_team_count
         FROM `{PROJECT_ID}.League.schedule` AS schedule
         LEFT JOIN canonical_snapshots AS snapshots
             ON CAST(schedule.gameID AS STRING) = snapshots.game_id
@@ -425,6 +468,10 @@ def build_game_journey_query(season: str) -> str:
             ON CAST(schedule.gameID AS STRING) = scores.game_id
         LEFT JOIN fact_counts AS facts
             ON CAST(schedule.gameID AS STRING) = facts.game_id
+        LEFT JOIN windowed_counts AS windowed
+            ON CAST(schedule.gameID AS STRING) = windowed.game_id
+        LEFT JOIN ranking_counts AS rankings
+            ON CAST(schedule.gameID AS STRING) = rankings.game_id
         WHERE schedule.gameDate BETWEEN @start_date AND @end_date
           AND CAST(schedule.season AS STRING) = @season
           AND schedule.seasonType = @season_type
@@ -485,70 +532,66 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
     kickoff_passed = bool(kickoff and kickoff <= now)
     game_final = str(raw.get("game_status") or "").casefold() == "final"
 
-    pregame = [
+    score_count = int(raw.get("score_row_count") or 0)
+    fact_count = int(raw.get("fact_row_count") or 0)
+    windowed_count = int(raw.get("windowed_row_count") or 0)
+    ranking_count = int(raw.get("ranking_row_count") or 0)
+    ranking_team_count = int(raw.get("ranking_team_count") or 0)
+    data_load = [
         _stage(
             "schedule",
             "complete",
             "scheduled_game_row_present",
             source="League.schedule",
-        )
+        ),
+        _stage(
+            "final_score_stats",
+            "complete" if score_count == 2 else (
+                "warning" if score_count else "waiting"
+            ),
+            "two_final_score_rows_present" if score_count == 2 else (
+                "partial_final_score_rows" if score_count else (
+                    "final_score_etl_pending" if game_final else "game_not_final"
+                )
+            ),
+            source="Scores.scores",
+            count=score_count,
+        ),
+        _stage(
+            "target_facts",
+            "complete" if fact_count > 0 else "waiting",
+            "target_game_facts_present" if fact_count > 0 else (
+                "facts_etl_pending" if game_final else "game_not_final"
+            ),
+            source=f"Analytics.game_team_metric_facts_{raw.get('season')}",
+            count=fact_count,
+        ),
+        _stage(
+            "target_windowed",
+            "complete" if windowed_count > 0 else "waiting",
+            "target_game_window_rows_present" if windowed_count > 0 else (
+                "windowed_etl_pending" if fact_count else "target_facts_required"
+            ),
+            source=f"Analytics.team_metrics_windowed_{raw.get('season')}",
+            count=windowed_count,
+        ),
+        _stage(
+            "target_rankings",
+            "complete" if ranking_team_count == 2 and ranking_count > 0 else (
+                "warning" if ranking_count > 0 else "waiting"
+            ),
+            "both_game_teams_ranked_for_game_date" if ranking_team_count == 2 else (
+                "partial_game_team_ranking_coverage" if ranking_count > 0 else (
+                    "rankings_etl_pending" if windowed_count else "windowed_rows_required"
+                )
+            ),
+            source=f"Analytics.team_metric_rankings_{raw.get('season')}",
+            count=ranking_count,
+            details={"team_count": ranking_team_count},
+        ),
     ]
-    pipeline_run_id = _text(raw.get("metric_pipeline_run_id"))
-    if capture_id and (raw.get("metric_source_date") or pipeline_run_id):
-        facts_status, facts_reason = "complete", "frozen_prior_evidence_lineage_recorded"
-    elif capture_id:
-        facts_status, facts_reason = "warning", "snapshot_missing_metric_source_date"
-    else:
-        facts_status, facts_reason = "not_applicable", "no_frozen_snapshot_evidence"
-    pregame.append(
-        _stage(
-            "prior_facts",
-            facts_status,
-            facts_reason,
-            source="pregame_snapshots.metric_source_date",
-            details={
-                "as_of": _iso(raw.get("metric_source_date")),
-                "metric_pipeline_run_id": pipeline_run_id,
-            },
-        )
-    )
-    if capture_id and (raw.get("metric_source_date") or pipeline_run_id):
-        window_status, window_reason = "complete", "pregame_context_frozen"
-    elif capture_id:
-        window_status, window_reason = "warning", "window_source_date_not_recorded"
-    else:
-        window_status, window_reason = "not_applicable", "no_frozen_snapshot_evidence"
-    pregame.append(
-        _stage(
-            "windowed",
-            window_status,
-            window_reason,
-            source="pregame_snapshots.metric_source_date",
-            details={
-                "as_of": _iso(raw.get("metric_source_date")),
-                "metric_pipeline_run_id": pipeline_run_id,
-            },
-        )
-    )
-    ranking_available = raw.get("ranking_context_available")
-    if capture_id and ranking_available is True:
-        ranking_status, ranking_reason = "complete", "ranking_context_frozen"
-    elif capture_id and ranking_available is False:
-        ranking_status = "no_work_needed"
-        ranking_reason = _text(raw.get("ranking_context_reason")) or "ranking_context_unavailable"
-    elif capture_id:
-        ranking_status, ranking_reason = "warning", "ranking_context_availability_unknown"
-    else:
-        ranking_status, ranking_reason = "not_applicable", "no_frozen_snapshot_evidence"
-    pregame.append(
-        _stage(
-            "rankings",
-            ranking_status,
-            ranking_reason,
-            source="pregame_snapshots.ranking_context_*",
-            details={"as_of": _iso(raw.get("ranking_as_of_date"))},
-        )
-    )
+
+    pregame = []
     if capture_id:
         snapshot_status, snapshot_reason = "complete", "canonical_capture_present"
     else:
@@ -579,6 +622,35 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
             },
         )
     )
+    pipeline_run_id = _text(raw.get("metric_pipeline_run_id"))
+    ranking_available = raw.get("ranking_context_available")
+    if not capture_id:
+        context_status, context_reason = "not_applicable", "canonical_snapshot_required"
+    elif raw.get("metric_source_date") or pipeline_run_id:
+        context_status = "complete"
+        context_reason = (
+            "frozen_context_recorded"
+            if ranking_available is not False
+            else _text(raw.get("ranking_context_reason"))
+            or "frozen_context_recorded_without_rankings"
+        )
+    else:
+        context_status, context_reason = "warning", "snapshot_lineage_incomplete"
+    pregame.append(
+        _stage(
+            "frozen_context",
+            context_status,
+            context_reason,
+            source="pregame_snapshots.evidence_context + source lineage",
+            details={
+                "metric_source_date": _iso(raw.get("metric_source_date")),
+                "ranking_as_of_date": _iso(raw.get("ranking_as_of_date")),
+                "metric_pipeline_run_id": pipeline_run_id,
+                "ranking_context_available": ranking_available,
+                "ranking_context_reason": _text(raw.get("ranking_context_reason")),
+            },
+        )
+    )
     raw_level1_status = _text(raw.get("level1_receipt_status"))
     level1_status = _receipt_status(raw_level1_status)
     if not raw_level1_status and not capture_id:
@@ -605,28 +677,7 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         )
     )
 
-    score_count = int(raw.get("score_row_count") or 0)
-    fact_count = int(raw.get("fact_row_count") or 0)
-    postgame = [
-        _stage(
-            "final_score_stats",
-            "complete" if score_count == 2 else "waiting",
-            "two_final_score_rows_present" if score_count == 2 else (
-                "final_score_etl_pending" if game_final else "game_not_final"
-            ),
-            source="Scores.scores",
-            count=score_count,
-        ),
-        _stage(
-            "target_facts",
-            "complete" if fact_count > 0 else "waiting",
-            "target_game_facts_present" if fact_count > 0 else (
-                "facts_etl_pending" if game_final else "game_not_final"
-            ),
-            source=f"Analytics.game_team_metric_facts_{raw.get('season')}",
-            count=fact_count,
-        ),
-    ]
+    postgame = []
     grade_count = int(raw.get("grade_count") or 0)
     if grade_count == 1:
         grade_status, grade_reason = "complete", "canonical_frozen_grade_present"
@@ -688,7 +739,7 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         )
     )
 
-    stages = pregame + postgame
+    stages = data_load + pregame + postgame
     first_issue = next(
         (
             {"stage": stage["stage"], "status": stage["status"], "reason": stage["reason"]}
@@ -714,6 +765,7 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         "season_type": raw.get("season_type"),
         "learning_run_id": raw.get("learning_run_id"),
         "capture_id": capture_id,
+        "data_load": data_load,
         "pregame": pregame,
         "postgame": postgame,
         "first_issue": first_issue,
@@ -740,6 +792,9 @@ def load_game_journeys(
             bigquery.ScalarQueryParameter("learning_run_id", "STRING", learning_run_id),
             bigquery.ScalarQueryParameter("season", "STRING", season),
             bigquery.ScalarQueryParameter("season_type", "STRING", season_type),
+            bigquery.ScalarQueryParameter(
+                "window_type", "STRING", _window_type_for_phase(season_type)
+            ),
             bigquery.ScalarQueryParameter("start_date", "DATE", start_date),
             bigquery.ScalarQueryParameter("end_date", "DATE", end_date),
         ]
@@ -874,43 +929,60 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
     lines.extend([
         _render_rows(source_headers, source_rows),
         "",
-        "PREGAME CLOCK",
+        "DAILY DATA LOAD CLOCK",
     ])
-    pre_headers = (
-        "Game", "Matchup", "Schedule", "Prior facts", "Windowed",
-        "Rankings", "Snapshot", "L1", "First issue",
+    load_headers = (
+        "Game", "Matchup", "Schedule", "Score/stats", "Facts", "Windowed",
+        "Rankings",
     )
+    load_rows = []
+    for game in report["games"]:
+        stages = _stage_map(game, "data_load")
+        load_rows.append(
+            (
+                game["game_id"], game["matchup"], stages.get("schedule"),
+                stages.get("final_score_stats"), stages.get("target_facts"),
+                stages.get("target_windowed"), stages.get("target_rankings"),
+            )
+        )
+    lines.extend([
+        _render_rows(load_headers, load_rows),
+        "",
+        "GAMELENS PREGAME CLOCK",
+    ])
+    pre_headers = ("Game", "Snapshot", "Frozen context", "L1", "First issue")
     pre_rows = []
     for game in report["games"]:
         stages = _stage_map(game, "pregame")
         issue = game.get("first_issue") or {}
         pre_rows.append(
             (
-                game["game_id"], game["matchup"], stages.get("schedule"),
-                stages.get("prior_facts"), stages.get("windowed"),
-                stages.get("rankings"), stages.get("snapshot"),
-                stages.get("level1"),
+                game["game_id"], stages.get("snapshot"),
+                stages.get("frozen_context"), stages.get("level1"),
                 f"{issue.get('stage', '')}: {issue.get('reason', '')}".strip(": "),
             )
         )
-    lines.extend([_render_rows(pre_headers, pre_rows), "", "POSTGAME CLOCK"])
+    lines.extend([
+        _render_rows(pre_headers, pre_rows),
+        "",
+        "POSTGAME LEARNING CLOCK",
+    ])
     post_headers = (
-        "Game", "Score/stats", "Target facts", "Grade", "L2", "L3", "L4",
+        "Game", "Grade", "L2", "L3", "L4",
     )
     post_rows = []
     for game in report["games"]:
         stages = _stage_map(game, "postgame")
         post_rows.append(
             (
-                game["game_id"], stages.get("final_score_stats"),
-                stages.get("target_facts"), stages.get("game_grade"),
+                game["game_id"], stages.get("game_grade"),
                 stages.get("level2"), stages.get("level3"), stages.get("level4"),
             )
         )
     lines.append(_render_rows(post_headers, post_rows))
     review_rows = []
     for game in report["games"]:
-        for clock in ("pregame", "postgame"):
+        for clock in ("data_load", "pregame", "postgame"):
             for stage in game.get(clock, []):
                 if stage["status"] in {"warning", "failed"}:
                     review_rows.append(
