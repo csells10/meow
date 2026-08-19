@@ -621,6 +621,8 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         claim_count = int(raw.get("claim_count") or 0)
         if claim_count == 0 and level1_status == "complete":
             status, reason = "no_work_needed", "zero_level1_claims"
+        elif not capture_id:
+            status, reason = "not_applicable", "canonical_capture_required"
         else:
             status = _receipt_status(raw.get(receipt_field))
             reason = _text(raw.get(reason_field)) or f"awaiting_{stage_name}"
@@ -648,7 +650,14 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         (
             {"stage": stage["stage"], "status": stage["status"], "reason": stage["reason"]}
             for stage in stages
-            if stage["status"] in {"failed", "warning"}
+            if stage["status"] == "failed"
+        ),
+        None,
+    ) or next(
+        (
+            {"stage": stage["stage"], "status": stage["status"], "reason": stage["reason"]}
+            for stage in stages
+            if stage["status"] == "warning"
         ),
         None,
     )
