@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
+import sys
 from contextlib import ExitStack
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from flask import Flask
 
 import auth.firebase_auth as firebase_auth
+import qa_gamelens_packet5_admin_route as route_review
 import routes.admin_run_visibility_routes as routes
 from services.gamelens_admin_run_visibility_service import (
     DevelopmentRunVisibilityUnavailable,
@@ -255,6 +259,21 @@ class AdminRunVisibilityRouteTests(unittest.TestCase):
 
         self.assertEqual(post.status_code, 405)
         self.assertEqual(options.status_code, 204)
+
+    def test_visual_route_checkpoint_entrypoint_is_executable(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(route_review.__file__)), "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("protected Packet 5 Admin route", result.stdout)
+
+    def test_application_registers_the_protected_blueprint(self):
+        import app as app_module
+
+        self.assertIn("admin_run_visibility_routes", app_module.app.blueprints)
 
 
 if __name__ == "__main__":
