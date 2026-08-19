@@ -6,6 +6,7 @@ from config import API_CALLS
 from routes.games import games_bp
 from routes.game_routes import game_routes
 from routes.admin_claim_health_routes import admin_claim_health_routes
+from routes.admin_run_visibility_routes import admin_run_visibility_routes
 from routes.user_routes import user_routes
 from services.gamelens_metric_pipeline_conductor import (
     run_gamelens_metric_pipeline,
@@ -35,6 +36,7 @@ CORS(
 app.register_blueprint(games_bp)
 app.register_blueprint(game_routes)
 app.register_blueprint(admin_claim_health_routes)
+app.register_blueprint(admin_run_visibility_routes)
 app.register_blueprint(user_routes)
 
 # Production defaults to 2026. Dev replay mode must provide an explicit,
