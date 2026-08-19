@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
+import qa_gamelens_packet5_admin_service as preview
 from services.gamelens_admin_run_visibility_service import (
     build_admin_run_visibility_response,
     get_admin_run_visibility,
@@ -121,6 +125,28 @@ def _report():
 
 
 class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
+    def test_preview_cli_entrypoint_is_executable(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(preview.__file__)), "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("hierarchical Packet 5 Admin", result.stdout)
+
+    def test_preview_opens_stage_evidence_only_for_a_selected_game(self):
+        response = build_admin_run_visibility_response(
+            _report(), game_id="20260815_DAL@SEA"
+        )
+        rendered = preview.render_admin_service_preview(response)
+
+        self.assertIn("Overview > Game > Clock > Stage evidence", rendered)
+        self.assertIn("GAME JOURNEY", rendered)
+        self.assertIn("SELECTED GAME / 20260815_DAL@SEA", rendered)
+        self.assertIn("STAGE EVIDENCE", rendered)
+        self.assertIn("source.level2", rendered)
+
     def test_default_response_is_overview_first_and_compact(self):
         response = build_admin_run_visibility_response(_report(), game_limit=1)
 
