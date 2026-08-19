@@ -83,6 +83,9 @@ def _captured_row(**overrides):
         "level3_reason": "zero_claims",
         "score_row_count": 2,
         "fact_row_count": 110,
+        "windowed_row_count": 118,
+        "ranking_row_count": 106,
+        "ranking_team_count": 2,
         "failed_boundary": None,
         "retryable": None,
         "failure_message": None,
@@ -156,12 +159,16 @@ class Packet5AdminInventoryTests(unittest.TestCase):
     def test_schedule_query_uses_explicit_left_joins_and_lineage(self):
         query = inventory.build_game_journey_query("2026")
         self.assertIn("FROM `nfl-stream-406420.League.schedule` AS schedule", query)
-        self.assertGreaterEqual(query.count("LEFT JOIN"), 7)
+        self.assertGreaterEqual(query.count("LEFT JOIN"), 10)
+        self.assertIn("latest_included_game_id AS game_id", query)
+        self.assertIn("rankings.as_of_date = schedule.gameDate", query)
+        self.assertIn("rankings.team_abv IN (schedule.away, schedule.home)", query)
         self.assertIn("snapshots.learning_run_id = claims.learning_run_id", query)
         self.assertIn("snapshots.capture_id = claims.capture_id", query)
         self.assertIn("snapshots.capture_id = grades.capture_id", query)
         self.assertIn("@learning_run_id", query)
         self.assertIn("@season_type", query)
+        self.assertIn("@window_type", query)
         self.assertIn("@start_date", query)
         self.assertIn("@end_date", query)
         inventory.assert_read_only_sql(query)
@@ -191,12 +198,10 @@ class Packet5AdminInventoryTests(unittest.TestCase):
             ),
             now=datetime(2026, 8, 19, tzinfo=timezone.utc),
         )
-        self.assertEqual(_stage(game, "pregame", "prior_facts")["status"], "complete")
-        self.assertEqual(_stage(game, "pregame", "windowed")["status"], "complete")
-        self.assertEqual(
-            _stage(game, "pregame", "rankings")["status"],
-            "no_work_needed",
-        )
+        self.assertEqual(_stage(game, "data_load", "target_facts")["status"], "complete")
+        self.assertEqual(_stage(game, "data_load", "target_windowed")["status"], "complete")
+        self.assertEqual(_stage(game, "data_load", "target_rankings")["status"], "complete")
+        self.assertEqual(_stage(game, "pregame", "frozen_context")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "level1")["status"], "warning")
         self.assertEqual(_stage(game, "postgame", "level2")["status"], "no_work_needed")
         self.assertEqual(_stage(game, "postgame", "level3")["status"], "no_work_needed")
@@ -218,7 +223,10 @@ class Packet5AdminInventoryTests(unittest.TestCase):
             ),
             now=datetime(2026, 8, 19, tzinfo=timezone.utc),
         )
-        self.assertEqual(_stage(game, "pregame", "prior_facts")["status"], "not_applicable")
+        self.assertEqual(_stage(game, "data_load", "target_facts")["status"], "complete")
+        self.assertEqual(_stage(game, "data_load", "target_windowed")["status"], "complete")
+        self.assertEqual(_stage(game, "data_load", "target_rankings")["status"], "complete")
+        self.assertEqual(_stage(game, "pregame", "frozen_context")["status"], "not_applicable")
         self.assertEqual(_stage(game, "pregame", "snapshot")["status"], "warning")
         self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "not_applicable")
         self.assertEqual(game["first_issue"]["stage"], "snapshot")
@@ -288,8 +296,9 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         }
         rendered = inventory.render_visual_report(report)
         self.assertIn("SOURCE GRAINS", rendered)
-        self.assertIn("PREGAME CLOCK", rendered)
-        self.assertIn("POSTGAME CLOCK", rendered)
+        self.assertIn("DAILY DATA LOAD CLOCK", rendered)
+        self.assertIn("GAMELENS PREGAME CLOCK", rendered)
+        self.assertIn("POSTGAME LEARNING CLOCK", rendered)
         self.assertIn("pregame_snapshots", rendered)
         self.assertIn("20260815_DAL@SEA", rendered)
         self.assertIn("NO WORK", rendered)
