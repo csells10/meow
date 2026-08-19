@@ -30,6 +30,14 @@ ALLOWED_STAGE_STATUSES = frozenset(
         "failed",
     }
 )
+MAX_RUN_SUMMARY_ROWS = 12
+KNOWN_GAP_REASONS = frozenset(
+    {
+        "kickoff_reached",
+        "before_packet_2_capture_program",
+        "level1_receipt_missing_after_kickoff",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -481,6 +489,62 @@ def build_game_journey_query(season: str) -> str:
     return query
 
 
+def build_run_summary_query() -> str:
+    """Return a bounded attempt-grain summary without forcing runs onto games."""
+    query = f"""
+        WITH packet2_attempts AS (
+            SELECT
+                'stage_runs' AS source,
+                attempt_id,
+                stage_name,
+                status,
+                reason,
+                input_count,
+                output_count,
+                duration_ms,
+                started_at,
+                finished_at
+            FROM `{PROJECT_ID}.{GAMELENS_DATASET}.stage_runs`
+            WHERE season = @season
+              AND season_type = @season_type
+        ),
+        packet4_attempts AS (
+            SELECT
+                'postgame_learning_stage_receipts' AS source,
+                attempt.attempt_id,
+                'postgame_learning' AS stage_name,
+                attempt.status,
+                attempt.reason,
+                attempt.input_count,
+                attempt.output_count,
+                attempt.duration_ms,
+                attempt.started_at,
+                attempt.finished_at
+            FROM `{PROJECT_ID}.{GAMELENS_DATASET}.postgame_learning_stage_receipts`
+                AS attempt
+            WHERE attempt.receipt_scope = 'attempt'
+              AND EXISTS (
+                  SELECT 1
+                  FROM `{PROJECT_ID}.{GAMELENS_DATASET}.postgame_learning_stage_receipts`
+                      AS game_stage
+                  WHERE game_stage.attempt_id = attempt.attempt_id
+                    AND game_stage.receipt_scope = 'game_stage'
+                    AND game_stage.learning_run_id = @learning_run_id
+              )
+        )
+        SELECT *
+        FROM (
+            SELECT * FROM packet2_attempts
+            UNION ALL
+            SELECT * FROM packet4_attempts
+        )
+        ORDER BY finished_at DESC, attempt_id DESC, stage_name DESC
+        LIMIT @run_limit
+    """
+    assert_read_only_sql(query)
+    return query
+
+
 def _stage(
     name: str,
     status: str,
@@ -492,10 +556,16 @@ def _stage(
 ) -> dict[str, Any]:
     if status not in ALLOWED_STAGE_STATUSES:
         raise ValueError(f"unsupported Game Journey status: {status}")
+    attention = "none"
+    if status == "failed":
+        attention = "action_required"
+    elif status == "warning":
+        attention = "known_gap" if reason in KNOWN_GAP_REASONS else "action_required"
     return {
         "stage": name,
         "status": status,
         "reason": reason,
+        "attention": attention,
         "source": source,
         "count": count,
         "details": dict(details or {}),
@@ -714,7 +784,7 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         if not capture_id:
             status, reason = "not_applicable", "canonical_capture_required"
         elif raw_receipt_status == "no_op" and raw_reason == "zero_claims":
-            status, reason = "no_work_needed", "zero_level1_claims"
+            status, reason = "complete", "completed_zero_claims"
         elif claim_count == 0 and level1_status == "complete":
             status, reason = "no_work_needed", "zero_level1_claims"
         else:
@@ -727,6 +797,10 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
                 reason,
                 source="claim_training_examples + postgame_learning_stage_receipts",
                 count=count,
+                details={
+                    "receipt_status": raw_receipt_status,
+                    "receipt_reason": raw_reason,
+                },
             )
         )
     postgame.append(
@@ -742,16 +816,26 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
     stages = data_load + pregame + postgame
     first_issue = next(
         (
-            {"stage": stage["stage"], "status": stage["status"], "reason": stage["reason"]}
+            {
+                "stage": stage["stage"],
+                "status": stage["status"],
+                "reason": stage["reason"],
+                "attention": stage["attention"],
+            }
             for stage in stages
-            if stage["status"] == "failed"
+            if stage["attention"] == "action_required"
         ),
         None,
     ) or next(
         (
-            {"stage": stage["stage"], "status": stage["status"], "reason": stage["reason"]}
+            {
+                "stage": stage["stage"],
+                "status": stage["status"],
+                "reason": stage["reason"],
+                "attention": stage["attention"],
+            }
             for stage in stages
-            if stage["status"] == "warning"
+            if stage["attention"] == "known_gap"
         ),
         None,
     )
@@ -803,6 +887,27 @@ def load_game_journeys(
     return [build_game_journey(dict(row), now=now) for row in rows], query
 
 
+def load_run_summary(
+    *, client: Any, bigquery: Any, season: str, season_type: str,
+    learning_run_id: str, run_limit: int = MAX_RUN_SUMMARY_ROWS,
+) -> tuple[list[dict[str, Any]], str]:
+    if not 1 <= run_limit <= MAX_RUN_SUMMARY_ROWS:
+        raise ValueError(f"run_limit must be between 1 and {MAX_RUN_SUMMARY_ROWS}")
+    query = build_run_summary_query()
+    config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("season", "STRING", season),
+            bigquery.ScalarQueryParameter("season_type", "STRING", season_type),
+            bigquery.ScalarQueryParameter(
+                "learning_run_id", "STRING", learning_run_id
+            ),
+            bigquery.ScalarQueryParameter("run_limit", "INT64", run_limit),
+        ]
+    )
+    rows = [dict(row) for row in client.query(query, job_config=config).result()]
+    return rows, query
+
+
 def build_packet5_inventory(
     *, client: Any, bigquery: Any, season: str, season_type: str,
     learning_run_id: str, start_date: date, end_date: date,
@@ -829,6 +934,29 @@ def build_packet5_inventory(
         end_date=end_date,
         now=audited_at,
     )
+    run_summary, _ = load_run_summary(
+        client=client,
+        bigquery=bigquery,
+        season=season,
+        season_type=phase,
+        learning_run_id=cohort,
+    )
+    action_required_game_count = sum(
+        any(
+            stage["attention"] == "action_required"
+            for clock in ("data_load", "pregame", "postgame")
+            for stage in game[clock]
+        )
+        for game in games
+    )
+    known_gap_game_count = sum(
+        any(
+            stage["attention"] == "known_gap"
+            for clock in ("data_load", "pregame", "postgame")
+            for stage in game[clock]
+        )
+        for game in games
+    )
     return {
         "access_mode": "read_only",
         "checkpoint": "packet5_slice1_inventory_and_game_journey",
@@ -852,10 +980,13 @@ def build_packet5_inventory(
             ),
         },
         "tables": tables,
+        "run_summary": run_summary,
         "game_summary": {
             "scheduled_game_count": len(games),
             "captured_game_count": sum(bool(g["capture_id"]) for g in games),
             "game_with_issue_count": sum(bool(g["first_issue"]) for g in games),
+            "action_required_game_count": action_required_game_count,
+            "known_gap_game_count": known_gap_game_count,
         },
         "games": games,
         "write_performed": False,
@@ -874,7 +1005,11 @@ _STATUS_TOKEN = {
 
 def _stage_map(game: Mapping[str, Any], clock: str) -> dict[str, str]:
     return {
-        stage["stage"]: _STATUS_TOKEN[stage["status"]]
+        stage["stage"]: (
+            "OK (0)"
+            if stage["status"] == "complete" and stage.get("count") == 0
+            else _STATUS_TOKEN[stage["status"]]
+        )
         for stage in game.get(clock, [])
     }
 
@@ -907,7 +1042,8 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
         (
             f"Games: {game_summary['scheduled_game_count']} scheduled | "
             f"{game_summary['captured_game_count']} captured | "
-            f"{game_summary['game_with_issue_count']} with warning/failure"
+            f"{game_summary.get('action_required_game_count', 0)} need attention | "
+            f"{game_summary.get('known_gap_game_count', 0)} known gaps"
         ),
         "",
         "SOURCE GRAINS",
@@ -928,6 +1064,29 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
     ]
     lines.extend([
         _render_rows(source_headers, source_rows),
+        "",
+        "RUN SUMMARY",
+    ])
+    run_headers = (
+        "Source", "Attempt", "Stage", "Status", "Reason", "In", "Out",
+        "Duration ms", "Finished",
+    )
+    run_rows = [
+        (
+            row.get("source", ""),
+            row.get("attempt_id", ""),
+            row.get("stage_name", ""),
+            str(row.get("status") or "").upper(),
+            row.get("reason", ""),
+            row.get("input_count", ""),
+            row.get("output_count", ""),
+            row.get("duration_ms", ""),
+            _iso(row.get("finished_at")) or "",
+        )
+        for row in report.get("run_summary", [])
+    ]
+    lines.extend([
+        _render_rows(run_headers, run_rows, max_width=34) if run_rows else "None.",
         "",
         "DAILY DATA LOAD CLOCK",
     ])
@@ -980,32 +1139,48 @@ def render_visual_report(report: Mapping[str, Any]) -> str:
             )
         )
     lines.append(_render_rows(post_headers, post_rows))
-    review_rows = []
+    attention_rows = []
+    known_gap_rows = []
     for game in report["games"]:
         for clock in ("data_load", "pregame", "postgame"):
             for stage in game.get(clock, []):
-                if stage["status"] in {"warning", "failed"}:
-                    review_rows.append(
-                        (
-                            game["game_id"],
-                            clock,
-                            stage["stage"],
-                            _STATUS_TOKEN[stage["status"]],
-                            stage["reason"],
-                        )
-                    )
-    if review_rows:
-        lines.extend(
-            [
-                "",
-                "REVIEW ITEMS",
+                row = (
+                    game["game_id"],
+                    clock,
+                    stage["stage"],
+                    _STATUS_TOKEN[stage["status"]],
+                    stage["reason"],
+                )
+                if stage.get("attention") == "action_required":
+                    attention_rows.append(row)
+                elif stage.get("attention") == "known_gap":
+                    known_gap_rows.append(row)
+    lines.extend(
+        [
+            "",
+            "NEEDS ATTENTION",
+            (
                 _render_rows(
                     ("Game", "Clock", "Stage", "Status", "Reason"),
-                    review_rows,
+                    attention_rows,
                     max_width=72,
-                ),
-            ]
-        )
+                )
+                if attention_rows
+                else "None."
+            ),
+            "",
+            "KNOWN GAPS",
+            (
+                _render_rows(
+                    ("Game", "Clock", "Stage", "Status", "Reason"),
+                    known_gap_rows,
+                    max_width=72,
+                )
+                if known_gap_rows
+                else "None."
+            ),
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -1023,32 +1198,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Confirm that this command may only read approved sources.",
     )
-    parser.add_argument(
-        "--visual",
-        action="store_true",
-        help="Print human-readable lifecycle tables to stderr before JSON stdout.",
-    )
-    args = parser.parse_args(argv)
-    if not args.dev_read_only:
-        raise ValueError("Pass --dev-read-only to confirm this run is read-only")
-
-    from google.cloud import bigquery
-
-    report = build_packet5_inventory(
-        client=bigquery.Client(project=PROJECT_ID),
-        bigquery=bigquery,
-        season=args.season,
-        season_type=args.season_type,
-        learning_run_id=args.learning_run_id,
-        start_date=args.start_date,
-        end_date=args.end_date,
-    )
-    if args.visual:
-        print(render_visual_report(report), file=sys.stderr)
-    print(json.dumps(report, indent=2, sort_keys=True, default=str))
-    summary = report["inventory_summary"]
-    return 0 if not summary["warning_count"] else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
