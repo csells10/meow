@@ -173,7 +173,7 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertIn("@end_date", query)
         inventory.assert_read_only_sql(query)
 
-    def test_zero_claim_game_is_successful_and_needs_no_level2_or_level3_work(self):
+    def test_zero_claim_receipts_prove_level2_and_level3_completed(self):
         game = inventory.build_game_journey(
             _captured_row(),
             now=datetime(2026, 8, 19, tzinfo=timezone.utc),
@@ -182,8 +182,13 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(_stage(game, "pregame", "level1")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "level1")["count"], 0)
         self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "complete")
-        self.assertEqual(_stage(game, "postgame", "level2")["status"], "no_work_needed")
-        self.assertEqual(_stage(game, "postgame", "level3")["status"], "no_work_needed")
+        self.assertEqual(_stage(game, "postgame", "level2")["status"], "complete")
+        self.assertEqual(_stage(game, "postgame", "level3")["status"], "complete")
+        self.assertEqual(_stage(game, "postgame", "level2")["count"], 0)
+        self.assertEqual(
+            _stage(game, "postgame", "level2")["details"]["receipt_status"],
+            "no_op",
+        )
         self.assertEqual(_stage(game, "postgame", "level4")["status"], "not_applicable")
 
     def test_pipeline_lineage_supports_pregame_context_when_date_columns_are_blank(self):
@@ -203,8 +208,8 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(_stage(game, "data_load", "target_rankings")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "frozen_context")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "level1")["status"], "warning")
-        self.assertEqual(_stage(game, "postgame", "level2")["status"], "no_work_needed")
-        self.assertEqual(_stage(game, "postgame", "level3")["status"], "no_work_needed")
+        self.assertEqual(_stage(game, "postgame", "level2")["status"], "complete")
+        self.assertEqual(_stage(game, "postgame", "level3")["status"], "complete")
 
     def test_kickoff_skip_is_warning_not_worker_failure(self):
         game = inventory.build_game_journey(
@@ -228,9 +233,11 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(_stage(game, "data_load", "target_rankings")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "frozen_context")["status"], "not_applicable")
         self.assertEqual(_stage(game, "pregame", "snapshot")["status"], "warning")
+        self.assertEqual(_stage(game, "pregame", "snapshot")["attention"], "known_gap")
         self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "not_applicable")
         self.assertEqual(game["first_issue"]["stage"], "snapshot")
         self.assertEqual(game["first_issue"]["reason"], "kickoff_reached")
+        self.assertEqual(game["first_issue"]["attention"], "known_gap")
 
     def test_missing_capture_and_failed_grade_are_visible_without_hiding_game(self):
         game = inventory.build_game_journey(
@@ -264,6 +271,17 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(_stage(game, "postgame", "level3")["status"], "not_applicable")
         self.assertEqual(game["first_issue"]["status"], "failed")
         self.assertEqual(game["first_issue"]["stage"], "snapshot")
+        self.assertEqual(game["first_issue"]["attention"], "action_required")
+
+    def test_run_summary_query_preserves_attempt_grain_and_is_bounded(self):
+        query = inventory.build_run_summary_query()
+        self.assertIn("GameLens_dev.stage_runs", query)
+        self.assertIn("attempt.receipt_scope = 'attempt'", query)
+        self.assertIn("game_stage.receipt_scope = 'game_stage'", query)
+        self.assertIn("game_stage.learning_run_id = @learning_run_id", query)
+        self.assertIn("LIMIT @run_limit", query)
+        self.assertNotIn("JOIN `nfl-stream-406420.League.schedule`", query)
+        inventory.assert_read_only_sql(query)
 
     def test_visual_report_has_separate_pregame_and_postgame_clocks(self):
         game = inventory.build_game_journey(
@@ -281,7 +299,22 @@ class Packet5AdminInventoryTests(unittest.TestCase):
                 "scheduled_game_count": 1,
                 "captured_game_count": 1,
                 "game_with_issue_count": 0,
+                "action_required_game_count": 0,
+                "known_gap_game_count": 0,
             },
+            "run_summary": [
+                {
+                    "source": "postgame_learning_stage_receipts",
+                    "attempt_id": "postgame_attempt",
+                    "stage_name": "postgame_learning",
+                    "status": "no_op",
+                    "reason": "zero_claims",
+                    "input_count": 1,
+                    "output_count": 0,
+                    "duration_ms": 25,
+                    "finished_at": "2026-08-16T14:00:00+00:00",
+                }
+            ],
             "games": [game],
             "tables": [
                 {
@@ -296,12 +329,16 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         }
         rendered = inventory.render_visual_report(report)
         self.assertIn("SOURCE GRAINS", rendered)
+        self.assertIn("RUN SUMMARY", rendered)
         self.assertIn("DAILY DATA LOAD CLOCK", rendered)
         self.assertIn("GAMELENS PREGAME CLOCK", rendered)
         self.assertIn("POSTGAME LEARNING CLOCK", rendered)
         self.assertIn("pregame_snapshots", rendered)
         self.assertIn("20260815_DAL@SEA", rendered)
-        self.assertIn("NO WORK", rendered)
+        self.assertIn("OK (0)", rendered)
+        self.assertIn("NEEDS ATTENTION\nNone.", rendered)
+        self.assertIn("KNOWN GAPS\nNone.", rendered)
+        self.assertNotIn("REVIEW ITEMS", rendered)
 
     def test_main_requires_explicit_read_only_confirmation_before_cloud_import(self):
         args = [
