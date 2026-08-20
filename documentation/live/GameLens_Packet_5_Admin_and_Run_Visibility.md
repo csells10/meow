@@ -905,3 +905,59 @@ The next checkpoint remains visual and read-only: run the protected route
 rehearsal against canonical development data, inspect the overview and one
 selected game, then decide whether its shape is ready for a Lovable wireframe.
 No frontend work is authorized by the test result alone.
+
+---
+
+## 16. Bounded week-grouping contract — reviewed next slice
+
+Week navigation extends the existing protected endpoint; it does not create a
+second route:
+
+```text
+GET /admin/gamelens/run-visibility
+```
+
+The source remains `League.schedule.gameWeek` joined through the existing
+scheduled-game spine. The response uses the field name `game_week` and treats
+its value as descriptive text. `season_type` remains the authoritative phase;
+the service must not infer Regular Season, Preseason, or Postseason from a week
+label or fail when a new label appears.
+
+### First bounded response shape
+
+Within the already required maximum 31-day date range:
+
+- every compact and selected game includes `game_week`;
+- `overview.weeks` contains one rollup per observed schedule week;
+- each week rollup includes its label, first and last game date, scheduled and
+  captured game counts, Needs Attention count, Known Gap count, and overall
+  state;
+- the drill path becomes Overview → Week → Game → Clock → Stage evidence;
+- optional `game_week` selects one exact returned week label;
+- game, attention, and Known Gap arrays reflect the selected week when that
+  filter is present;
+- an unknown selected week returns a safe `404`, matching the selected-game
+  behavior; and
+- a selected game must belong to the selected week when both filters are used.
+
+The API keeps exact labels such as `Preseason Week 2`, `Week 1`, `Wild Card`,
+or a future provider label. A frontend can display the returned text and pass
+it back without maintaining a second label parser.
+
+### What this slice deliberately does not do
+
+- It does not remove the 31-day safety bound or make an unbounded full-season
+  six-table query.
+- It does not add a table, materialized view, refresh job, or duplicate status
+  calculation.
+- It does not add a route or change authentication.
+- It does not change `/game`, Scheduler, the 8:00 a.m. load, production
+  learning, Level 4, or the current frontend.
+- It does not hard-code an 18-day or 21-day product preset. A future frontend
+  may express Recent Activity through the existing start/end date filters.
+
+This checkpoint first proves the week hierarchy visually on available
+preseason data. After Christian reviews that shape, the Lovable wireframe may
+use the same hierarchy. A later reviewed slice can add a lightweight
+season-wide week index if the 31-day response proves insufficient; that need
+does not justify a duplicate warehouse now.
