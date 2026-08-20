@@ -2,7 +2,7 @@
 
 **Created:** 2026-08-02
 **Last execution update:** 2026-08-05
-**Learning-track cross-reference:** updated 2026-08-18
+**Learning-track cross-reference:** updated 2026-08-20
 **Separate confidence-hotfix receipt:** updated 2026-08-16
 **Repository:** `csells10/meow`
 **Documentation branch:** `dev`
@@ -14,7 +14,7 @@
 
 ---
 
-## Current learning go posture — 2026-08-18
+## Current learning go posture — 2026-08-20
 
 The existing production application cutover and Gate H are complete. The
 separate learning track is **not production GO**.
@@ -24,7 +24,7 @@ separate learning track is **not production GO**.
 | Packets 1–2 | Complete | Capture contract and development shadow evidence proven; no production capture wiring |
 | Packet 3 | Implementation GO | Development Level 1 boundary proven; first genuine claim-bearing write/retry remains a pre-production validation |
 | Packet 4 | Implementation GO | Frozen grade, Levels 2–3, six-table development storage, receipts, retries, and partial-failure isolation proven; no production wiring |
-| Packet 5 | Next | Admin/ledger reconciliation plan must be reviewed before code |
+| Packet 5 | In progress | Canonical inventory and hierarchical service accepted; protected dev read route passes 40 focused tests; visual HTTP and week-grouping checkpoints remain |
 | Packet 6 | Future | Level 4 and weekly evidence plan not yet implemented |
 | Packet 7 | Future release gate | Production dataset, migration automation, IAM, orchestration, kill switch, deployment, activation, and rollback |
 
@@ -1687,4 +1687,5 @@ the historical “pending” language as a current action.
 
 The current next release work is the separate learning track described in
 “Current learning go posture.” Packets 1–4 have development Implementation GO;
-Packet 5 planning is next, and production learning remains disabled.
+Packet 5 protected read work is in progress, and production learning remains
+disabled.

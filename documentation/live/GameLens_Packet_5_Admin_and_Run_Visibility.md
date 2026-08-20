@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Checkpoint 2 accepted; protected route slice authorized
+**Status:** Checkpoint 2 accepted; protected route test gate passed; visual HTTP review next
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -8,8 +8,9 @@
 **Development schema authority:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
 **Production behavior changed:** No  
 **Production learning data written:** No  
-**Packet 5 code authorized by this document:** Accepted read-only inventory and
-hierarchical backend service plus protected route registration; no frontend yet
+**Packet 5 code authorized by this document:** Accepted read-only inventory,
+hierarchical backend service, and protected route registration; bounded week
+grouping may proceed as the next visual slice; no frontend yet
 
 ---
 
@@ -860,3 +861,47 @@ The route must:
 
 After local route/auth tests pass, pause for a visual HTTP-response checkpoint
 before any frontend component is added.
+
+---
+
+## 15. Protected route test checkpoint — 2026-08-20
+
+Christian pulled `dev` through the Flask automatic-`OPTIONS` correction and
+ran the focused Packet 5 route/service suite plus its Packet 4 schema dependency:
+
+```text
+python -m unittest \
+  tests.test_admin_run_visibility_routes \
+  tests.services.test_gamelens_admin_run_visibility_service \
+  tests.test_qa_gamelens_packet5_admin_inventory \
+  tests.test_qa_gamelens_packet4_schema_inventory
+```
+
+Observed result:
+
+```text
+Ran 40 tests in 12.729s
+
+OK
+```
+
+The corrected preflight test accepts Flask's automatic HTTP `200` response and
+still proves that `GET` and `OPTIONS` are advertised. The application route,
+service, SQL, authentication, and read-only behavior were not weakened to make
+the test pass.
+
+This evidence confirms:
+
+- the existing Admin guard protects the route;
+- authenticated non-Admin users remain rejected;
+- bounded filters reach the accepted service contract;
+- malformed filters, an unknown selected game, an unavailable development
+  source, and an unexpected query failure produce safe responses;
+- `POST` remains unavailable while browser preflight can pass;
+- the blueprint is registered in `app.py`; and
+- the inventory and service dependencies still pass their focused tests.
+
+The next checkpoint remains visual and read-only: run the protected route
+rehearsal against canonical development data, inspect the overview and one
+selected game, then decide whether its shape is ready for a Lovable wireframe.
+No frontend work is authorized by the test result alone.

@@ -1,8 +1,8 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–4 complete with Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 5 planning is next  
+**Document status:** Packets 1–4 complete with Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 5 protected read work is in progress
 **Created:** 2026-08-06  
-**Updated:** 2026-08-18  
+**Updated:** 2026-08-20
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Active development branch:** `dev`  
@@ -11,6 +11,7 @@
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
 **Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) received Implementation GO on 2026-08-18. Frozen-capture grading, Level 2/3 zero-claim boundaries, the 15-field additive Level 3 schema setup (`117 → 132`), one-game receipts, three-game inventory, healthy multi-game first/retry, receipt-effect correction `8de1cf2`, and natural partial-failure first/retry all passed. The final proof preserved DAL–SEA while missing-capture CAR–ARI failed at `game_grade` and skipped Levels 2–3; receipts reconciled `7 inserted → 7 unchanged`, and both attempts wrote zero learning rows. The complete local Packet 4 split passes 86 tests. Generated JSON is excluded from Git, Docker images, and local Cloud Build contexts. The first genuine claim-bearing development validation remains a documented pre-production gate; production behavior is unchanged.  
+**Packet 5 checkpoint:** [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) has accepted canonical inventory and hierarchical service shapes. Its protected development-only `GET /admin/gamelens/run-visibility` route is registered and the focused route/service dependency split passed 40 tests on 2026-08-20. Visual HTTP review and bounded week grouping remain before any frontend work.
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -92,10 +93,12 @@ There are almost five weeks from this update to the first regular-season game. T
 | After Week 1 completes | First weekly learning cycle | Once Monday’s game and accepted Stats/Facts are available, run the first weekly summary; expect limited evidence and say so |
 | Week 2 onward | Normal weekly rhythm | Run Level 4 once per completed NFL week and publish the plain-language “What did we learn?” summary after its evidence is complete |
 
-**Schedule checkpoint — 2026-08-18:** Packets 2–4 completed ahead of their
+**Schedule checkpoint — 2026-08-20:** Packets 2–4 completed ahead of their
 planned windows, including per-game observability, zero-claim cloud proof,
 post-ETL immutability, frozen grading, bounded Levels 2–3, receipt retry, and
-partial-failure isolation. Packet 5 planning is next. The deferred Packet 3
+partial-failure isolation. Packet 5 has accepted its canonical inventory and
+hierarchical service shapes; its protected read route passes the focused
+40-test split. Visual HTTP review and bounded week grouping are next. The deferred Packet 3
 genuine populated-data validation remains a pre-production gate. Calibrated
 Matchup Lean completed its separate main-based release, is present in both
 `main` and `dev`, passed both `dev` builds, and has no remaining temporary
@@ -864,12 +867,11 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packets 1–4 are complete. Packet 4 has Implementation GO. Create and review
-`GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Packet 5
-must reconcile captured games, Level 1, grades, Level 2 labels, Level 3
-features, and operational receipts through existing canonical tables. Do not
-create a duplicate Admin summary warehouse or refresh job unless inspection
-proves a missing operational need.
+Packets 1–4 are complete. Packet 4 has Implementation GO. Packet 5 has accepted
+its six-table inventory and hierarchical read-service shapes, and the protected
+development-only route passes its focused 40-test split. Complete the visual
+HTTP review, then add bounded week grouping to that same contract without
+creating a duplicate Admin summary warehouse or refresh job.
 
 Use the
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)

@@ -1,8 +1,8 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–4 are complete. Packet 3 received **Implementation GO** on 2026-08-16 with its first genuine populated-capture write/retry retained as a non-blocking pre-production validation. Packet 4 received **Implementation GO** on 2026-08-18 after its frozen-capture grade, Level 2/3 zero-claim boundaries, additive schema setup, one-game receipt/retry, three-game inventory, healthy multi-game insert/retry, receipt-effect correction, and natural partial-failure isolation/retry all passed. The final partial-failure proof preserved DAL–SEA while CAR–ARI failed at the missing-capture grade boundary and skipped Levels 2–3; its first run inserted seven receipts and its exact retry matched all seven unchanged. The full Packet 4 local split passes 86 tests. `GameLens_dev` now contains six code-owned tables, and their structure-only recreation order is documented. Generated JSON is excluded from Git, Docker, and local Cloud Build contexts and may be deleted locally. Production behavior remains unchanged; Packet 5 planning is next.
+**Current status:** Packets 1–4 are complete. Packet 3 received **Implementation GO** on 2026-08-16 with its first genuine populated-capture write/retry retained as a non-blocking pre-production validation. Packet 4 received **Implementation GO** on 2026-08-18 after its frozen-capture grade, Level 2/3 zero-claim boundaries, additive schema setup, one-game receipt/retry, three-game inventory, healthy multi-game insert/retry, receipt-effect correction, and natural partial-failure isolation/retry all passed. Packet 5 is in progress: its canonical six-table inventory and hierarchical Game Journey service checkpoints are accepted, the protected development-only read route is registered, and the focused route/service dependency split passes 40 tests. The next checkpoint is a visual HTTP rehearsal followed by bounded week grouping for the Lovable wireframe contract. Production behavior remains unchanged.
 
-**Updated:** 2026-08-18  
+**Updated:** 2026-08-20
 **Working branch:** `dev`  
 **Production posture:** The existing 8:00 AM production load and learning wiring are unchanged. Calibrated Matchup Lean revision `nfl-games-app-main-00155-qaf` serves 100% of normal traffic, with `nfl-games-app-main-00153-jol` retained as rollback. No learning stage is wired into `app.py`, no learning tables have been created in production, and no learning-orchestration change is ready for `main`.
 
@@ -31,7 +31,8 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 
 | File | Role | Current state | Do not infer |
 |---|---|---|---|
-| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–4 complete; Packet 5 plan next | A future packet is implemented merely because it is described |
+| [Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md) | Current execution authority | Packets 1–4 complete; Packet 5 protected read route in progress | A future packet is implemented merely because it is described |
+| [Packet 5](./GameLens_Packet_5_Admin_and_Run_Visibility.md) | Current implementation and visual-checkpoint evidence | Checkpoints 1–2 accepted; protected route tests 40/40; visual HTTP review next | Approval for frontend, production learning, or a duplicate summary warehouse |
 | [Calibrated Matchup Lean](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) | Completed separate release receipt | Live in production and forward-merged to dev | Packet 4 or Admin should recreate the rule |
 | [Packet 4](./GameLens_Packet_4_Postgame_Learning.md) | Completed implementation evidence | Implementation GO; all Slice 6 proofs passed | Approval to wire postgame learning into production |
 | [Packet 3](./GameLens_Packet_3_Production_Level_1.md) | Completed implementation evidence | Implementation GO; real populated dev validation carried forward | Approval to write production data or proof that genuine claim rows have been observed in cloud |
@@ -40,7 +41,7 @@ This file is the starting point for a new chat or a GitHub-assisted review. It s
 | [Architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md) | Stable system design and level boundaries | Active | Architecture prose is a live execution receipt |
 | [Dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md) | Code-owned schema inventory and release prerequisite | Six development tables documented; production runner still belongs to Packet 7 | Current dev-only scripts are approved for production |
 | [Runtime configuration](./runtime_configuration.md) | Environment and deployment reference | Active, with dated inventory sections | Every listed inventory value is timeless |
-| [Go plan](./go_plan.md) | Historical release/cutover record plus current learning go posture | Gate H historical; learning Packets 5–7 remain | Packet 1–4 Implementation GO equals production GO |
+| [Go plan](./go_plan.md) | Historical release/cutover record plus current learning go posture | Gate H historical; Packet 5 in progress; learning Packets 6–7 remain | Packet 1–4 Implementation GO equals production GO |
 
 If two files appear to conflict, use this order: current Sprint status, current packet, completed packet evidence, Packet 1 contract, architecture handoff, then historical/reference documents.
 
@@ -124,12 +125,12 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Packet 4 is closed with Implementation GO. Temporary local `packet4_*.json`
-evidence may be deleted after review. Begin a fresh Packet 5 chat by creating
-and reviewing
-`GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Packet 5
-must reconcile existing canonical tables and ledgers without creating a
-duplicate Admin warehouse unless inspection proves one is necessary.
+Packet 4 is closed with Implementation GO. Packet 5 Checkpoints 1–2 are
+accepted, and its protected development-only read route passes the focused
+40-test split. Run the visual HTTP rehearsal against canonical development
+data, then add bounded week grouping to the same endpoint as a separate visual
+slice. Do not create a duplicate Admin warehouse unless inspection proves one
+is necessary.
 
 Read the [dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)
 and [runtime guide](./runtime_configuration.md) during Packet 5 inventory. Keep
