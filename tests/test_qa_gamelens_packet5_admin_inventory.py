@@ -55,6 +55,7 @@ def _captured_row(**overrides):
         "game_status": "Final",
         "season": "2026",
         "season_type": "Preseason",
+        "game_week": "Preseason Week 2",
         "away": "DAL",
         "home": "SEA",
         "learning_run_id": "gamelens_2026_preseason_v1",
@@ -184,6 +185,7 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertIn("@window_type", query)
         self.assertIn("@start_date", query)
         self.assertIn("@end_date", query)
+        self.assertIn("CAST(schedule.gameWeek AS STRING) AS game_week", query)
         inventory.assert_read_only_sql(query)
 
     def test_zero_claim_receipts_prove_level2_and_level3_completed(self):
@@ -192,6 +194,7 @@ class Packet5AdminInventoryTests(unittest.TestCase):
             now=datetime(2026, 8, 19, tzinfo=timezone.utc),
         )
         self.assertEqual(_stage(game, "pregame", "snapshot")["status"], "complete")
+        self.assertEqual(game["game_week"], "Preseason Week 2")
         self.assertEqual(_stage(game, "pregame", "level1")["status"], "complete")
         self.assertEqual(_stage(game, "pregame", "level1")["count"], 0)
         self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "complete")

@@ -16,6 +16,7 @@ import qa_gamelens_packet5_admin_route as route_review
 import routes.admin_run_visibility_routes as routes
 from services.gamelens_admin_run_visibility_service import (
     DevelopmentRunVisibilityUnavailable,
+    GameWeekVisibilityNotFound,
     GameVisibilityNotFound,
 )
 
@@ -136,6 +137,7 @@ class AdminRunVisibilityRouteTests(unittest.TestCase):
             response = self.client.get(
                 "/admin/gamelens/run-visibility",
                 query_string=self._query(
+                    game_week="Preseason Week 2",
                     game_id="20260815_DAL@SEA",
                     limit="7",
                 ),
@@ -154,6 +156,7 @@ class AdminRunVisibilityRouteTests(unittest.TestCase):
             learning_run_id="gamelens_2026_preseason_v1",
             start_date=date(2026, 8, 15),
             end_date=date(2026, 8, 15),
+            game_week="Preseason Week 2",
             game_id="20260815_DAL@SEA",
             game_limit=7,
         )
@@ -194,6 +197,20 @@ class AdminRunVisibilityRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.get_json()["error"], "game_not_found")
+        self.assertNotIn("private detail", response.get_data(as_text=True))
+
+    def test_unknown_selected_week_returns_safe_404(self):
+        stack, _, _, _ = self._route_dependencies(
+            service_error=GameWeekVisibilityNotFound("private detail")
+        )
+        with stack:
+            response = self.client.get(
+                "/admin/gamelens/run-visibility",
+                query_string=self._query(game_week="Preseason Week 9"),
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json()["error"], "game_week_not_found")
         self.assertNotIn("private detail", response.get_data(as_text=True))
 
     def test_development_source_fails_closed_outside_dev(self):

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import qa_gamelens_packet5_admin_service as preview
 from services.gamelens_admin_run_visibility_service import (
     DevelopmentRunVisibilityUnavailable,
+    GameWeekVisibilityNotFound,
     GameVisibilityNotFound,
     build_admin_run_visibility_response,
     get_admin_run_visibility,
@@ -30,9 +31,13 @@ def _stage(
     }
 
 
-def _game(game_id, *, issue=None, capture_id="capture_1"):
+def _game(
+    game_id, *, game_week="Preseason Week 2", issue=None,
+    capture_id="capture_1",
+):
     return {
         "game_id": game_id,
+        "game_week": game_week,
         "matchup": "DAL @ SEA" if "DAL@SEA" in game_id else "CAR @ BUF",
         "game_date": "2026-08-15",
         "scheduled_kickoff": "2026-08-16T00:00:00+00:00",
@@ -61,6 +66,7 @@ def _game(game_id, *, issue=None, capture_id="capture_1"):
 def _report():
     known_gap = _game(
         "20260815_CAR@BUF",
+        game_week="Preseason Week 1",
         capture_id=None,
         issue={
             "stage": "snapshot",
@@ -143,7 +149,9 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
         )
         rendered = preview.render_admin_service_preview(response)
 
-        self.assertIn("Overview > Game > Clock > Stage evidence", rendered)
+        self.assertIn("Overview > Week > Game > Clock > Stage evidence", rendered)
+        self.assertIn("WEEK SUMMARY", rendered)
+        self.assertIn("Preseason Week 2", rendered)
         self.assertIn("GAME JOURNEY", rendered)
         self.assertIn("SELECTED GAME / 20260815_DAL@SEA", rendered)
         self.assertIn("STAGE EVIDENCE", rendered)
@@ -155,7 +163,7 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
         self.assertEqual(response["source_profile"], "development_learning")
         self.assertEqual(
             response["navigation"]["levels"],
-            ["overview", "game", "clock", "stage_evidence"],
+            ["overview", "week", "game", "clock", "stage_evidence"],
         )
         self.assertEqual(
             response["overview"]["games"],
@@ -169,7 +177,14 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
             },
         )
         self.assertIsNone(response["selected_game"])
+        self.assertEqual(
+            [week["game_week"] for week in response["overview"]["weeks"]],
+            ["Preseason Week 1", "Preseason Week 2"],
+        )
+        self.assertEqual(response["overview"]["weeks"][0]["known_gaps"], 1)
+        self.assertEqual(response["overview"]["weeks"][1]["captured"], 1)
         self.assertEqual(len(response["games"]), 1)
+        self.assertEqual(response["games"][0]["game_week"], "Preseason Week 1")
         compact_stage = response["games"][0]["clocks"]["pregame"]["stages"][0]
         self.assertEqual(compact_stage["attention"], "known_gap")
         self.assertNotIn("reason", compact_stage)
@@ -188,6 +203,7 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
 
         selected = response["selected_game"]
         self.assertEqual(selected["game_id"], "20260815_DAL@SEA")
+        self.assertEqual(selected["game_week"], "Preseason Week 2")
         self.assertEqual(
             selected["lineage"],
             {
@@ -244,11 +260,13 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
             learning_run_id="gamelens_2026_preseason_v1",
             start_date=date(2026, 8, 15),
             end_date=date(2026, 8, 15),
+            game_week="Preseason Week 2",
             game_id="20260815_DAL@SEA",
             report_loader=loader,
         )
 
         self.assertEqual(response["selected_game"]["game_id"], "20260815_DAL@SEA")
+        self.assertEqual(response["navigation"]["selected_game_week"], "Preseason Week 2")
         self.assertEqual(
             calls,
             [
@@ -272,13 +290,43 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
             (
                 {"game_id": "20260815_BUF@CAR"},
                 GameVisibilityNotFound,
+                "not in the requested week or slate",
+            ),
+            (
+                {"game_week": "Preseason Week 9"},
+                GameWeekVisibilityNotFound,
                 "not in the requested slate",
+            ),
+            (
+                {
+                    "game_week": "Preseason Week 1",
+                    "game_id": "20260815_DAL@SEA",
+                },
+                GameVisibilityNotFound,
+                "not in the requested week or slate",
             ),
         )
         for kwargs, error_type, message in cases:
             with self.subTest(kwargs=kwargs):
                 with self.assertRaisesRegex(error_type, message):
                     build_admin_run_visibility_response(_report(), **kwargs)
+
+    def test_week_filter_keeps_navigation_but_scopes_games_and_attention(self):
+        response = build_admin_run_visibility_response(
+            _report(), game_week="Preseason Week 2"
+        )
+
+        self.assertEqual(len(response["overview"]["weeks"]), 2)
+        self.assertFalse(response["overview"]["weeks"][0]["selected"])
+        self.assertTrue(response["overview"]["weeks"][1]["selected"])
+        self.assertEqual(response["overview"]["games"]["scheduled"], 1)
+        self.assertEqual(response["overview"]["games"]["captured"], 1)
+        self.assertEqual(response["overview"]["games"]["known_gaps"], 0)
+        self.assertEqual(response["attention"]["known_gaps"], [])
+        self.assertEqual(
+            [game["game_id"] for game in response["games"]],
+            ["20260815_DAL@SEA"],
+        )
 
     def test_service_rejects_a_date_range_over_31_days(self):
         with self.assertRaisesRegex(ValueError, "31 inclusive days"):
