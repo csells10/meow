@@ -36,6 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--learning-run-id", required=True)
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
+    parser.add_argument("--game-week")
     parser.add_argument("--game-id")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument(
@@ -65,6 +66,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "end_date": args.end_date,
         "limit": str(args.limit),
     }
+    if args.game_week:
+        query["game_week"] = args.game_week
     if args.game_id:
         query["game_id"] = args.game_id
 

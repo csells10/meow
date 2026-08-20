@@ -42,7 +42,7 @@ def render_admin_service_preview(response: Mapping[str, Any]) -> str:
     games = overview["games"]
     source = overview["source_health"]
     lines = [
-        "PACKET 5 / CHECKPOINT 2 / HIERARCHICAL READ SERVICE",
+        "PACKET 5 / WEEK NAVIGATION / HIERARCHICAL READ SERVICE",
         (
             f"Tables: {source.get('available_count', 0)}/"
             f"{source.get('table_count', 0)} available | "
@@ -54,10 +54,43 @@ def render_admin_service_preview(response: Mapping[str, Any]) -> str:
             f"{games['need_attention']} need attention | "
             f"{games['known_gaps']} known gaps"
         ),
-        "Drill path: Overview > Game > Clock > Stage evidence",
+        "Drill path: Overview > Week > Game > Clock > Stage evidence",
+        "",
+        "WEEK SUMMARY",
+    ]
+    week_rows = [
+        (
+            week["game_week"],
+            "YES" if week.get("selected") else "",
+            _token(week["state"]),
+            week["scheduled"],
+            week["captured"],
+            week["need_attention"],
+            week["known_gaps"],
+            f"{week.get('first_game_date') or ''} to {week.get('last_game_date') or ''}",
+        )
+        for week in overview.get("weeks", [])
+    ]
+    lines.append(
+        _render_rows(
+            (
+                "Week",
+                "Selected",
+                "State",
+                "Games",
+                "Captured",
+                "Attention",
+                "Known gaps",
+                "Dates",
+            ),
+            week_rows,
+            max_width=32,
+        )
+    )
+    lines.extend([
         "",
         "GAME JOURNEY",
-    ]
+    ])
 
     game_rows = []
     for game in response.get("games", []):
@@ -66,6 +99,7 @@ def render_admin_service_preview(response: Mapping[str, Any]) -> str:
         game_rows.append(
             (
                 game["game_id"],
+                game.get("game_week"),
                 game["matchup"],
                 _token(game["state"]),
                 _token(clocks["data_load"]["state"]),
@@ -76,7 +110,16 @@ def render_admin_service_preview(response: Mapping[str, Any]) -> str:
         )
     lines.append(
         _render_rows(
-            ("Game", "Matchup", "State", "Data", "Pregame", "Postgame", "First issue"),
+            (
+                "Game",
+                "Week",
+                "Matchup",
+                "State",
+                "Data",
+                "Pregame",
+                "Postgame",
+                "First issue",
+            ),
             game_rows,
             max_width=38,
         )
@@ -176,6 +219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Preview the hierarchical Packet 5 Admin read-service response."
     )
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--game-week")
     parser.add_argument("--game-id")
     parser.add_argument("--game-limit", type=int, default=MAX_GAME_ROWS)
     parser.add_argument(
@@ -188,6 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = json.loads(args.report.read_text(encoding="utf-8"))
     response = build_admin_run_visibility_response(
         report,
+        game_week=args.game_week,
         game_id=args.game_id,
         game_limit=args.game_limit,
     )

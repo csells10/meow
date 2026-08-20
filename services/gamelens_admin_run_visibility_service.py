@@ -1,8 +1,8 @@
 """Hierarchical, read-only Admin view over accepted Packet 5 evidence.
 
 This service is intentionally development-only.  It adapts the proven Packet 5
-inventory into a compact overview/game response and returns full evidence only
-for one explicitly selected game.  Route registration is a later checkpoint.
+inventory into a compact overview/week/game response and returns full evidence
+only for one explicitly selected game through the protected registered route.
 """
 
 from __future__ import annotations
@@ -34,6 +34,10 @@ class GameVisibilityNotFound(LookupError):
     """The selected game is not present in the bounded requested slate."""
 
 
+class GameWeekVisibilityNotFound(LookupError):
+    """The selected descriptive week is not present in the bounded slate."""
+
+
 def _validate_game_limit(game_limit: int) -> int:
     if isinstance(game_limit, bool) or not isinstance(game_limit, int):
         raise ValueError("game_limit must be an integer")
@@ -46,6 +50,13 @@ def _validate_selected_game_id(game_id: str | None) -> str | None:
     selected = str(game_id or "").strip() or None
     if selected and not _GAME_ID_PATTERN.fullmatch(selected):
         raise ValueError("game_id must use canonical YYYYMMDD_AWAY@HOME format")
+    return selected
+
+
+def _validate_selected_game_week(game_week: str | None) -> str | None:
+    selected = str(game_week or "").strip() or None
+    if selected and len(selected) > 80:
+        raise ValueError("game_week cannot exceed 80 characters")
     return selected
 
 
@@ -110,6 +121,7 @@ def _clock_payload(
 def _game_identity(game: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "game_id": game.get("game_id"),
+        "game_week": game.get("game_week"),
         "matchup": game.get("matchup"),
         "game_date": game.get("game_date"),
         "scheduled_kickoff": game.get("scheduled_kickoff"),
@@ -162,6 +174,7 @@ def _attention_rows(
             rows.append(
                 {
                     "game_id": game.get("game_id"),
+                    "game_week": game.get("game_week"),
                     "matchup": game.get("matchup"),
                     "clock": clock_id,
                     "stage": stage.get("stage"),
@@ -169,6 +182,46 @@ def _attention_rows(
                     "reason": stage.get("reason"),
                 }
             )
+    return rows
+
+
+def _week_rollups(
+    games: Iterable[Mapping[str, Any]], *, selected_game_week: str | None
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for game in games:
+        label = str(game.get("game_week") or "").strip()
+        grouped.setdefault(label, []).append(game)
+
+    rows = []
+    for label, week_games in grouped.items():
+        stages = [
+            stage
+            for game in week_games
+            for _, stage in _all_stages(game)
+        ]
+        states = [
+            _rollup_state(stage for _, stage in _all_stages(game))
+            for game in week_games
+        ]
+        game_dates = sorted(
+            str(game.get("game_date"))
+            for game in week_games
+            if game.get("game_date")
+        )
+        rows.append(
+            {
+                "game_week": label,
+                "first_game_date": game_dates[0] if game_dates else None,
+                "last_game_date": game_dates[-1] if game_dates else None,
+                "scheduled": len(week_games),
+                "captured": sum(bool(game.get("capture_id")) for game in week_games),
+                "need_attention": states.count("needs_attention"),
+                "known_gaps": states.count("known_gap"),
+                "state": _rollup_state(stages),
+                "selected": label == selected_game_week,
+            }
+        )
     return rows
 
 
@@ -204,16 +257,33 @@ def _recent_runs(report: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_admin_run_visibility_response(
-    report: Mapping[str, Any], *, game_id: str | None = None,
+    report: Mapping[str, Any], *, game_week: str | None = None,
+    game_id: str | None = None,
     game_limit: int = MAX_GAME_ROWS,
 ) -> dict[str, Any]:
     """Adapt the accepted inventory into an overview-first drill contract."""
     limit = _validate_game_limit(game_limit)
+    selected_game_week = _validate_selected_game_week(game_week)
     selected_game_id = _validate_selected_game_id(game_id)
     if report.get("access_mode") != "read_only" or report.get("write_performed"):
         raise ValueError("Packet 5 Admin service accepts read-only reports only")
 
-    games = list(report.get("games", []))
+    all_games = list(report.get("games", []))
+    week_rollups = _week_rollups(
+        all_games,
+        selected_game_week=selected_game_week,
+    )
+    if selected_game_week and not any(
+        week["game_week"] == selected_game_week for week in week_rollups
+    ):
+        raise GameWeekVisibilityNotFound(
+            "selected game_week is not in the requested slate"
+        )
+    games = [
+        game
+        for game in all_games
+        if not selected_game_week or game.get("game_week") == selected_game_week
+    ]
     selected = None
     if selected_game_id:
         selected = next(
@@ -222,14 +292,19 @@ def build_admin_run_visibility_response(
         )
         if selected is None:
             raise GameVisibilityNotFound(
-                "selected game_id is not in the requested slate"
+                "selected game_id is not in the requested week or slate"
             )
 
-    game_summary = dict(report.get("game_summary") or {})
     inventory_summary = dict(report.get("inventory_summary") or {})
     needs_attention = _attention_rows(games, "action_required")
     known_gaps = _attention_rows(games, "known_gap")
     visible_games = games[:limit]
+    game_states = [
+        _rollup_state(stage for _, stage in _all_stages(game))
+        for game in games
+    ]
+    filters = dict(report.get("filters") or {})
+    filters["game_week"] = selected_game_week
 
     return {
         "available": True,
@@ -237,11 +312,12 @@ def build_admin_run_visibility_response(
         "scope": "admin_gamelens_run_visibility",
         "source_profile": SOURCE_PROFILE,
         "generated_at": report.get("audited_at"),
-        "filters": dict(report.get("filters") or {}),
+        "filters": filters,
         "navigation": {
             "default_level": "overview",
-            "levels": ["overview", "game", "clock", "stage_evidence"],
+            "levels": ["overview", "week", "game", "clock", "stage_evidence"],
             "default_expanded": ["overview", "needs_attention"],
+            "selected_game_week": selected_game_week,
             "selected_game_id": selected_game_id,
         },
         "overview": {
@@ -249,13 +325,12 @@ def build_admin_run_visibility_response(
                 **inventory_summary,
                 "tables": _source_tables(report),
             },
+            "weeks": week_rollups,
             "games": {
-                "scheduled": game_summary.get("scheduled_game_count", len(games)),
-                "captured": game_summary.get("captured_game_count", 0),
-                "need_attention": game_summary.get(
-                    "action_required_game_count", 0
-                ),
-                "known_gaps": game_summary.get("known_gap_game_count", 0),
+                "scheduled": len(games),
+                "captured": sum(bool(game.get("capture_id")) for game in games),
+                "need_attention": game_states.count("needs_attention"),
+                "known_gaps": game_states.count("known_gap"),
                 "returned": len(visible_games),
                 "truncated": len(games) > limit,
             },
@@ -274,7 +349,8 @@ def build_admin_run_visibility_response(
 def get_admin_run_visibility(
     *, client: Any, bigquery: Any, runtime_config: RuntimeConfig,
     season: str, season_type: str, learning_run_id: str,
-    start_date: date, end_date: date, game_id: str | None = None,
+    start_date: date, end_date: date, game_week: str | None = None,
+    game_id: str | None = None,
     game_limit: int = MAX_GAME_ROWS, now: datetime | None = None,
     report_loader: ReportLoader | None = None,
 ) -> dict[str, Any]:
@@ -292,6 +368,7 @@ def get_admin_run_visibility(
             f"date range cannot exceed {MAX_DATE_RANGE_DAYS} inclusive days"
         )
     _validate_game_limit(game_limit)
+    selected_game_week = _validate_selected_game_week(game_week)
     selected_game_id = _validate_selected_game_id(game_id)
     if not str(learning_run_id or "").strip():
         raise ValueError("learning_run_id is required")
@@ -313,6 +390,7 @@ def get_admin_run_visibility(
     )
     return build_admin_run_visibility_response(
         report,
+        game_week=selected_game_week,
         game_id=selected_game_id,
         game_limit=game_limit,
     )

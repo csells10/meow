@@ -12,6 +12,7 @@ from runtime_config import load_runtime_config
 from services.gamelens_admin_run_visibility_service import (
     MAX_GAME_ROWS,
     DevelopmentRunVisibilityUnavailable,
+    GameWeekVisibilityNotFound,
     GameVisibilityNotFound,
     get_admin_run_visibility,
 )
@@ -75,6 +76,7 @@ def admin_run_visibility():
         learning_run_id = _required_arg("learning_run_id")
         start_date = _date_arg("start_date")
         end_date = _date_arg("end_date")
+        game_week = str(request.args.get("game_week") or "").strip() or None
         game_id = str(request.args.get("game_id") or "").strip() or None
         game_limit = _limit_arg()
 
@@ -87,6 +89,7 @@ def admin_run_visibility():
             learning_run_id=learning_run_id,
             start_date=start_date,
             end_date=end_date,
+            game_week=game_week,
             game_id=game_id,
             game_limit=game_limit,
         )
@@ -96,6 +99,12 @@ def admin_run_visibility():
             "development_source_unavailable",
             "Development GameLens run visibility is unavailable in this runtime.",
             403,
+        )
+    except GameWeekVisibilityNotFound:
+        return _error(
+            "game_week_not_found",
+            "The selected game week is not present in the requested slate.",
+            404,
         )
     except GameVisibilityNotFound:
         return _error(
