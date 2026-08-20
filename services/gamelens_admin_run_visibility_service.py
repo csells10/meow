@@ -8,7 +8,7 @@ only for one explicitly selected game through the protected registered route.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Callable, Iterable, Mapping
 
 from runtime_config import RuntimeConfig
@@ -22,6 +22,10 @@ CLOCKS = (
     ("pregame", "GameLens Pregame"),
     ("postgame", "Postgame Learning"),
 )
+RUN_STAGE_LABELS = {
+    "snapshot_capture": "Snapshot capture",
+    "postgame_learning": "Postgame learning",
+}
 _GAME_ID_PATTERN = re.compile(r"20\d{6}_[A-Z0-9]+@[A-Z0-9]+")
 ReportLoader = Callable[..., dict[str, Any]]
 
@@ -239,10 +243,48 @@ def _source_tables(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _friendly_run_label(run: Mapping[str, Any]) -> str:
+    stage = str(run.get("stage_name") or "Pipeline run")
+    stage_label = RUN_STAGE_LABELS.get(
+        stage,
+        stage.replace("_", " ").strip().title() or "Pipeline run",
+    )
+    finished_value = run.get("finished_at")
+    if not finished_value:
+        return stage_label
+    try:
+        finished_at = (
+            finished_value
+            if isinstance(finished_value, datetime)
+            else datetime.fromisoformat(str(finished_value).replace("Z", "+00:00"))
+        )
+        if finished_at.tzinfo is None:
+            finished_at = finished_at.replace(tzinfo=timezone.utc)
+        finished_at = finished_at.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return stage_label
+    return (
+        f"{stage_label} · {finished_at.strftime('%b')} {finished_at.day}, "
+        f"{finished_at.year} · {finished_at.strftime('%H:%M')} UTC"
+    )
+
+
+def _run_scope_label(input_count: Any) -> str:
+    if isinstance(input_count, bool):
+        return "Game count unavailable"
+    try:
+        count = int(input_count)
+    except (TypeError, ValueError):
+        return "Game count unavailable"
+    return f"{count} game" if count == 1 else f"{count} games"
+
+
 def _recent_runs(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "source": run.get("source"),
+            "display_label": _friendly_run_label(run),
+            "scope_label": _run_scope_label(run.get("input_count")),
             "attempt_id": run.get("attempt_id"),
             "stage": run.get("stage_name"),
             "status": run.get("status"),

@@ -156,19 +156,18 @@ def render_admin_service_preview(response: Mapping[str, Any]) -> str:
     if recent_runs:
         lines.append(
             _render_rows(
-                ("Attempt", "Stage", "Status", "In", "Out", "Reason"),
+                ("Run", "Status", "Scope", "Completed", "Reason"),
                 [
                     (
-                        run["attempt_id"],
-                        run["stage"],
+                        run["display_label"],
                         _token(run["status"]),
-                        run["input_count"],
+                        run["scope_label"],
                         run["output_count"],
                         run["reason"],
                     )
                     for run in recent_runs
                 ],
-                max_width=42,
+                max_width=54,
             )
         )
     else:

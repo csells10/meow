@@ -157,6 +157,21 @@ class GameLensAdminRunVisibilityServiceTests(unittest.TestCase):
         self.assertIn("STAGE EVIDENCE", rendered)
         self.assertIn("source.level2", rendered)
 
+    def test_recent_runs_have_friendly_labels_and_keep_raw_attempt_ids(self):
+        response = build_admin_run_visibility_response(_report())
+        run = response["recent_runs"][0]
+
+        self.assertEqual(
+            run["display_label"],
+            "Snapshot capture · Aug 15, 2026 · 12:00 UTC",
+        )
+        self.assertEqual(run["scope_label"], "2 games")
+        self.assertEqual(run["attempt_id"], "snapshot_attempt")
+
+        rendered = preview.render_admin_service_preview(response)
+        self.assertIn("Snapshot capture · Aug 15, 2026 · 12:00 UTC", rendered)
+        self.assertNotIn("snapshot_attempt", rendered)
+
     def test_default_response_is_overview_first_and_compact(self):
         response = build_admin_run_visibility_response(_report(), game_limit=1)
 
