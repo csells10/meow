@@ -255,7 +255,7 @@ class Packet5AdminInventoryTests(unittest.TestCase):
         self.assertEqual(game["first_issue"]["reason"], "kickoff_reached")
         self.assertEqual(game["first_issue"]["attention"], "known_gap")
 
-    def test_missing_capture_and_failed_grade_are_visible_without_hiding_game(self):
+    def test_irrecoverable_capture_gap_suppresses_dependent_grade_alarm(self):
         game = inventory.build_game_journey(
             _captured_row(
                 game_id="20260806_CAR@ARI",
@@ -281,13 +281,36 @@ class Packet5AdminInventoryTests(unittest.TestCase):
             now=datetime(2026, 8, 19, tzinfo=timezone.utc),
         )
         self.assertEqual(game["game_id"], "20260806_CAR@ARI")
-        self.assertEqual(_stage(game, "pregame", "snapshot")["status"], "failed")
-        self.assertEqual(_stage(game, "postgame", "game_grade")["status"], "failed")
+        snapshot = _stage(game, "pregame", "snapshot")
+        self.assertEqual(snapshot["status"], "warning")
+        self.assertEqual(snapshot["attention"], "known_gap")
+        self.assertEqual(snapshot["reason"], "capture_missing_after_kickoff")
+        self.assertEqual(
+            _stage(game, "postgame", "game_grade")["status"],
+            "not_applicable",
+        )
         self.assertEqual(_stage(game, "postgame", "level2")["status"], "not_applicable")
         self.assertEqual(_stage(game, "postgame", "level3")["status"], "not_applicable")
-        self.assertEqual(game["first_issue"]["status"], "failed")
+        self.assertEqual(game["first_issue"]["status"], "warning")
         self.assertEqual(game["first_issue"]["stage"], "snapshot")
-        self.assertEqual(game["first_issue"]["attention"], "action_required")
+        self.assertEqual(game["first_issue"]["attention"], "known_gap")
+
+    def test_capture_failure_before_kickoff_remains_actionable(self):
+        game = inventory.build_game_journey(
+            _captured_row(
+                capture_id=None,
+                captured_at=None,
+                snapshot_receipt_status="failure",
+                snapshot_receipt_reason="snapshot_capture_failed",
+                grade_count=0,
+                grade_status=None,
+            ),
+            now=datetime(2026, 8, 15, 20, 0, tzinfo=timezone.utc),
+        )
+
+        snapshot = _stage(game, "pregame", "snapshot")
+        self.assertEqual(snapshot["status"], "failed")
+        self.assertEqual(snapshot["attention"], "action_required")
 
     def test_run_summary_query_preserves_attempt_grain_and_is_bounded(self):
         query = inventory.build_run_summary_query()

@@ -33,6 +33,7 @@ ALLOWED_STAGE_STATUSES = frozenset(
 MAX_RUN_SUMMARY_ROWS = 12
 KNOWN_GAP_REASONS = frozenset(
     {
+        "capture_missing_after_kickoff",
         "kickoff_reached",
         "before_packet_2_capture_program",
         "level1_receipt_missing_after_kickoff",
@@ -667,18 +668,26 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
         snapshot_status, snapshot_reason = "complete", "canonical_capture_present"
     else:
         raw_snapshot_status = _text(raw.get("snapshot_receipt_status"))
+        raw_snapshot_reason = _text(raw.get("snapshot_receipt_reason"))
         receipt_status = _receipt_status(raw_snapshot_status)
-        if receipt_status == "failed":
-            snapshot_status, snapshot_reason = "failed", (
-                _text(raw.get("snapshot_receipt_reason")) or "snapshot_capture_failed"
+        if kickoff_passed:
+            snapshot_status = "warning"
+            snapshot_reason = (
+                raw_snapshot_reason
+                if raw_snapshot_reason in KNOWN_GAP_REASONS
+                else "capture_missing_after_kickoff"
             )
-        elif raw_snapshot_status == "skipped" or kickoff_passed:
+        elif receipt_status == "failed":
+            snapshot_status, snapshot_reason = "failed", (
+                raw_snapshot_reason or "snapshot_capture_failed"
+            )
+        elif raw_snapshot_status == "skipped":
             snapshot_status, snapshot_reason = "warning", (
-                _text(raw.get("snapshot_receipt_reason")) or "capture_missing_after_kickoff"
+                raw_snapshot_reason or "snapshot_capture_skipped"
             )
         else:
             snapshot_status, snapshot_reason = "waiting", (
-                _text(raw.get("snapshot_receipt_reason")) or "capture_not_due_or_not_attempted"
+                raw_snapshot_reason or "capture_not_due_or_not_attempted"
             )
     pregame.append(
         _stage(
@@ -752,11 +761,11 @@ def build_game_journey(row: Mapping[str, Any], *, now: datetime) -> dict[str, An
     grade_count = int(raw.get("grade_count") or 0)
     if grade_count == 1:
         grade_status, grade_reason = "complete", "canonical_frozen_grade_present"
+    elif not capture_id:
+        grade_status, grade_reason = "not_applicable", "canonical_capture_required"
     elif _receipt_status(raw.get("grade_status")) == "failed":
         grade_status = "failed"
         grade_reason = _text(raw.get("grade_reason")) or "game_grade_failed"
-    elif not capture_id:
-        grade_status, grade_reason = "not_applicable", "canonical_capture_required"
     else:
         grade_status = _receipt_status(raw.get("grade_status"))
         grade_reason = _text(raw.get("grade_reason")) or "awaiting_game_grade"
