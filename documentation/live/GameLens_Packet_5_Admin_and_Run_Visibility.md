@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Checkpoint 2 accepted; protected route test gate passed; visual HTTP review next
+**Status:** Checkpoint 2 accepted; week navigation test gate passed; attention and run-label refinement awaiting visual review
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -9,8 +9,8 @@
 **Production behavior changed:** No  
 **Production learning data written:** No  
 **Packet 5 code authorized by this document:** Accepted read-only inventory,
-hierarchical backend service, and protected route registration; bounded week
-grouping may proceed as the next visual slice; no frontend yet
+hierarchical backend service, protected route registration, bounded week
+grouping, and the small historical-gap/run-label refinement; no frontend yet
 
 ---
 
@@ -256,6 +256,14 @@ attempts come from the `receipt_scope = 'attempt'` rows in
 status/reason, input/output counts, duration, and finish time. It does not
 force attempt-level rows onto individual games. Per-game cells continue to use
 the canonical snapshot, game-stage receipt, claim, and grade owners.
+
+One attempt represents one bounded coordinator invocation, not one game. In
+normal scheduled operation, one invocation should create one parent attempt
+that may cover one eligible game or the full eligible slate. Input/output
+counts summarize that bounded scope, while the child game-stage receipts carry
+the per-game evidence. The Admin overview should display a friendly label such
+as `Snapshot capture · Aug 15, 2026 · 23:42 UTC`; the raw `attempt_id` remains
+available only in run details for correlation and audit.
 
 Level 4 is weekly/batch work, not a per-game worker. Until its contract is
 implemented, Game Journey may display only the game's relationship to that
@@ -961,3 +969,39 @@ preseason data. After Christian reviews that shape, the Lovable wireframe may
 use the same hierarchy. A later reviewed slice can add a lightweight
 season-wide week index if the 31-day response proves insufficient; that need
 does not justify a duplicate warehouse now.
+
+---
+
+## 17. Historical-gap and friendly-run-label refinement — visual review next
+
+The week-level rehearsal exposed two presentation issues without proving a new
+storage or worker gap:
+
+1. a missing canonical snapshot was still shown as active after kickoff even
+   though its safe recovery window had closed; and
+2. Recent Runs led with raw operational identifiers instead of a human-readable
+   label.
+
+The bounded refinement therefore applies these rules:
+
+- before kickoff, a failed snapshot attempt remains **Needs Attention** because
+  a safe retry may still succeed;
+- after kickoff, an absent canonical snapshot remains a permanent warning in
+  the game's evidence but moves to **Known Gaps** with
+  `capture_missing_after_kickoff`;
+- a postgame grade that cannot exist because the canonical snapshot is absent
+  displays `not_applicable / canonical_capture_required` rather than creating
+  a second alarm for the same root cause;
+- Recent Runs displays a friendly stage-and-time label plus game scope and
+  completion count; and
+- the raw `attempt_id`, source, timestamps, duration, and reason remain in the
+  read contract for drill-down and traceability.
+
+This does not backfill or reconstruct any missed capture. Historical facts,
+windowed metrics, and rankings remain independently visible through the Daily
+Data Load clock, while frozen pregame evidence remains immutable and honest.
+
+The next acceptance point is another real-data protected-route rehearsal. The
+expected visual result is no permanent missed-capture condition in **Needs
+Attention**, one consolidated Known Gap per affected game, and friendly Recent
+Runs labels with the raw IDs absent from the overview table.
