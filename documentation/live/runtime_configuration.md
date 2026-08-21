@@ -87,7 +87,7 @@ This is an evidence snapshot, not a permanent assumption. Re-read the live servi
 ### Packet 1–4 learning runtime posture — 2026-08-18
 
 The historical service snapshot above describes the existing ingestion/metric
-runtime. Packet 1–4 learning work is separately proven on `dev` and is not yet
+runtime. Packet 1–5 learning work is separately proven on `dev` and is not yet
 wired into `app.py`, Cloud Scheduler, or a production Cloud Run service.
 
 Current learning boundaries:
@@ -97,7 +97,7 @@ Current learning boundaries:
 | Environment gate | Setup and write entry points require `GAMELENS_ENVIRONMENT=dev` and fail closed otherwise. |
 | Development target | `nfl-stream-406420.GameLens_dev` |
 | Table inventory | Six tables: `pregame_snapshots`, `stage_runs`, `stage_game_results`, `claim_training_examples`, `game_model_outcomes`, and `postgame_learning_stage_receipts` |
-| Upstream reads used by Packet 4 proof | Existing League/Scores/Analytics sources; writes remained confined to `GameLens_dev` |
+| Upstream reads used by Packet 4–5 proof | Existing League/Scores/Analytics sources; writes remained confined to `GameLens_dev` |
 | Production target | Not approved or created |
 | Orchestration | Manual bounded runners only; no `app.py` or Scheduler wiring |
 | JSON output | QA/setup runners print to stdout; they do not save repository files themselves |
@@ -107,9 +107,11 @@ The table inventory, schema owners, partitions, clustering, clean recreation
 order, and production migration requirement are in
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
 
-Packet 5 should read these tables and the existing protected Admin service. It
-must not assume that runtime deployment, production dataset creation, or
-automatic scheduling already exists. Packet 7 owns those release decisions.
+Packet 5 now reads these tables through the protected Admin route without a
+duplicate summary warehouse. Packet 6 may reuse that read contract for visual
+rehearsal evidence, but it must not assume that runtime deployment, production
+dataset creation, or automatic scheduling already exists. Packet 8 owns those
+release decisions.
 
 ---
 
@@ -343,13 +345,20 @@ This completed the dev proof of the Gate H remediation at that historical
 checkpoint. Later production evidence closed Gate H; see `go_plan.md`. It does
 not authorize learning deployment.
 
-## 12. Packet 5 and future production runtime checklist
+## 12. Packet 6 rehearsal and future production runtime checklist
 
-Packet 5 remains development-only. Before any future cloud validation, inspect
-the live revision, identity, environment variables, dataset permissions, and
-the six-table inventory again rather than copying the August 4 snapshot.
+Packet 6 remains development-only. Its first coordinator should be a bounded
+invocation, not a service that waits across pregame and postgame clocks. Each
+invocation inspects current eligibility, calls only released Packet 2–4
+workers, records honest `waiting`/`no_op`/completed evidence, and exits. It may
+cover one game or many games and must be safe to invoke again.
 
-Before Packet 7 production activation, require all of the following:
+Before any future cloud validation, inspect the live revision, identity,
+environment variables, dataset permissions, and six-table inventory again
+rather than copying the August 4 snapshot. Do not add an exact-minute timing
+dependency, a new summary table, or Scheduler wiring in Packet 6.
+
+Before Packet 8 production activation, require all of the following:
 
 1. approved production dataset name and BigQuery location;
 2. least-privilege runtime and migration identities;

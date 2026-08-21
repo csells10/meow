@@ -836,8 +836,8 @@ this packet.
 Implementation GO approves the development Packet 4 boundary only. It does
 not approve production wiring, a merge to `main`, production learning tables,
 or any change to the 8:00 a.m. ETL, `/game`, frontend, Scheduler, runtime
-confidence, or claim language. Packet 5 must begin with its own reviewed plan
-for ledger/Admin reconciliation.
+confidence, or claim language. Packet 5 subsequently completed its reviewed
+ledger/Admin reconciliation without adding storage.
 
 ## What Packet 4 does not do
 
@@ -862,7 +862,7 @@ the existing `claim_training_examples` table, and the immutable
 Packet 3's claim table; it did not create duplicate Level 2 or Level 3 tables.
 
 The complete table grains, setup owners, clean-namespace order, structure-only
-recreation commands, JSON/build-context behavior, and Packet 7 production
+recreation commands, JSON/build-context behavior, and Packet 8 production
 migration requirement are in
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
 
@@ -870,6 +870,15 @@ Packet 5 must start by reconciling the existing protected Admin service against
 those six tables. It may add storage only after inspection proves a missing
 grain or retention need. Packet 4 does not authorize production table creation
 or automatic orchestration.
+
+### Downstream completion note — 2026-08-20
+
+Packet 5 completed that reconciliation without adding a table. Its protected
+read route exposes the six-table-derived week/game/clock/stage hierarchy and
+the accepted Lovable wireframe is ready for separate endpoint wiring. Packet 6
+is the next bounded development rehearsal and must call these Packet 4 workers
+rather than reproduce their grade, Level 2, or Level 3 logic. Packet 7 owns
+Level 4; Packet 8 owns production activation.
 
 ## Review questions before implementation
 

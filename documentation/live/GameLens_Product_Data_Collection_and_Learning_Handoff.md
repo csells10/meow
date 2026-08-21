@@ -1,8 +1,8 @@
 # GameLens Product Data Collection and Learning Handoff
 
-**Document status:** Architecture handoff active; Packets 1–4 and the separate Calibrated Matchup Lean release are complete; Packet 5 planning is next  
+**Document status:** Architecture handoff active; Packets 1–5 and the separate Calibrated Matchup Lean release are complete; Packet 6 planning is next
 **Created:** 2026-08-03  
-**Last revised:** 2026-08-18  
+**Last revised:** 2026-08-20
 **Owner:** Senior Product Manager / GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Branch represented:** `dev` for learning work; `main` remains the production release branch  
@@ -10,7 +10,7 @@
 **Companion release plan:** [go_plan.md](./go_plan.md)  
 **Live documentation index:** [README.md](./README.md)  
 **Dataset recreation runbook:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
-**Current packet:** Packet 5 planning; create `GameLens_Packet_5_Admin_and_Run_Visibility.md` before implementation
+**Current packet:** Packet 6 planning; review `GameLens_Packet_6_End_to_End_Development_Rehearsal.md` before implementation
 
 ---
 
@@ -29,7 +29,9 @@ Older files remain useful evidence, but they do not override this handoff:
 | `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Completed Packet 3 Implementation GO evidence and deferred pre-production real-data validation |
 | `documentation/live/GameLens_Calibrated_Matchup_Lean_Hotfix.md` | Completed separate confidence release and production receipt |
 | `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Completed Packet 4 Implementation GO evidence and Packet 5 handoff |
-| `documentation/live/GameLens_Development_Dataset_Recreation_Runbook.md` | Six-table development schema ownership, recreation order, and Packet 7 production-migration requirement |
+| `documentation/live/GameLens_Packet_5_Admin_and_Run_Visibility.md` | Completed backend visibility evidence and accepted Lovable handoff |
+| `documentation/live/GameLens_Packet_6_End_to_End_Development_Rehearsal.md` | Next bounded coordinator plan; no Level 4 or production wiring |
+| `documentation/live/GameLens_Development_Dataset_Recreation_Runbook.md` | Six-table development schema ownership, recreation order, and Packet 8 production-migration requirement |
 | `documentation/live/README.md` | Live-folder reading order and stale-document boundary |
 | `documentation/live/go_plan.md` | Historical production cutover and completed Gate H evidence; not the current learning release plan |
 | `documentation/Gamelens_Feature_Guide_Book_20260524.md` and `documentation/Features/*` | Feature research, definitions, and guardrails |
@@ -214,7 +216,7 @@ This separation is intentional:
 The code-owned schema functions, field counts, partitions, clustering, setup
 order, and structure-versus-data boundary are recorded in the
 [development dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
-Current setup scripts are development-only. Packet 7 must provide the reviewed
+Current setup scripts are development-only. Packet 8 must provide the reviewed
 production migration entry point before activation.
 
 ### Current Level 3 and Level 4 guardrails
@@ -592,23 +594,26 @@ The handoff should let a new owner answer four questions quickly:
 
 ## 16. Next bounded action
 
-Gate H and Packets 1–4 are complete. Packet 3 has Implementation GO; its first
+Gate H and Packets 1–5 are complete at their documented boundaries. Packet 3 has Implementation GO; its first
 genuine populated-capture write/retry and claim-bearing bounded slate remain
 pre-production validations because all seven available preseason captures
 contained zero claims.
 
-The next bounded action is Packet 5 planning:
+The next bounded action is Packet 6 planning:
 
-> Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md`. Inspect the
-> protected Admin route/service/queries and reconcile them against the six
-> existing `GameLens_dev` tables, their identities, grains, statuses, and
-> retention needs before proposing any new storage.
+> Review `GameLens_Packet_6_End_to_End_Development_Rehearsal.md`, then prove a
+> read-only eligibility preview over a bounded preseason slate before the
+> first write-capable rehearsal.
 
-Packet 5 must keep game calibration and claim health separate, preserve the
-existing calculation owners and capture lineage, and explain no-op,
-partial-failure, failure, and success without requiring line-by-line log
-reading. It must not wire `app.py`, write production learning rows, change
-`/game`, change the frontend, manufacture claims, or create a duplicate Admin
-warehouse without a proven gap. Read the dataset recreation runbook and
-runtime guide as part of the inventory; production schema migration remains a
-Packet 7 release gate.
+Packet 6 should be one small coordinator invocation that can cover one game or
+many games, evaluate current eligibility, reuse the released Packet 2–4
+workers, emit per-game/per-stage evidence, and exit. It must be safe to rerun
+and must treat work that is early or not yet eligible as `waiting` or `no_op`,
+not as a timing failure. It must not remain alive across pregame and postgame,
+wire `app.py`, change Scheduler, add a summary warehouse, implement Level 4,
+write production learning rows, change `/game`, manufacture claims, or
+reconstruct missed captures.
+
+The accepted Packet 5 Lovable wireframe may be connected to the existing
+protected endpoint as a separate frontend integration checkpoint. Packet 7
+owns Level 4 and Packet 8 owns production schema migration and activation.

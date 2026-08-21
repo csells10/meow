@@ -1167,5 +1167,6 @@ are the first dependency group in the
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md):
 `pregame_snapshots`, `stage_runs`, and `stage_game_results`. The setup code can
 recreate their empty structure, but it cannot and must not reconstruct their
-historical rows. Packet 5 is the next active review and must reconcile these
-receipt grains before proposing any additional Admin storage.
+historical rows. Packet 5 later reconciled these receipt grains into the
+protected Admin read contract without adding storage. Packet 6 inherits the
+same canonical capture and receipt boundaries for its development rehearsal.

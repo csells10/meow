@@ -24,9 +24,10 @@ separate learning track is **not production GO**.
 | Packets 1–2 | Complete | Capture contract and development shadow evidence proven; no production capture wiring |
 | Packet 3 | Implementation GO | Development Level 1 boundary proven; first genuine claim-bearing write/retry remains a pre-production validation |
 | Packet 4 | Implementation GO | Frozen grade, Levels 2–3, six-table development storage, receipts, retries, and partial-failure isolation proven; no production wiring |
-| Packet 5 | In progress | Canonical inventory and hierarchical service accepted; protected dev read route passes 40 focused tests; visual HTTP and week-grouping checkpoints remain |
-| Packet 6 | Future | Level 4 and weekly evidence plan not yet implemented |
-| Packet 7 | Future release gate | Production dataset, migration automation, IAM, orchestration, kill switch, deployment, activation, and rollback |
+| Packet 5 | Backend Implementation GO | Protected read contract, six-table reconciliation, week/game hierarchy, historical-gap lifecycle, friendly run labels, and Lovable wireframe handoff accepted; frontend endpoint wiring remains separate |
+| Packet 6 | Next | Bounded, rerunnable development rehearsal of the released Packet 2–4 workers; no Level 4 or production wiring |
+| Packet 7 | Future | Level 4 and weekly evidence plan not yet implemented |
+| Packet 8 | Future release gate | Production dataset, migration automation, IAM, orchestration, kill switch, deployment, activation, and rollback |
 
 `GameLens_dev` currently contains six packet-owned tables. Their code-owned
 schemas, grains, partitions, clustering, clean development setup order, and
@@ -37,28 +38,32 @@ structure-versus-evidence boundary are documented in
 
 Before learning may be enabled in production:
 
-1. Packet 5 must reconcile the existing protected Admin experience with the
-   canonical six-table grains and avoid an unproven duplicate warehouse.
-2. Packet 6 must prove controlled Level 4/weekly behavior, sparse-evidence
-   honesty, and immutable weekly comparisons.
+1. Packet 5's accepted frontend wireframe must be connected to its protected
+   read endpoint without weakening authorization or changing the canonical
+   six-table-derived contract.
+2. Packet 6 must prove the bounded development rehearsal across Levels 1–3,
+   including honest `waiting`/`no_op` states, rerun safety, and per-game and
+   per-stage receipts.
 3. Packet 3's first genuine claim-bearing development write/retry and bounded
    slate must pass when a real capture finally supplies claims.
-4. Packet 7 must approve production dataset names, location, IAM, retention,
+4. Packet 7 must prove controlled Level 4/weekly behavior, sparse-evidence
+   honesty, and immutable weekly comparisons.
+5. Packet 8 must approve production dataset names, location, IAM, retention,
    service/job topology, Scheduler handoff, kill switch, and rollback.
-5. Packet 7 must provide one reviewed, versioned migration entry point that
+6. Packet 8 must provide one reviewed, versioned migration entry point that
    imports the same schema owners used in development, recreates an empty
    namespace in dependency order, verifies layout, and refuses destructive
    behavior by default.
-6. Schema creation, optional evidence migration, deployment, and write
+7. Schema creation, optional evidence migration, deployment, and write
    activation must remain separate reviewable gates.
-7. The migration must be rehearsed on a clean disposable development
+8. The migration must be rehearsed on a clean disposable development
    namespace and recorded with the exact commit and verification output.
-8. The learning-capable revision must be validated at 0% normal traffic with
+9. The learning-capable revision must be validated at 0% normal traffic with
    learning disabled/read-only before the smallest approved write is enabled.
-9. One game must be followed through the complete two-clock lifecycle while
+10. One game must be followed through the complete two-clock lifecycle while
    the prior production revision and learning kill switch remain usable.
 
-Packet 1–4 Implementation GO does not authorize `main`, production BigQuery
+Packet 1–5 Implementation GO does not authorize `main`, production BigQuery
 objects, Scheduler changes, or learning writes. The existing 8:00 a.m. ETL,
 `/game`, frontend, and released Calibrated Matchup Lean remain unchanged.
 
@@ -1686,6 +1691,7 @@ complete, as recorded at the top of this document and in Section 5D. Do not use
 the historical “pending” language as a current action.
 
 The current next release work is the separate learning track described in
-“Current learning go posture.” Packets 1–4 have development Implementation GO;
-Packet 5 protected read work is in progress, and production learning remains
-disabled.
+“Current learning go posture.” Packets 1–5 have their documented development
+Implementation GO boundaries. Packet 6 is the next bounded development
+rehearsal; Packet 7 owns Level 4 and Packet 8 owns production activation.
+Production learning remains disabled.

@@ -590,13 +590,15 @@ Those responsibilities stay with their later packets.
 Packet 4 decides how final scores and accepted Facts admit a game to outcome
 grading and Levels 2–3.
 
-Packet 5 decides production operational-ledger retention and Admin
-reconciliation.
+Packet 5 decided Admin reconciliation and retained the existing ledgers; it
+did not decide production retention.
 
-Packet 6 decides controlled Level 4 batching and weekly reporting.
+Packet 6 decides the bounded end-to-end development rehearsal of Levels 1–3.
 
-Packet 7 decides the production dataset, kill switch, final service/job
-topology, 8:00 a.m. handoff, deployment, and rollback.
+Packet 7 decides controlled Level 4 batching and weekly reporting.
+
+Packet 8 decides production retention, the production dataset, kill switch,
+final service/job topology, 8:00 a.m. handoff, deployment, and rollback.
 
 ## Closure checklist for Christian
 
@@ -615,20 +617,23 @@ validation, not hidden unfinished code.
 
 ## Documentation handoff
 
-This plan is completed evidence. Packet 4 subsequently received Implementation
-GO on 2026-08-18. A new Packet 5 chat should read, in order:
+This plan is completed evidence. Packets 4 and 5 subsequently received their
+documented Implementation GO boundaries. A new Packet 6 chat should read, in
+order:
 
 1. [Live documentation index](./README.md);
 2. [Product Sprint](./GameLens_Learning_Orchestration_Product_Sprint.md);
-3. [completed Packet 4 evidence](./GameLens_Packet_4_Postgame_Learning.md);
-4. this completed Packet 3 evidence;
-5. [Packet 2 evidence](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md);
-6. [Packet 1 rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md); and
-7. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md); and
-8. [development dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
+3. [Packet 6 plan](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md);
+4. [completed Packet 5 handoff](./GameLens_Packet_5_Admin_and_Run_Visibility.md);
+5. [completed Packet 4 evidence](./GameLens_Packet_4_Postgame_Learning.md);
+6. this completed Packet 3 evidence;
+7. [Packet 2 evidence](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md);
+8. [Packet 1 rulebook](./GameLens_Packet_1_Pregame_Capture_Contract.md);
+9. [architecture handoff](./GameLens_Product_Data_Collection_and_Learning_Handoff.md); and
+10. [development dataset recreation runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
 
-Then inspect the current `dev` Admin service and queries, the six canonical
-development tables, and their distinct grains before changing code. The plan
+Then inspect the existing Packet 2–4 workers, their current eligibility rules,
+and the Packet 5 visibility contract before changing code. The Packet 6 plan
 governs the boundary; current code governs implementation details.
 
 ### Downstream completion note — 2026-08-18

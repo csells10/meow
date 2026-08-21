@@ -276,4 +276,7 @@ fail-closed rule. A final score and accepted Facts do not authorize anyone to
 reconstruct a missing pregame snapshot. The six-table development inventory
 and recreation order are documented in
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md).
-Packet 5 is next and may reconcile the evidence, but it must not rewrite it.
+Packet 5 later reconciled this evidence into the protected Admin read contract
+without adding storage or rewriting history. Packet 6 may now rehearse the
+released workers, but the same prohibition remains: it must not reconstruct a
+missed capture.

@@ -6,7 +6,7 @@
 **Branch represented:** `dev`  
 **Current dataset:** `nfl-stream-406420.GameLens_dev`  
 **Current table count:** 6  
-**Scope:** Recreate or verify the empty Packet 1–4 development structures from code; define the production-migration requirement that Packet 7 must satisfy  
+**Scope:** Recreate or verify the empty Packet 1–4 development structures from code; record Packet 5's no-new-table reconciliation; define the production-migration requirement that Packet 8 must satisfy
 **Production authorization:** None. Every current setup entry point fails closed outside `GAMELENS_ENVIRONMENT=dev`.
 
 ---
@@ -123,7 +123,7 @@ existing table:
 
 Therefore a clean-namespace rehearsal proves the intended creation layout. For
 an existing namespace, the read-only inventory must explicitly inspect
-partition and clustering metadata as well as fields. Packet 7's production
+partition and clustering metadata as well as fields. Packet 8's production
 migration entry point must close this verification gap before go-day; do not
 claim a complete production schema verification from the current dev setup
 receipts alone.
@@ -159,11 +159,12 @@ dependencies for the selected game. Use it as a handoff/admission diagnostic,
 not as a schema migration and not as proof that every six-table row count is
 correct.
 
-For Packet 5, reconcile table grains and identities before proposing any new
-Admin table. `stage_runs`, `stage_game_results`, and
+Packet 5 reconciled table grains and identities before building Admin reads.
+`stage_runs`, `stage_game_results`, and
 `postgame_learning_stage_receipts` overlap operationally but serve different
-packet-era receipt contracts; Packet 5 must prove a gap before consolidating
-or adding storage.
+packet-era receipt contracts. The protected endpoint now derives its views
+from the six tables without consolidating them or adding storage. Packet 6
+must preserve that decision unless a concrete, reviewed gap is proven.
 
 ## 6. Structure recreation is not evidence restoration
 
@@ -185,9 +186,9 @@ an idempotent retry, and rollback. A missing pregame capture remains
 
 ## 7. Production go-day requirement
 
-The current scripts are deliberately development-only. Packet 7 owns the
+The current scripts are deliberately development-only. Packet 8 owns the
 production dataset name, service/job topology, IAM, retention, activation, and
-rollback. Before production learning can be enabled, Packet 7 must provide one
+rollback. Before production learning can be enabled, Packet 8 must provide one
 reviewed migration entry point or deployment step that:
 
 1. imports the same schema functions used by the development setup code;
@@ -250,10 +251,11 @@ deleting database evidence.
 
 | Decision | Owner |
 |---|---|
-| Reconcile the six current tables with protected Admin and existing ledgers | Packet 5 |
-| Add Level 4 / weekly structures only after their plan and grain are approved | Packet 6 |
-| Approve production dataset names, migration entry point, IAM, retention, activation, and rollback | Packet 7 |
-| Change a Packet 1–4 schema | The packet that needs the change, with this inventory and setup sequence updated in the same commit |
+| Reconcile the six current tables with protected Admin and existing ledgers | Packet 5 — complete without new storage |
+| Rehearse the existing Packet 2–4 workers end to end | Packet 6 — no new table planned |
+| Add Level 4 / weekly structures only after their plan and grain are approved | Packet 7 |
+| Approve production dataset names, migration entry point, IAM, retention, activation, and rollback | Packet 8 |
+| Change a Packet 1–5 schema | The packet that needs the change, with this inventory and setup sequence updated in the same commit |
 
 ## 11. Closure checklist
 
@@ -265,6 +267,7 @@ deleting database evidence.
 - [ ] Partitions and clustering match code.
 - [ ] No setup step changed evidence rows.
 - [ ] Any data migration has its own approved reconciliation receipt.
-- [ ] Packet 5 used the table grains before proposing storage.
-- [ ] Packet 7 supplied and rehearsed a production-safe migration entry point.
+- [x] Packet 5 used the table grains and added no summary storage.
+- [ ] Packet 6 preserved the six-table grains during its development rehearsal.
+- [ ] Packet 8 supplied and rehearsed a production-safe migration entry point.
 - [ ] Learning remained disabled until schema and IAM verification passed.
