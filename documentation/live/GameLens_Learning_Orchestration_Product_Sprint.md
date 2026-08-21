@@ -1,6 +1,6 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–4 complete with Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 5 protected read work is in progress
+**Document status:** Packets 1–5 complete with backend Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 6 end-to-end development rehearsal is the next learning packet
 **Created:** 2026-08-06  
 **Updated:** 2026-08-20
 **Owner:** GameLens product stewardship  
@@ -11,7 +11,8 @@
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
 **Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) received Implementation GO on 2026-08-18. Frozen-capture grading, Level 2/3 zero-claim boundaries, the 15-field additive Level 3 schema setup (`117 → 132`), one-game receipts, three-game inventory, healthy multi-game first/retry, receipt-effect correction `8de1cf2`, and natural partial-failure first/retry all passed. The final proof preserved DAL–SEA while missing-capture CAR–ARI failed at `game_grade` and skipped Levels 2–3; receipts reconciled `7 inserted → 7 unchanged`, and both attempts wrote zero learning rows. The complete local Packet 4 split passes 86 tests. Generated JSON is excluded from Git, Docker images, and local Cloud Build contexts. The first genuine claim-bearing development validation remains a documented pre-production gate; production behavior is unchanged.  
-**Packet 5 checkpoint:** [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) has accepted canonical inventory and hierarchical service shapes. Its protected development-only `GET /admin/gamelens/run-visibility` route is registered and the focused route/service dependency split passed 40 tests on 2026-08-20. Visual HTTP review and bounded week grouping remain before any frontend work.
+**Packet 5 checkpoint:** [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) has backend Implementation GO. Its six-table inventory, hierarchical service, protected development-only `GET /admin/gamelens/run-visibility` route, bounded week navigation, selected-game drill, quiet historical-gap lifecycle, and friendly run labels were accepted. The Lovable static wireframe is also accepted; authenticated endpoint wiring remains a separate frontend integration step and does not reopen the backend contract unless a mismatch is proven.
+**Packet 6 checkpoint:** [GameLens Packet 6 — End-to-End Development Rehearsal](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md) is the next planning checkpoint. It proposes one small, rerunnable, development-only coordinator that inspects a bounded slate and calls only the already proven Level 1–3 workers that are safely eligible. It does not implement Level 4 or production wiring.
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
 **Companion architecture:** [GameLens_Product_Data_Collection_and_Learning_Handoff.md](./GameLens_Product_Data_Collection_and_Learning_Handoff.md)  
@@ -39,6 +40,12 @@ The learning conductor coordinates three deliberately separate jobs:
 1. **Before kickoff:** capture and freeze the pregame payload, then store Level 1 claims.
 2. **After final data is ready:** grade the frozen game read, then run Levels 2 and 3 for games that have both a valid Level 1 capture, a final score, and accepted completed-game Facts.
 3. **After enough evidence accumulates:** run Level 4 as a controlled calibration batch.
+
+The first Packet 6 rehearsal does not need one process to remain alive across
+all three clocks. It may be run more than once over the same bounded slate. On
+each invocation it inspects current eligibility, performs only safe available
+work, and records `waiting` or `no_op` for the rest. This keeps the first
+orchestrator useful without making exact timing a fragile dependency.
 
 This preserves the 2023–2025 feature work without allowing postgame data to leak into a prediction.
 
@@ -87,24 +94,28 @@ There are almost five weeks from this update to the first regular-season game. T
 | Aug 10–16 | Packet 2 | Use preseason only as a dev/shadow rehearsal for empty days, retries, timing, payload capture, and orchestration; produce no production learning evidence |
 | Aug 17–23 | Packet 3 closure plus Calibrated Matchup Lean | Completed ahead of schedule on Aug 16: Level 1 received Implementation GO and the separate confidence rule was tested, released, promoted, and forward-merged without changing the pick or lean direction |
 | Aug 17–18 | Packet 4 | Completed ahead of schedule with Implementation GO: frozen grading, bounded Levels 2–3, six-table development storage, coordinator receipts, multi-game retry, and partial-failure isolation |
-| Aug 19–Sep 6 | Packets 5–6 and end-to-end dev rehearsal | Reconcile Admin/ledger counts; rehearse Level 4 and the weekly “What did we learn?” output against historical evidence; prove no-op, partial failure, retry, and kill-switch behavior |
-| Sep 7–8 | Packet 7 release gate | Small production wiring change, shadow/read-only check, one deliberate activation, and rollback proof |
+| Aug 19–23 | Packet 5 | Completed backend visibility: reconcile six-table evidence, protected read route, week/game drill-down, historical-gap lifecycle, and accepted Lovable wireframe |
+| Aug 20–Sep 1 | Packet 6 end-to-end dev rehearsal | Compose the existing Level 1–3 workers through one small rerunnable development coordinator; prove eligibility, waiting/no-op, partial failure, retry, and visual reconciliation on upcoming preseason games |
+| Sep 1–6 | Packet 7 Level 4 planning and controlled proof | Rehearse the weekly “What did we learn?” output only after the Level 1–3 operational path is proven; keep sparse evidence honest and advisory |
+| Sep 7–8 | Packet 8 release gate | Small production wiring change, shadow/read-only check, one deliberate activation, and rollback proof |
 | Sep 9 before 8:20 p.m. ET | Week 1 protection point | The first regular-season snapshot can be captured safely, or learning remains disabled while the existing ETL and frontend continue unchanged |
 | After Week 1 completes | First weekly learning cycle | Once Monday’s game and accepted Stats/Facts are available, run the first weekly summary; expect limited evidence and say so |
 | Week 2 onward | Normal weekly rhythm | Run Level 4 once per completed NFL week and publish the plain-language “What did we learn?” summary after its evidence is complete |
 
-**Schedule checkpoint — 2026-08-20:** Packets 2–4 completed ahead of their
+**Schedule checkpoint — 2026-08-20:** Packets 2–5 completed ahead of their
 planned windows, including per-game observability, zero-claim cloud proof,
 post-ETL immutability, frozen grading, bounded Levels 2–3, receipt retry, and
-partial-failure isolation. Packet 5 has accepted its canonical inventory and
-hierarchical service shapes; its protected read route passes the focused
-40-test split. Visual HTTP review and bounded week grouping are next. The deferred Packet 3
+partial-failure isolation. Packet 5 now has backend Implementation GO after
+its protected route, week navigation, quiet historical-gap behavior, friendly
+run labels, and Lovable wireframe direction were accepted. Packet 6 is the
+next planning checkpoint and will rehearse the existing Level 1–3 path without
+implementing Level 4. The deferred Packet 3
 genuine populated-data validation remains a pre-production gate. Calibrated
 Matchup Lean completed its separate main-based release, is present in both
 `main` and `dev`, passed both `dev` builds, and has no remaining temporary
 branch.
 
-**Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–6 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
+**Week 1 minimum safe launch:** immutable pregame capture, production-safe Level 1, the approved Calibrated Matchup Lean confidence rule, deterministic retries, and a kill switch must be ready before the first kickoff. If postgame Packets 4–7 need a few extra days, preserve the valid Week 1 snapshots and process them later; never recreate them after kickoff. This fallback protects the irreplaceable evidence without rushing the rest of the hobby project.
 
 Official date reference: [NFL 2026 Week 1 schedule](https://www.nfl.com/schedules/2026/by-week/week-1).
 
@@ -454,7 +465,7 @@ If no valid pregame snapshot was saved before kickoff, record `capture_missing`.
 
 ## 9. Product sprint packets
 
-This is one product epic delivered as one documentation gate plus seven implementation packets. Packet 0 and Packets 1–7 are eight review checkpoints; each gets its own evidence, commit, and stop/go decision.
+This is one product epic delivered as one documentation gate plus eight implementation packets. Packet 0 and Packets 1–8 are nine review checkpoints; each gets its own evidence, commit, and stop/go decision.
 
 ### Packet review and documentation rule
 
@@ -479,9 +490,10 @@ Each companion document must answer:
 | Packet 2 | [GameLens Packet 2 — Shadow Pregame Snapshot Plan](./GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md) |
 | Packet 3 | [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) — Implementation GO; genuine populated write/retry and claim-bearing bounded slate carried as pre-production validation |
 | Packet 4 | [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) — Implementation GO; all development-cloud and partial-failure proofs passed |
-| Packet 5 | `GameLens_Packet_5_Admin_and_Run_Visibility.md` — next; create and review before Packet 5 code |
-| Packet 6 | `GameLens_Packet_6_Weekly_Learning.md` — create and review before Packet 6 code |
-| Packet 7 | `GameLens_Packet_7_Production_Activation.md` — create and review before Packet 7 code |
+| Packet 5 | [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) — backend Implementation GO; accepted Lovable wireframe handoff |
+| Packet 6 | [GameLens Packet 6 — End-to-End Development Rehearsal](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md) — next; review before Packet 6 code |
+| Packet 7 | `GameLens_Packet_7_Weekly_Learning.md` — create and review before Packet 7 code |
+| Packet 8 | `GameLens_Packet_8_Production_Activation.md` — create and review before Packet 8 code |
 
 A future packet document should not pretend exact functions or schemas are
 settled before current code is inspected. It starts as a readable plan and ends
@@ -655,19 +667,23 @@ Exit evidence:
 
 ### Packet 5 — Learning ledger and `/admin` reconciliation
 
-**Status:** Next — planning not yet started. Packets 1–4 are complete; create
-and review the Packet 5 companion document before code.
+**Status:** Backend Implementation GO — accepted 2026-08-20.
 
 **Why this is important:** future-you needs to know what ran, what skipped, and why without reading Cloud logs line by line.
 
-Work:
+Completed work:
 
-- evolve the proven attempt-level `GameLens_dev.stage_runs` and game-level `GameLens_dev.stage_game_results` patterns into the production operational ledger only after final datasets, grains, and retention are approved;
-- keep the ledger operational only: identities, stage states, counts, reasons, and errors;
-- let the current protected Admin service continue reading canonical outcome, claim, feature, and calibration tables;
-- expose operational stage counts beside Admin only if the existing endpoint needs them;
-- reconcile captured games, Level 1 games, game grades, Level 2 labels, and Level 3 features; and
-- keep game calibration and claim health as separate scorecards.
+- reconciled the six canonical development tables without creating another
+  ledger, summary warehouse, or refresh job;
+- exposed bounded operational status through the protected development-only
+  `GET /admin/gamelens/run-visibility` route;
+- kept attempt, game-stage, claim, and grade grains distinct;
+- added Overview -> Week -> Game -> Clock -> Stage evidence navigation;
+- separated active Needs Attention from permanent Known Gaps;
+- preserved compact default responses and one selected game's detailed
+  evidence; and
+- produced an accepted Lovable wireframe handoff without changing the public
+  frontend.
 
 Exit evidence:
 
@@ -677,7 +693,39 @@ Exit evidence:
 - counts reconcile at each grain; and
 - no duplicate Admin summary warehouse or refresh job was added.
 
-### Packet 6 — Level 4 controlled batch and weekly “What did we learn?”
+The authenticated Lovable endpoint wiring is a separate frontend integration
+checkpoint. Packet 5 backend GO does not claim that wiring is already live.
+
+### Packet 6 — End-to-end development rehearsal
+
+**Status:** Next — companion plan created; review before code.
+
+**Why this is important:** the individual Level 1–3 workers and their receipts
+are proven, but the project still needs one understandable real-slate rehearsal
+before Level 4 adds weekly behavior.
+
+Work:
+
+- add one small, development-only, rerunnable coordinator;
+- inspect a bounded slate and current receipts on every invocation;
+- call only the existing pregame or postgame workers that are safely eligible;
+- return visible waiting/no-op reasons when a game is early or not ready;
+- allow one invocation to cover one game or many games;
+- preserve sibling games when one fails;
+- prove an identical retry without duplicate canonical rows; and
+- inspect the result through the Packet 5 protected view.
+
+Exit evidence:
+
+- an upcoming preseason slate progresses through the available Level 1–3
+  clocks without postgame leakage or reconstructed captures;
+- rerunning early, later, or identically remains safe and understandable;
+- no new table, Scheduler, production write, `/game` change, or Level 4 work is
+  introduced; and
+- any genuine claims use the existing Packet 3–4 reconciliation rather than a
+  manufactured test path.
+
+### Packet 7 — Level 4 controlled batch and weekly “What did we learn?”
 
 **Why this is important:** calibration needs enough evidence to avoid reacting to one game or one tiny bucket, while the weekly output turns the evidence into something understandable and enjoyable to revisit.
 
@@ -711,7 +759,8 @@ Work:
 
 `lens_tags` are registry-owned labels attached to metrics. The tag names themselves are not expected to “learn” or change every week. What changes is the pregame-safe team evidence, ranking movement, and later claim health grouped under those tags.
 
-Packet 6 should create one small table, provisionally:
+Packet 7 may create one small table only after its companion plan reviews the
+grain, provisionally:
 
 ```text
 Analytics.gamelens_weekly_lens_snapshot
@@ -756,7 +805,7 @@ Exit evidence:
 - `/admin` can explain every weekly statement from canonical rows; and
 - Admin can show week-over-week lens movement from the immutable snapshot without changing prior-week rows.
 
-### Packet 7 — Production wiring, last
+### Packet 8 — Production wiring, last
 
 **Why this is important:** activation should be the smallest final change after every component is independently proven.
 
@@ -867,27 +916,26 @@ The learning loop is production-ready only when:
 
 Do not begin by wiring all Levels into `app.py`.
 
-Packets 1–4 are complete. Packet 4 has Implementation GO. Packet 5 has accepted
-its six-table inventory and hierarchical read-service shapes, and the protected
-development-only route passes its focused 40-test split. Complete the visual
-HTTP review, then add bounded week grouping to that same contract without
-creating a duplicate Admin summary warehouse or refresh job.
+Packets 1–5 are complete with their documented Implementation GO boundaries.
+Packet 5's backend read service and Lovable wireframe handoff are accepted;
+authenticated frontend endpoint wiring remains a separate integration check.
+The next learning decision is Packet 6's small end-to-end development rehearsal.
 
 Use the
 [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)
-as the six-table grain and schema-owner reference. Packet 5 may document
-retention and visibility needs; Packet 7 still owns production names, one
+as the six-table grain and schema-owner reference. Packet 6 should reuse those
+structures unless a concrete grain gap is proven; Packet 8 still owns production names, one
 versioned migration entry point, IAM, activation, and rollback.
 
 The Packet 3 genuine populated-capture proof stays on the pre-production gate
-list. If genuine claim data appears during Packet 5 or later, run that existing
+list. If genuine claim data appears during Packet 6 or later, run that existing
 proof before using those rows downstream. Do not manufacture claims or reopen
 the Level 1 design merely to satisfy unavailable preseason data.
 
-Do not wire `app.py`, create production learning tables, or change the
-frontend during Packet 5. Calibrated Matchup Lean is already released as a
-separate shared rule; Packet 5 and Admin must consume its stored result rather
-than reimplement or fold it into postgame learning.
+Do not wire `app.py`, create production learning tables, or implement Level 4
+during Packet 6. Calibrated Matchup Lean is already released as a separate
+shared rule; the rehearsal and Admin must consume its stored result rather than
+reimplement or fold it into postgame learning.
 
 If a regular-season game reaches kickoff without a valid snapshot, record it as
 `capture_missing`. Never rebuild a fake Level 1 snapshot afterward.
@@ -898,7 +946,7 @@ If a regular-season game reaches kickoff without a valid snapshot, record it as
 
 Use this handoff in a fresh chat:
 
-> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, architecture handoff, development dataset recreation runbook, runtime guide, and current learning-go section of `go_plan.md`. Packets 1–4 have Implementation GO. Packet 3's first genuine claim-bearing write/retry remains a pre-production validation because preseason supplied no real claims. Create and review `GameLens_Packet_5_Admin_and_Run_Visibility.md` before Packet 5 code. Inspect the existing Admin service and all six canonical `GameLens_dev` tables; reconcile their identities, grains, and retention needs before proposing storage. Preserve per-game/per-stage traceability and development-only work. Do not manufacture claims, reconstruct missed games, wire `app.py`, create production learning tables, change `/game` or the frontend, add a duplicate Admin warehouse without a proven gap, treat dev-only setup scripts as production migrations, or reimplement the released Calibrated Matchup Lean rule.
+> Continue GameLens on the long-lived `dev` branch. Begin with `documentation/live/README.md`, then read the Sprint, completed Packet 5 evidence, completed Packet 4 evidence, completed Packet 3 evidence, Packet 2 evidence, Packet 1 contract, architecture handoff, development dataset recreation runbook, runtime guide, and current learning-go section of `go_plan.md`. Packets 1–5 have their documented Implementation GO boundaries. Packet 3's first genuine claim-bearing write/retry remains a pre-production validation because preseason supplied no real claims. Read and review `GameLens_Packet_6_End_to_End_Development_Rehearsal.md` before Packet 6 code. Build only one small, bounded, rerunnable development coordinator that calls the existing Packet 2–4 workers when their current eligibility is satisfied and returns honest waiting/no-op reasons otherwise. Use Packet 5 for visual reconciliation. Do not manufacture claims, reconstruct missed captures, create a timing-sensitive long-running job, implement Level 4, wire `app.py`, create production learning tables, change `/game`, add a duplicate Admin warehouse without a proven gap, treat dev-only setup scripts as production migrations, or reimplement the released Calibrated Matchup Lean rule.
 
 ---
 

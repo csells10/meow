@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Checkpoint 2 accepted; week navigation test gate passed; attention and run-label refinement awaiting visual review
+**Status:** Backend Implementation GO; protected read contract and Lovable wireframe accepted; frontend endpoint wiring remains a separate integration step
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -8,9 +8,10 @@
 **Development schema authority:** [GameLens Development Dataset Recreation Runbook](./GameLens_Development_Dataset_Recreation_Runbook.md)  
 **Production behavior changed:** No  
 **Production learning data written:** No  
-**Packet 5 code authorized by this document:** Accepted read-only inventory,
+**Packet 5 code authorized by this document:** Completed read-only inventory,
 hierarchical backend service, protected route registration, bounded week
-grouping, and the small historical-gap/run-label refinement; no frontend yet
+grouping, and historical-gap/run-label refinement; no production or learning
+write behavior changed
 
 ---
 
@@ -1001,7 +1002,86 @@ This does not backfill or reconstruct any missed capture. Historical facts,
 windowed metrics, and rankings remain independently visible through the Daily
 Data Load clock, while frozen pregame evidence remains immutable and honest.
 
-The next acceptance point is another real-data protected-route rehearsal. The
-expected visual result is no permanent missed-capture condition in **Needs
-Attention**, one consolidated Known Gap per affected game, and friendly Recent
-Runs labels with the raw IDs absent from the overview table.
+The subsequent real-data protected-route rehearsal was expected to show no
+permanent missed-capture condition in **Needs Attention**, one consolidated
+Known Gap per affected game, and friendly Recent Runs labels with the raw IDs
+absent from the overview table. Section 18 records the accepted handoff.
+
+---
+
+## 18. Accepted backend and Lovable handoff — 2026-08-20
+
+Christian accepted the Packet 5 backend checkpoint after the protected
+real-data rehearsal, week hierarchy, historical-gap lifecycle, selected-game
+drill path, and friendly Recent Runs presentation matched the intended QA
+experience.
+
+The accepted backend boundary is:
+
+```text
+GET /admin/gamelens/run-visibility
+```
+
+It remains development-only, admin-protected, GET-only, read-only, bounded to
+31 inclusive days, and backed directly by the six canonical `GameLens_dev`
+tables plus the existing Schedule, Scores, Facts, Windowed Metrics, and
+Rankings owners. No summary warehouse, refresh job, learning write, or
+production behavior was added.
+
+The Lovable static wireframe is also accepted as the visual direction. It
+preserves the hierarchy:
+
+```text
+Overview -> Week -> Game -> Clock -> Stage evidence
+```
+
+It keeps Needs Attention separate from Known Gaps, presents Recent Runs with
+friendly labels while retaining raw attempt IDs in drill-down evidence, and
+uses one replaceable data adapter rather than scattering mock data through the
+components. The future frontend integration must call the same endpoint again
+with `game_id` for selected-game detail and must keep frontend route protection
+in addition to the backend Admin guard.
+
+Packet 5 backend Implementation GO does not claim that the Lovable frontend is
+already wired to the endpoint. That wiring and its authenticated browser smoke
+test are a separate integration step. They do not reopen the accepted backend
+contract unless the real response proves a mismatch.
+
+### Packet 5 final evidence summary
+
+- all six canonical table grains were available with zero duplicate or invalid
+  logical keys in the accepted inventory;
+- direct target-game SQL proved Schedule, Score/Stats, Facts, Windowed, and
+  Rankings coverage independently of frozen GameLens evidence;
+- the protected route returned HTTP `200` over the bounded preseason range;
+- the response grouped Hall of Fame Weekend and Preseason Week 1 without
+  inventing a second endpoint or warehouse;
+- DAL–SEA preserved its canonical snapshot, grade, and completed zero-claim
+  Level 2/3 receipts;
+- missed pregame captures remained visible historical gaps and were not
+  reconstructed;
+- expired capture gaps no longer remained in the active operational inbox;
+- downstream work blocked by a missing canonical capture did not create a
+  second alarm for the same root cause;
+- one attempt remained capable of representing one game or a bounded slate;
+  and
+- `/game`, the 8:00 a.m. load, production learning, Level 4, and the existing
+  public frontend were unchanged.
+
+Packet 5 therefore has **Backend Implementation GO**.
+
+---
+
+## 19. Handoff
+
+The next learning packet is
+[Packet 6 — End-to-End Development Rehearsal](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md).
+It will compose the already proven Packet 2–4 workers through a small,
+rerunnable development coordinator and use Packet 5 visibility to inspect the
+result. It must not turn timing into a brittle exact-minute gate or implement
+Level 4.
+
+The accepted Lovable wireframe may be wired to the Packet 5 endpoint as a
+separate frontend integration checkpoint. That work must preserve the
+read-only adapter boundary, direct Admin authorization, compact overview, and
+one-selected-game detail contract.
