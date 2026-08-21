@@ -24,7 +24,7 @@ separate learning track is **not production GO**.
 | Packets 1–2 | Complete | Capture contract and development shadow evidence proven; no production capture wiring |
 | Packet 3 | Implementation GO | Development Level 1 boundary proven; first genuine claim-bearing write/retry remains a pre-production validation |
 | Packet 4 | Implementation GO | Frozen grade, Levels 2–3, six-table development storage, receipts, retries, and partial-failure isolation proven; no production wiring |
-| Packet 5 | Backend Implementation GO | Protected read contract, six-table reconciliation, week/game hierarchy, historical-gap lifecycle, friendly run labels, and Lovable wireframe handoff accepted; frontend endpoint wiring remains separate |
+| Packet 5 | Backend Implementation GO; frontend paused | Protected read contract, six-table reconciliation, week/game hierarchy, historical-gap lifecycle, friendly run labels, and Lovable wireframe accepted; unpublished integration reaches the dev route but receives an unresolved HTTP 500; permanent production target belongs to Packet 8 |
 | Packet 6 | Next | Bounded, rerunnable development rehearsal of the released Packet 2–4 workers; no Level 4 or production wiring |
 | Packet 7 | Future | Level 4 and weekly evidence plan not yet implemented |
 | Packet 8 | Future release gate | Production dataset, migration automation, IAM, orchestration, kill switch, deployment, activation, and rollback |
@@ -38,9 +38,12 @@ structure-versus-evidence boundary are documented in
 
 Before learning may be enabled in production:
 
-1. Packet 5's accepted frontend wireframe must be connected to its protected
-   read endpoint without weakening authorization or changing the canonical
-   six-table-derived contract.
+1. Packet 5's accepted frontend wireframe must use an environment-relative
+   protected API target without weakening authorization or changing the
+   canonical six-table-derived contract. Its current unpublished development
+   integration is paused on an unresolved backend HTTP 500. Do not merge the
+   development URL into frontend `main`; Packet 8 must deploy and prove the
+   production route before public activation.
 2. Packet 6 must prove the bounded development rehearsal across Levels 1–3,
    including honest `waiting`/`no_op` states, rerun safety, and per-game and
    per-stage receipts.

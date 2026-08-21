@@ -1,8 +1,8 @@
 # GameLens Live Documentation Index
 
-**Current status:** Packets 1–5 have their documented Implementation GO boundaries. Packet 3's first genuine claim-bearing validation remains a pre-production operational gate because the available preseason captures contained zero claims. Packet 4 proved frozen grading plus Levels 2–3, retries, and partial-failure isolation. Packet 5 has backend Implementation GO: its canonical six-table inventory, protected development-only read route, week/game hierarchy, historical-gap lifecycle, selected-game evidence, friendly run labels, and Lovable wireframe handoff are accepted. The static Lovable wireframe is not yet wired to the endpoint. Packet 6 end-to-end development rehearsal is the next learning packet. Production behavior remains unchanged.
+**Current status:** Packets 1–5 have their documented Implementation GO boundaries. Packet 3's first genuine claim-bearing validation remains a pre-production operational gate because the available preseason captures contained zero claims. Packet 4 proved frozen grading plus Levels 2–3, retries, and partial-failure isolation. Packet 5 has backend Implementation GO: its canonical six-table inventory, protected development-only read route, week/game hierarchy, historical-gap lifecycle, selected-game evidence, friendly run labels, and Lovable wireframe handoff are accepted. The unpublished Lovable branch reaches the authenticated development route but receives an unresolved HTTP 500; frontend integration is paused pending a permanent backend decision and read-only deployed-runtime audit. Packet 6 end-to-end development rehearsal is the next learning packet. Production behavior remains unchanged.
 
-**Updated:** 2026-08-20
+**Updated:** 2026-08-21
 **Working branch:** `dev`  
 **Production posture:** The existing 8:00 AM production load and learning wiring are unchanged. Calibrated Matchup Lean revision `nfl-games-app-main-00155-qaf` serves 100% of normal traffic, with `nfl-games-app-main-00153-jol` retained as rollback. No learning stage is wired into `app.py`, no learning tables have been created in production, and no learning-orchestration change is ready for `main`.
 
@@ -78,7 +78,9 @@ If two files appear to conflict, use this order: current Sprint status, current 
 - `GameLens_dev` contains six packet-owned tables: `pregame_snapshots`, `stage_runs`, `stage_game_results`, `claim_training_examples`, `game_model_outcomes`, and `postgame_learning_stage_receipts`.
 - Empty development structure is reproducible from five fail-closed setup entry points in dependency order. The claim table is created at the Packet 3 base shape and then expanded by the Packet 4 Level 3 migration (`117 → 132`). Setup does not restore evidence rows.
 - Packet 5 has backend **Implementation GO**. The protected read-only route derives its hierarchy from the six existing `GameLens_dev` tables plus the established production data owners; it did not add a summary warehouse.
-- The accepted Lovable wireframe follows `Overview > Week > Game > Clock > Stage evidence`. Wiring that frontend to the protected endpoint remains a separate integration checkpoint.
+- The accepted Lovable wireframe now follows the calmer day-first drill path `Overview > Week > Day > Game > Clock > Stage evidence`.
+- Its unpublished real-endpoint branch proved browser authentication and CORS but received HTTP `500` from the deployed development route. The equivalent local inventory succeeds. No merge, publish, infrastructure fix, or runtime change is approved while that difference is unresolved.
+- The permanent frontend design should be environment-relative: previews may call development, while published `main` calls the production API origin after Packet 8 deploys and proves the protected production route. The development URL must not be hard-coded into frontend `main`.
 - Packet 6 will rehearse Levels 1–3 through a small, bounded, rerunnable development coordinator. It will evaluate current eligibility, call only released workers, and report `waiting` or `no_op` when a stage is not ready instead of depending on razor-thin execution timing.
 - Production table names, migration automation, IAM, retention, and activation remain Packet 8 decisions. Current setup scripts refuse non-development runtimes.
 
@@ -135,9 +137,13 @@ The full attempt IDs, capture IDs, hashes, row counts, and replay proofs remain 
 
 ## Current next action
 
-Packet 5 is closed at its backend and wireframe boundary. Wire the accepted
-Lovable page to `GET /admin/gamelens/run-visibility` as a separate protected
-frontend integration checkpoint without changing the endpoint contract.
+Packet 5 is closed at its backend and wireframe boundary. Its frontend
+integration is paused at the documented HTTP 500 checkpoint. Do not continue
+Lovable iteration, publish or merge the branch, point frontend `main` at the
+development service, or change runtime configuration. When deliberately
+resumed, first perform a read-only deployed-revision and service-account access
+audit. The permanent target is the environment-relative protected API route;
+production frontend activation remains a Packet 8 release decision.
 
 Before Packet 6 code, review the
 [end-to-end development rehearsal plan](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md).

@@ -1,6 +1,6 @@
 # GameLens Packet 5 — Admin and Run Visibility
 
-**Status:** Backend Implementation GO; protected read contract and Lovable wireframe accepted; frontend endpoint wiring remains a separate integration step
+**Status:** Backend Implementation GO; protected read contract and Lovable wireframe accepted; unpublished frontend integration paused on an unresolved deployed HTTP 500 and permanent-backend gate
 **Created:** 2026-08-19  
 **Branch:** `dev`  
 **Predecessor:** [Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md)  
@@ -1072,7 +1072,74 @@ Packet 5 therefore has **Backend Implementation GO**.
 
 ---
 
-## 19. Handoff
+## 19. Frontend integration pause and permanent backend decision — 2026-08-21
+
+The accepted day-first Lovable page was connected on an unpublished branch to
+the development Cloud Run service as an integration probe. The browser proved
+that Firebase sign-in, Admin route protection, the preview-origin CORS
+preflight, and Bearer-token attachment all reached the backend. The bounded
+request then received HTTP `500` from the deployed development route:
+
+```text
+GET /admin/gamelens/run-visibility
+season=2026
+season_type=Preseason
+learning_run_id=gamelens_2026_preseason_v1
+start_date=2026-08-04
+end_date=2026-08-21
+limit=50
+```
+
+The equivalent read-only inventory succeeds locally with 22 scheduled games,
+7 captures, 0 active-attention items, 18 known gaps, all six source tables
+available, zero duplicate logical keys, and exit code `0`. The deployed 500 is
+therefore unresolved cloud-runtime evidence; it is not proof of a frontend
+rendering, Firebase Authorized Domain, CORS, or missing-token failure.
+
+The current development service is also a protected controlled-replay runtime
+configured for the 2025 season. That mismatch is material context, but it is
+not yet the proven cause of the 500 because the inspected route contract should
+reject an invalid season as a bounded client error rather than an unexpected
+server error. No runtime variable, dataset, IAM grant, route, production API,
+or frontend behavior is authorized to change until the deployed revision and
+its read permissions are inspected read-only.
+
+### Permanent backend decision gate
+
+The hard-coded development URL in the Lovable branch is temporary test wiring.
+It must not be merged into frontend `main` as the permanent backend.
+
+The preferred durable design is environment-relative:
+
+- an isolated preview may call the development service while proving the
+  development contract;
+- the published frontend calls the existing production API origin;
+- the same protected route contract is deployed to that production API only
+  after Packet 8 approves the production learning tables, IAM, runtime
+  configuration, activation, and rollback; and
+- the UI stays unpublished or unavailable behind an explicit release gate
+  until that production route passes an authenticated browser smoke test.
+
+This avoids making the production browser depend permanently on a historical
+development replay service. A dedicated Admin service or a production-to-dev
+proxy would add a second operational boundary and is not justified by current
+evidence.
+
+### Stop/go boundary
+
+Frontend integration is now **PAUSED**, not failed and not approved for merge.
+Do not ask Lovable for more fixes, publish the preview, merge its branch, point
+frontend `main` at the development URL, or change infrastructure to chase the
+500. The next authorized investigation, when deliberately resumed, is a
+read-only comparison of the deployed revision against the accepted backend
+code plus the service account's read access to every required dataset. If that
+cannot expose the underlying exception, consider one separately approved,
+safe server-side logging change. Resume implementation only after the
+permanent backend target and its release packet are explicitly accepted.
+
+---
+
+## 20. Handoff
 
 The next learning packet is
 [Packet 6 — End-to-End Development Rehearsal](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md).
@@ -1081,7 +1148,8 @@ rerunnable development coordinator and use Packet 5 visibility to inspect the
 result. It must not turn timing into a brittle exact-minute gate or implement
 Level 4.
 
-The accepted Lovable wireframe may be wired to the Packet 5 endpoint as a
-separate frontend integration checkpoint. That work must preserve the
-read-only adapter boundary, direct Admin authorization, compact overview, and
-one-selected-game detail contract.
+The accepted Lovable frontend branch remains an unpublished integration
+artifact. Its next action is governed by Section 19's pause and permanent
+backend decision gate. Packet 6 may use the proven local Packet 5 inventory for
+visual reconciliation; it does not depend on merging or publishing the
+frontend page.

@@ -11,7 +11,7 @@
 **Packet 2 evidence checkpoint:** completed 2026-08-13; six canonical snapshots, six exact live `/game` matches, four attempt receipts, nine per-game audit rows, an idempotent backfill retry, and one honest pre-program capture gap  
 **Packet 3 checkpoint:** [GameLens Packet 3 — Production-Safe Level 1 Plan](./GameLens_Packet_3_Production_Level_1.md) received Implementation GO on 2026-08-16. Seven canonical captures are honest zero-claim cases. The zero-claim write/retry and DAL–SEA post-ETL immutability proof passed. The first genuine populated-capture write/retry and claim-bearing bounded slate remain required before production promotion but do not block Packet 4 implementation.  
 **Packet 4 checkpoint:** [GameLens Packet 4 — Postgame Outcome plus Levels 2–3](./GameLens_Packet_4_Postgame_Learning.md) received Implementation GO on 2026-08-18. Frozen-capture grading, Level 2/3 zero-claim boundaries, the 15-field additive Level 3 schema setup (`117 → 132`), one-game receipts, three-game inventory, healthy multi-game first/retry, receipt-effect correction `8de1cf2`, and natural partial-failure first/retry all passed. The final proof preserved DAL–SEA while missing-capture CAR–ARI failed at `game_grade` and skipped Levels 2–3; receipts reconciled `7 inserted → 7 unchanged`, and both attempts wrote zero learning rows. The complete local Packet 4 split passes 86 tests. Generated JSON is excluded from Git, Docker images, and local Cloud Build contexts. The first genuine claim-bearing development validation remains a documented pre-production gate; production behavior is unchanged.  
-**Packet 5 checkpoint:** [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) has backend Implementation GO. Its six-table inventory, hierarchical service, protected development-only `GET /admin/gamelens/run-visibility` route, bounded week navigation, selected-game drill, quiet historical-gap lifecycle, and friendly run labels were accepted. The Lovable static wireframe is also accepted; authenticated endpoint wiring remains a separate frontend integration step and does not reopen the backend contract unless a mismatch is proven.
+**Packet 5 checkpoint:** [GameLens Packet 5 — Admin and Run Visibility](./GameLens_Packet_5_Admin_and_Run_Visibility.md) has backend Implementation GO. Its six-table inventory, hierarchical service, protected development-only `GET /admin/gamelens/run-visibility` route, bounded week navigation, selected-game drill, quiet historical-gap lifecycle, and friendly run labels were accepted. The day-first Lovable wireframe is also accepted. Its unpublished integration branch reaches the authenticated development route but receives an unresolved HTTP 500 while the equivalent local inventory succeeds. Frontend integration is paused; the development URL must not be merged into frontend `main`, and production activation belongs to Packet 8.
 **Packet 6 checkpoint:** [GameLens Packet 6 — End-to-End Development Rehearsal](./GameLens_Packet_6_End_to_End_Development_Rehearsal.md) is the next planning checkpoint. It proposes one small, rerunnable, development-only coordinator that inspects a bounded slate and calls only the already proven Level 1–3 workers that are safely eligible. It does not implement Level 4 or production wiring.
 **Calibrated Matchup Lean checkpoint:** [The separate hotfix](./GameLens_Calibrated_Matchup_Lean_Hotfix.md) was released on 2026-08-16, promoted as revision `nfl-games-app-main-00155-qaf`, forward-merged to `dev`, and cleaned up. The forward-merge and release-documentation builds both succeeded.  
 **Live-folder guide:** [documentation/live/README.md](./README.md)  
@@ -694,7 +694,10 @@ Exit evidence:
 - no duplicate Admin summary warehouse or refresh job was added.
 
 The authenticated Lovable endpoint wiring is a separate frontend integration
-checkpoint. Packet 5 backend GO does not claim that wiring is already live.
+checkpoint. Its unpublished development branch currently receives an
+unresolved backend HTTP `500`; it is paused and must not be published or merged
+with the development URL. Packet 5 backend GO does not claim that wiring is
+already live.
 
 ### Packet 6 — End-to-end development rehearsal
 
@@ -918,7 +921,8 @@ Do not begin by wiring all Levels into `app.py`.
 
 Packets 1–5 are complete with their documented Implementation GO boundaries.
 Packet 5's backend read service and Lovable wireframe handoff are accepted;
-authenticated frontend endpoint wiring remains a separate integration check.
+authenticated frontend endpoint wiring is paused at the permanent-backend
+decision gate recorded in Packet 5 Section 19.
 The next learning decision is Packet 6's small end-to-end development rehearsal.
 
 Use the
