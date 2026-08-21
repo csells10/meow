@@ -1,8 +1,10 @@
 # GameLens Learning Orchestration Product Sprint
 
-**Document status:** Packets 1–5 complete with backend Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 6 end-to-end development rehearsal is the next learning packet
+> **Supersession notice (2026-08-21):** This file preserves the completed packet evidence and the earlier Packet 6–8 plan. Future learning scope, checkpoint status, and implementation sequencing are governed by the [Learning Light Sprint](../learning_light/GameLens_Learning_Light_Sprint.md). Do not continue Packet 6 from this file without a new explicit decision.
+
+**Historical document status at the pivot:** Packets 1–5 complete with backend Implementation GO; Packet 3 retains one deferred real-data validation; Calibrated Matchup Lean is released and closed; Packet 6 end-to-end development rehearsal is the next learning packet
 **Created:** 2026-08-06  
-**Updated:** 2026-08-20
+**Updated:** 2026-08-21
 **Owner:** GameLens product stewardship  
 **Repository:** `csells10/meow`  
 **Active development branch:** `dev`  
