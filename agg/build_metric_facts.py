@@ -190,7 +190,9 @@ def load_game_metric_rows(client: bigquery.Client, season: str) -> pd.DataFrame:
         ]
     )
 
-    df = client.query(query, job_config=job_config).to_dataframe()
+    df = client.query(query, job_config=job_config).to_dataframe(
+        create_bqstorage_client=False
+    )
     log_event("info", "fact_source_rows_loaded", season=season, rows=len(df))
     return df
 
