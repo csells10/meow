@@ -21,8 +21,9 @@ Read these documents in order:
 
 1. [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md) — product boundaries, terminology, persistent data model, League Discovery readiness, calibration flexibility, and salvage decisions.
 2. [Learning Lite Sprint](./GameLens_Learning_Lite_Sprint.md) — current checkpoint, proposed sequence, acceptance gates, Week 1 target, risks, and open decisions.
-3. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
-4. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
+3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — file-by-file disposition of all 92 archived development changes and their tests.
+4. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
+5. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
 
 The packet documents under `documentation/live` remain valuable implementation evidence. They are not the current authority for what should be built next.
 
@@ -104,6 +105,7 @@ Preserve the historical development work, establish an isolated Learning Lite br
 - `documentation/learning_lite/README.md`
 - `documentation/learning_lite/GameLens_Learning_Lite_Architecture.md`
 - `documentation/learning_lite/GameLens_Learning_Lite_Sprint.md`
+- `documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md`
 
 **Verification performed**
 
@@ -131,7 +133,7 @@ No Learning Lite code ran. No BigQuery data was read or written for this checkpo
 
 **Known limitations / carry-forward**
 
-The file-by-file salvage matrix and focused test mapping are not yet complete. This checkpoint remains in progress, and no Learning Lite implementation should begin until that bounded inventory is reviewed.
+The file-by-file salvage matrix and focused test mapping are drafted but not yet owner-approved. This checkpoint remains in progress, and no Learning Lite implementation should begin until Christian reviews the bounded LL-2 set.
 
 **Rollback or recovery point**
 
@@ -139,7 +141,7 @@ The clean starting point is `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
 
 **Next checkpoint**
 
-Finish LL-1 by documenting the salvage matrix, associated tests, and the exact LL-2 worklist without porting implementation code.
+Finish LL-1 by reviewing and approving or revising the drafted salvage matrix and exact LL-2 worklist without porting implementation code.
 
 ---
 
@@ -234,8 +236,9 @@ Do not begin by writing code. Read, in order:
 1. documentation/learning_lite/README.md
 2. documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
 3. documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
-4. documentation/GameLens_Product_Ideas.md
-5. the archived documentation/live packet suite at commit
+4. documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
+5. documentation/GameLens_Product_Ideas.md
+6. the archived documentation/live packet suite at commit
    26287205f420f569d81ccfcb28a8e8e0656fc24b only for historical evidence
 
 Treat main as the production authority. Treat the preserved dev archive and the

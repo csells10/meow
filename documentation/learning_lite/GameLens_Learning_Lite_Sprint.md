@@ -14,6 +14,7 @@ Companion documents:
 
 - [Learning Lite README](./README.md)
 - [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md)
+- [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md)
 - [GameLens Product Ideas](../GameLens_Product_Ideas.md)
 - [Archived live packet suite at the preserved `dev` head](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live)
 
@@ -133,9 +134,9 @@ Required work:
 
 1. [x] record current `main` (`b93c41c`) and historical `dev` (`2628720`) commit SHAs;
 2. [x] create and verify the recoverable `archive/dev-pre-learning-lite-20260821` branch for historical `dev`;
-3. inventory the six `GameLens_dev` table schemas and relevant proof rows without migrating preseason evidence into production;
-4. create a file-by-file salvage matrix: keep unchanged, port/adapt, archive only, do not port;
-5. identify the focused tests attached to each salvage candidate;
+3. [~] inventory the six archived `GameLens_dev` table schemas; the documented Packet 4 shape is recorded, while current live schema/proof-row verification remains pending and read-only;
+4. [x] draft a file-by-file salvage matrix covering all 92 changed files: port/adapt, archive only, superseded, or do not port;
+5. [x] identify the focused tests attached to each salvage candidate;
 6. [x] confirm `learning-lite` starts from current production `main`;
 7. [x] perform no destructive branch reset and verify archive recovery first.
 
