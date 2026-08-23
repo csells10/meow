@@ -7,6 +7,8 @@
 **Implementation branch:** `learning-lite`
 **Compared range:** `main...dev`, merge base `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`
 
+**Purpose:** This matrix is a decision filter over the archived prototype, not a requirement to port every useful-looking file. Implement only the subset assigned to the active checkpoint, and prefer current `main`/`learning-lite` behavior whenever it already satisfies the need.
+
 ---
 
 ## 1. Decision summary
@@ -207,7 +209,7 @@ Christian remains the decision maker for code and schema changes. The lean check
 
 Before LL-2 begins:
 
-1. receive a separate explicit implementation decision;
+1. invoke the ready-to-paste LL-2 prompt in the Learning Lite README as the separate explicit implementation decision;
 2. confirm the bounded LL-2 pure-function and read-only file list;
 3. approve the focused LL-2 test list;
 4. confirm that LL-2 contains no schema, persistence, deployment, scheduling, or production-route change;
