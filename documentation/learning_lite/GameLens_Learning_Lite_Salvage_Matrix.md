@@ -1,9 +1,9 @@
 # GameLens Learning Lite Salvage Matrix
 
-**Status:** LL-1 review draft; no implementation code has been ported
+**Status:** LL-1 planning baseline accepted; no implementation code has been ported
 **Prepared:** 2026-08-22
 **Production baseline:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
-**Historical source:** `archive/dev-pre-learning-lite-20260821` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`
+**Historical source:** `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`
 **Implementation branch:** `learning-lite`
 **Compared range:** `main...dev`, merge base `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`
 
@@ -15,11 +15,12 @@ The archived development delta contains 92 changed files and 23,765 additions. I
 
 The bounded Learning Lite salvage is:
 
-1. **LL-2, minimal pregame contract:** selectively adapt the shared `/game` evidence builder, pregame-only entry point, deterministic identifiers, payload validation and hashing, immutable snapshot storage, and their focused tests.
-2. **LL-3, Claim Extraction:** selectively adapt the existing claim extractor adapter, capture lineage, claim reconciliation, a narrow runner, and focused tests.
-3. **Later postgame review:** retain the pure frozen-capture grading logic as a candidate only after the Week 1 capture path is stable.
-4. **Archive only:** preserve Packet 1–6 plans, QA evidence, development recreation instructions, and historical proof scripts for reference.
-5. **Do not port:** omit the broad coordinator, stage receipts, duplicate outcome ledger, backfill machinery, Admin/run-visibility backend, and Packet 5 route.
+1. **LL-2, minimal pregame contract:** selectively adapt only the shared `/game` evidence builder, pregame-only entry point, deterministic identifiers, payload validation and hashing, and their focused tests. LL-2 has no table and no persistence.
+2. **LL-3, immutable snapshot persistence:** selectively adapt the smallest capture orchestration, one snapshot schema, immutable reconciliation, a manual verifier, and focused tests.
+3. **LL-4, Claim Extraction:** selectively adapt the existing claim extractor adapter, capture lineage, claim reconciliation, a narrow runner, and focused tests.
+4. **Later postgame review:** retain the pure frozen-capture grading logic as a candidate only after the Week 1 capture path is stable.
+5. **Archive only:** preserve Packet 1–6 plans, QA evidence, development recreation instructions, and historical proof scripts for reference.
+6. **Do not port:** omit the broad coordinator, stage receipts, duplicate outcome ledger, backfill machinery, Admin/run-visibility backend, and Packet 5 route.
 
 No row below authorizes a code change. `Port/adapt` means the named behavior may be reimplemented or selectively copied in a future checkpoint after Christian approves the bounded worklist.
 
@@ -50,7 +51,7 @@ The archived field counts and recreation order remain evidence, not the target s
 |---|---|---|
 | `.dockerignore` | Port/adapt only when LL scripts exist | Preserve the intent to exclude local QA artifacts, but review broad `*.json` exclusions against current runtime assets first. |
 | `.gcloudignore` | Port/adapt only when LL scripts exist | Preserve artifact hygiene, but do not copy exclusions blindly; verify current Cloud Build inputs. |
-| `agg/gamelens_training/create_claim_training_examples_table.py` | Port/adapt in LL-3 | Expose a reusable canonical schema only if the existing claim table needs lineage verification. Pair with `tests/test_claim_training_schema.py`. |
+| `agg/gamelens_training/create_claim_training_examples_table.py` | Port/adapt in LL-4 | Expose a reusable canonical schema only if the existing claim table needs lineage verification. Pair with `tests/test_claim_training_schema.py`. |
 | `app.py` | Do not port | Its archived delta only registers the deferred Packet 5 Admin route. |
 | `audit_gamelens_snapshot_coverage.py` | Archive only | Useful historical operator evidence; Learning Lite can begin with a bounded query/log check instead of a permanent audit runner. |
 | `backfill_gamelens_stage_game_results.py` | Do not port | Exists to repair the stage receipt ledger that Learning Lite explicitly omits. |
@@ -59,30 +60,30 @@ The archived field counts and recreation order remain evidence, not the target s
 | `routes/admin_run_visibility_routes.py` | Do not port | Packet 5 Admin/run visibility is deferred. |
 | `services/game_service.py` | Port/adapt in LL-2 | Select `GameDetailsEvidence`, `load_game_details_evidence`, `build_game_details_from_evidence`, and `get_pregame_game_details`; prove the live route remains equivalent and pregame mode cannot query final score or write outcomes. |
 | `services/gamelens_admin_run_visibility_service.py` | Do not port | Deferred Packet 5 read service with no Week 1 dependency. |
-| `services/gamelens_claim_storage.py` | Port/adapt in LL-3 | Reconcile capture-linked claims with the current claim-training owner; do not create a parallel claim platform. Pair with its storage and schema tests. |
+| `services/gamelens_claim_storage.py` | Port/adapt in LL-4 | Reconcile capture-linked claims with the current claim-training owner; do not create a parallel claim platform. Pair with its storage and schema tests. |
 | `services/gamelens_learning_contract.py` | Port/adapt in LL-2 | Salvage the pure deterministic ID, candidate decision, postgame-field rejection, canonical JSON hash, manifest, and canonical-capture rules. Defer postgame readiness helpers until needed. |
-| `services/gamelens_level1_service.py` | Port/adapt in LL-3 | Reuse the existing extractor through a thin frozen-snapshot adapter. Pair with Level 1 and runner tests. |
+| `services/gamelens_level1_service.py` | Port/adapt in LL-4 | Reuse the existing extractor through a thin frozen-snapshot adapter. Pair with Level 1 and runner tests. |
 | `services/gamelens_level2_storage.py` | Archive for later review | Not required for the Week 1 pregame path; reconcile with current Claim Grading ownership before any future use. |
-| `services/gamelens_level2_validation.py` | Archive for later review | Its bounded validation seam may inform postgame work, but it is not part of LL-2 or LL-3. |
+| `services/gamelens_level2_validation.py` | Archive for later review | Its bounded validation seam may inform postgame work, but it is not part of LL-2 through LL-4. |
 | `services/gamelens_level3_features.py` | Archive for later review | Existing Feature Enrichment owns calculations; inspect only after capture and Claim Extraction are stable. |
 | `services/gamelens_level3_storage.py` | Archive for later review | Do not carry the 15-field development migration into the minimal capture path. |
 | `services/gamelens_packet4_coordinator.py` | Do not port | General multi-stage coordinator is explicitly deferred. |
 | `services/gamelens_packet4_receipts.py` | Do not port | Receipt table and merge logic exist only for the omitted coordinator. |
 | `services/gamelens_postgame_grading.py` | Port/adapt later | Pure frozen-capture grading is a useful later candidate. Review only after Week 1 snapshot evidence is stable. |
 | `services/gamelens_postgame_storage.py` | Do not port initially | Avoid a duplicate outcome ledger; reconcile with existing production validation/outcome owners first. |
-| `services/gamelens_snapshot_capture.py` | Port/adapt in LL-2 | Shrink to bounded capture orchestration, payload verification, lens tags, immutable retry handling, and honest no-op results. Remove stage receipt and general coordinator concerns. |
+| `services/gamelens_snapshot_capture.py` | Port/adapt in LL-3 | Shrink to bounded capture orchestration, payload verification, lens tags, immutable retry handling, and honest no-op results. Remove stage receipt and general coordinator concerns. |
 | `services/gamelens_snapshot_coverage.py` | Archive only initially | Coverage logic is useful evidence, but a permanent auditor is not a Week 1 dependency. |
-| `services/gamelens_snapshot_storage.py` | Port/adapt in LL-2 | Keep only `pregame_snapshot_schema` and immutable snapshot reconciliation. Omit `stage_run_schema`, `stage_game_result_schema`, and their writes. |
-| `run_gamelens_level1_capture.py` | Port/adapt in LL-3 | Convert to a narrow manual Claim Extraction command over canonical snapshots; no coordinator. |
+| `services/gamelens_snapshot_storage.py` | Port/adapt in LL-3 | Keep only `pregame_snapshot_schema` and immutable snapshot reconciliation. Omit `stage_run_schema`, `stage_game_result_schema`, and their writes. |
+| `run_gamelens_level1_capture.py` | Port/adapt in LL-4 | Convert to a narrow manual Claim Extraction command over canonical snapshots; no coordinator. |
 | `run_gamelens_packet4_coordinator.py` | Do not port | Entrypoint for the deferred coordinator. |
 | `run_gamelens_packet4_grade_write.py` | Archive for later review | Historical reviewed grade runner; not required for pregame capture or initial Claim Extraction. |
 | `run_gamelens_packet4_level2_write.py` | Archive for later review | Historical Claim Grading write wrapper; reconcile later with the current owner. |
 | `run_gamelens_packet4_level3_write.py` | Archive for later review | Historical Feature Enrichment write wrapper; reconcile later with the current owner. |
-| `setup_gamelens_claim_table.py` | Port/adapt only if LL-3 needs it | Prefer verifying/adapting the existing claim table over creating a new parallel table. |
+| `setup_gamelens_claim_table.py` | Port/adapt only if LL-4 needs it | Prefer verifying/adapting the existing claim table over creating a new parallel table. |
 | `setup_gamelens_level3_columns.py` | Do not port initially | The 15-column Packet 4 migration is outside the minimal pregame and Claim Extraction path. |
 | `setup_gamelens_packet4_receipts.py` | Do not port | Creates the omitted Packet 4 receipt table. |
 | `setup_gamelens_postgame_outcome_table.py` | Do not port initially | Creates the duplicate development outcome ledger. |
-| `setup_gamelens_snapshot_tables.py` | Port/adapt in LL-2 | Rewrite as a fail-closed verifier/setup for one approved snapshot table only; no stage tables. |
+| `setup_gamelens_snapshot_tables.py` | Port/adapt in LL-3 | Rewrite as a fail-closed verifier/setup for one approved snapshot table only; no stage tables. |
 | `qa_gamelens_packet4_dry_grade.py` | Archive only | Retain as historical Packet 4 evidence, not a Learning Lite operator path. |
 | `qa_gamelens_packet4_level2.py` | Archive only | Historical Claim Grading QA; reconsider only with later postgame scope. |
 | `qa_gamelens_packet4_level3.py` | Archive only | Historical Feature Enrichment QA; reconsider only with later postgame scope. |
@@ -103,7 +104,7 @@ The archived field counts and recreation order remain evidence, not the target s
 | `documentation/live/GameLens_Learning_Orchestration_Product_Sprint.md` | Archive only | Superseded orchestration direction. |
 | `documentation/live/GameLens_Packet_1_Pregame_Capture_Contract.md` | Archive only | Contract evidence and decision history; extract requirements through the current architecture. |
 | `documentation/live/GameLens_Packet_2_Shadow_Pregame_Snapshot_Plan.md` | Archive only | Detailed prototype plan; use as evidence, never as an implementation checklist. |
-| `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Archive only | Level 1 proof and history; current LL-3 will define the bounded adapter. |
+| `documentation/live/GameLens_Packet_3_Production_Level_1.md` | Archive only | Level 1 proof and history; current LL-4 will define the bounded adapter. |
 | `documentation/live/GameLens_Packet_4_Postgame_Learning.md` | Archive only | Postgame prototype evidence; outside the initial capture path. |
 | `documentation/live/GameLens_Packet_5_Admin_and_Run_Visibility.md` | Archive only | Deferred product direction. |
 | `documentation/live/GameLens_Packet_6_End_to_End_Development_Rehearsal.md` | Archive only | Explicitly superseded by Learning Lite. |
@@ -124,9 +125,9 @@ Tests travel only with an approved behavior. Tests for omitted infrastructure re
 | `tests/queries/test_gamelens_snapshot_queries.py` | Port/adapt in LL-2 | Bounded slate selection and pregame evidence loading. |
 | `tests/services/test_game_service_pregame_capture.py` | Port/adapt in LL-2 | Live/pregame parity, no final-score query, and no completed-game write. |
 | `tests/services/test_gamelens_admin_run_visibility_service.py` | Do not port | Deferred Admin service. |
-| `tests/services/test_gamelens_claim_storage.py` | Port/adapt in LL-3 | Capture-linked claim schema and idempotent reconciliation. |
+| `tests/services/test_gamelens_claim_storage.py` | Port/adapt in LL-4 | Capture-linked claim schema and idempotent reconciliation. |
 | `tests/services/test_gamelens_learning_contract.py` | Port/adapt in LL-2 | Deterministic IDs, hash stability, postgame rejection, and canonical decision rules. |
-| `tests/services/test_gamelens_level1_service.py` | Port/adapt in LL-3 | Frozen snapshot validation and existing extractor adaptation. |
+| `tests/services/test_gamelens_level1_service.py` | Port/adapt in LL-4 | Frozen snapshot validation and existing extractor adaptation. |
 | `tests/services/test_gamelens_level2_storage.py` | Archive for later review | Development Claim Grading storage semantics. |
 | `tests/services/test_gamelens_level2_validation.py` | Archive for later review | Bounded Claim Grading wrapper. |
 | `tests/services/test_gamelens_level3_features.py` | Archive for later review | Pregame-only feature projection. |
@@ -135,19 +136,19 @@ Tests travel only with an approved behavior. Tests for omitted infrastructure re
 | `tests/services/test_gamelens_packet4_receipts.py` | Do not port | Omitted receipt ledger. |
 | `tests/services/test_gamelens_postgame_grading.py` | Port/adapt later | Frozen-capture grading candidate after Week 1 stability. |
 | `tests/services/test_gamelens_postgame_storage.py` | Do not port initially | Duplicate outcome storage. |
-| `tests/services/test_gamelens_snapshot_capture.py` | Port/adapt in LL-2 | Capture safety, verification, retry, identity, and honest skip/failure behavior; remove receipt-only cases. |
+| `tests/services/test_gamelens_snapshot_capture.py` | Port/adapt in LL-3 | Capture safety, verification, retry, identity, and honest skip/failure behavior; remove receipt-only cases. |
 | `tests/services/test_gamelens_snapshot_coverage.py` | Archive only initially | Coverage classification/auditor behavior. |
-| `tests/services/test_gamelens_snapshot_handoff.py` | Port/adapt in LL-2 | End-to-end pregame safety boundary without production writes. |
-| `tests/services/test_gamelens_snapshot_storage.py` | Port/adapt in LL-2 | Immutable snapshot reconciliation only; remove stage table cases. |
+| `tests/services/test_gamelens_snapshot_handoff.py` | Split across LL-2 and LL-3 | LL-2 proves the pregame safety boundary without writes; LL-3 adds immutable persistence proof. |
+| `tests/services/test_gamelens_snapshot_storage.py` | Port/adapt in LL-3 | Immutable snapshot reconciliation only; remove stage table cases. |
 | `tests/services/test_gamelens_stage_game_backfill.py` | Do not port | Backfill for omitted stage receipts. |
 | `tests/test_admin_run_visibility_routes.py` | Do not port | Deferred Admin route. |
-| `tests/test_claim_training_schema.py` | Port/adapt in LL-3 | Canonical claim schema exposure and required capture lineage. |
+| `tests/test_claim_training_schema.py` | Port/adapt in LL-4 | Canonical claim schema exposure and required capture lineage. |
 | `tests/test_qa_gamelens_packet4_dry_grade.py` | Archive only | Historical Packet 4 dry-grade CLI. |
 | `tests/test_qa_gamelens_packet4_level2.py` | Archive only | Historical Packet 4 Level 2 QA. |
 | `tests/test_qa_gamelens_packet4_level3.py` | Archive only | Historical Packet 4 Level 3 QA. |
 | `tests/test_qa_gamelens_packet4_schema_inventory.py` | Archive only | Six-table development inventory. |
 | `tests/test_qa_gamelens_packet5_admin_inventory.py` | Do not port | Deferred Packet 5 inventory. |
-| `tests/test_run_gamelens_level1_capture.py` | Port/adapt in LL-3 | Narrow manual Claim Extraction runner. |
+| `tests/test_run_gamelens_level1_capture.py` | Port/adapt in LL-4 | Narrow manual Claim Extraction runner. |
 | `tests/test_run_gamelens_packet4_coordinator.py` | Do not port | Deferred coordinator entrypoint. |
 | `tests/test_run_gamelens_packet4_grade_write.py` | Archive for later review | Historical reviewed grade write runner. |
 | `tests/test_run_gamelens_packet4_level2_write.py` | Archive for later review | Historical Level 2 write runner. |
@@ -161,26 +162,35 @@ All 92 files in the archived `main...dev` comparison are represented in Sections
 
 ## 5. Proposed bounded checkpoint worklists
 
-### LL-2 candidate set — no schema approval implied
+### LL-2 candidate set — pure pregame contract, no persistence
 
-- selective seams from `queries/game_queries.py`;
-- reduced evidence loader from `queries/gamelens_snapshot_queries.py`;
+- selective side-effect-free seams from `queries/game_queries.py`;
+- the minimum read-only evidence loader from `queries/gamelens_snapshot_queries.py`;
 - pregame-safe shared builder seams from `services/game_service.py`;
-- pure capture rules from `services/gamelens_learning_contract.py`;
-- reduced capture coordinator from `services/gamelens_snapshot_capture.py`;
-- snapshot-only storage from `services/gamelens_snapshot_storage.py`;
-- snapshot-only setup/verifier adapted from `setup_gamelens_snapshot_tables.py`;
-- the focused LL-2 tests named in Section 4.
+- deterministic identity, payload hashing, and postgame rejection from `services/gamelens_learning_contract.py`;
+- only the focused LL-2 parity, identity, evidence-loading, and rejection tests named in Section 4.
 
-### LL-3 candidate set — separate approval after LL-2 proof
+LL-2 must not create or verify a table, write a snapshot, reconcile retries in storage, extract claims, deploy, schedule, or change the live route.
+
+### LL-3 candidate set — immutable snapshot persistence after LL-2 proof
+
+- reduced capture orchestration from `services/gamelens_snapshot_capture.py`;
+- snapshot-only schema and immutable reconciliation from `services/gamelens_snapshot_storage.py`;
+- snapshot-only setup/verifier adapted from `setup_gamelens_snapshot_tables.py`;
+- the persistence half of the snapshot handoff test;
+- only the focused LL-3 persistence, retry, hash, conflict, and read-back tests named in Section 4.
+
+Before LL-3, inspect the current live schema read-only and approve the exact table name and additive schema separately.
+
+### LL-4 candidate set — Claim Extraction after LL-3 proof
 
 - schema exposure from `agg/gamelens_training/create_claim_training_examples_table.py`;
 - capture-linked claim reconciliation from `services/gamelens_claim_storage.py`;
 - frozen-snapshot adapter from `services/gamelens_level1_service.py`;
 - narrow manual runner adapted from `run_gamelens_level1_capture.py`;
-- the focused LL-3 tests named in Section 4.
+- only the focused LL-4 claim-lineage, stable-key, zero-claim, and idempotency tests named in Section 4.
 
-### Explicitly excluded from LL-2 and LL-3
+### Explicitly excluded from LL-2 through LL-4
 
 - every Packet 4 coordinator and receipt file;
 - every Packet 5 Admin/run-visibility file;
@@ -193,13 +203,14 @@ All 92 files in the archived `main...dev` comparison are represented in Sections
 
 ## 6. Review gates before implementation
 
-Christian remains the decision maker for code and schema changes. Before LL-2 begins:
+Christian remains the decision maker for code and schema changes. The lean checkpoint sequence above is the accepted planning baseline, but no implementation is authorized by this document.
 
-1. approve or revise the LL-2 candidate set;
-2. inspect the current production snapshot/claim schema situation read-only;
-3. decide the snapshot table name and exact additive schema separately;
-4. confirm the manual fallback and kill-switch behavior;
-5. approve the focused test list;
-6. create a new bounded implementation checkpoint—without merging archived `dev`.
+Before LL-2 begins:
 
-Until those gates are satisfied, this matrix is documentation and planning evidence only.
+1. receive a separate explicit implementation decision;
+2. confirm the bounded LL-2 pure-function and read-only file list;
+3. approve the focused LL-2 test list;
+4. confirm that LL-2 contains no schema, persistence, deployment, scheduling, or production-route change;
+5. create one bounded implementation checkpoint on `learning-lite`, without merging `dev`.
+
+Snapshot table naming, current-schema inspection, manual write verification, fallback, and kill-switch decisions belong to the LL-3 approval gate, not LL-2.
