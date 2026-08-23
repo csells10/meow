@@ -1,11 +1,11 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** Planning baseline finalized; implementation has not started.
+**Current status:** LL-1 planning baseline accepted; LL-2 is ready to start from the handoff prompt below; implementation has not started.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
-**Production branch:** `main` remains unchanged
-**Week 1 safety target:** preserve a valid pregame read before the first 2026 regular-season kickoff on 2026-09-09
+**Production authority:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`; Learning Lite documentation has not changed it
+**Week 1 safety target:** be ready by the Wednesday, 2026-09-09 at 8:20 p.m. Eastern safety deadline, before the regular-season opener
 
 Learning Lite is the current planning direction for GameLens learning. It replaces the proposed six-table operational platform as the next implementation path while preserving the completed packet work as evidence and a source of selectively reusable code.
 
@@ -28,7 +28,7 @@ Read these documents in order:
 
 1. [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md) — product boundaries, terminology, persistent data model, League Discovery readiness, calibration flexibility, and salvage decisions.
 2. [Learning Lite Sprint](./GameLens_Learning_Lite_Sprint.md) — current checkpoint, proposed sequence, acceptance gates, Week 1 target, risks, and open decisions.
-3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — file-by-file disposition of all 92 archived development changes and their tests.
+3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — the decision filter for all 92 archived development changes and their tests; it says what may be selectively adapted, deferred, preserved, or omitted and is not a build checklist.
 4. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
 5. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
 
@@ -50,14 +50,12 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 - the existing Claim Health and historical QA evidence;
 - the current runtime claim-language support rules, including the backend support translated by the frontend as “Fits matchup.”
 
-### Add or adapt first
+### Add or adapt in sequence
 
-- one immutable pregame snapshot per eligible game;
-- deterministic snapshot identity and payload hashing;
-- a pregame-safe `/game` builder with no final-score query or completed-game write;
-- snapshot lineage on claim-training rows;
-- a thin Level 1/Claim Extraction path that reuses the existing extractor;
-- focused safety tests and a manual fallback command.
+- **LL-2:** construct and validate a deterministic, hashable, pregame-safe `/game` payload with no final-score query, completed-game write, table, or persistence;
+- **LL-3:** add one immutable pregame snapshot per eligible game, identical-retry safety, conflict protection, and a manual read-back check;
+- **LL-4:** add snapshot lineage to claim-training rows and connect the existing Level 1/Claim Extraction owner through a thin adapter;
+- at every checkpoint, port only the focused safety tests that travel with the approved behavior.
 
 ### Preserve for optional future use
 
@@ -235,22 +233,68 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ---
 
-## Fresh-chat handoff prompt
+## Start LL-2 on 2026-08-24 — ready-to-paste development prompt
+
+Using this prompt is Christian's explicit authorization to implement **LL-2 only**. It does not authorize LL-3, persistence, deployment, or any later checkpoint.
 
 ```text
-Continue GameLens from csells10/meow using the Learning Lite direction.
+Start GameLens Learning Lite checkpoint LL-2 in csells10/meow on the learning-lite branch.
 
-Do not begin by writing code. Read, in order:
-1. documentation/learning_lite/README.md
-2. documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
-3. documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
-4. documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
-5. documentation/GameLens_Product_Ideas.md
-6. the archived documentation/live packet suite at commit
-   26287205f420f569d81ccfcb28a8e8e0656fc24b only for historical evidence
+This prompt is explicit authorization to implement LL-2 only. Do not begin LL-3 or any later checkpoint.
 
-Treat main as the production authority. Treat the preserved dev archive and the
-documentation/live packet suite as a salvage/archive source, not as approval to
-continue Packet 6. Confirm the current Learning Lite checkpoint and the exact
-bounded next action before making changes.
+Before editing:
+1. Verify the current GitHub branch state and work only on learning-lite.
+2. Treat main as the production authority and do not modify main or dev.
+3. Read completely, in order:
+   - documentation/learning_lite/README.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
+   - documentation/GameLens_Product_Ideas.md
+4. Inspect current learning-lite/main code first. Use dev at
+   26287205f420f569d81ccfcb28a8e8e0656fc24b only as a read-only salvage source.
+   Do not merge or cherry-pick dev wholesale.
+5. Reconcile the exact LL-2 file and test list against current code before changing anything.
+
+LL-2 objective:
+Implement the smallest side-effect-free pregame contract that can construct and identify the response GameLens would produce before kickoff.
+
+Candidate behavior to reuse or adapt only when needed:
+- a side-effect-free evidence container and loader;
+- a shared game-response builder;
+- a pregame-only entry point;
+- deterministic capture identity;
+- canonical payload SHA-256;
+- detection and rejection of postgame-shaped payloads.
+
+Required proof:
+- the live and pregame builders produce equivalent pregame product sections from the same evidence;
+- pregame mode cannot query final score;
+- pregame mode cannot invoke completed-game outcome writes;
+- postgame-shaped payloads fail closed;
+- one eligible fixture produces a deterministic, hashable payload;
+- existing /game behavior, Matchup Lean, confidence, claim-language support including “Fits matchup,” auth, CORS, routes, and frontend behavior remain unchanged;
+- lens_tags remains BigQuery REPEATED STRING, Python list[str], and a JSON array.
+
+Hard LL-2 boundaries:
+- no table creation or schema change;
+- no BigQuery or other persistence writes;
+- no snapshot storage or retry reconciliation;
+- no Claim Extraction writes;
+- no coordinator, receipt ledger, Admin work, frontend work, backfill, or broad refactor;
+- no deployment, merge to main, scheduling, trigger change, traffic change, or production invocation.
+
+Working method:
+- prefer existing main/learning-lite behavior over porting;
+- adapt only the smallest useful seams from dev;
+- keep one behavior per commit;
+- run the smallest focused package-style tests from the repository root;
+- stop if preserving the live route requires broader scope;
+- do not continue merely because more dev code exists.
+
+Before closing LL-2:
+- update this README with the checkpoint date, branch/commit, exact files, tests and results, observed evidence, data and production effects, decisions, gaps, recovery point, and exact next checkpoint;
+- update the Sprint only if scope, sequencing, status, or acceptance criteria changed;
+- explicitly state that no table, persistence, deployment, or production behavior changed;
+- stop at the LL-2 exit gate and request review before LL-3.
 ```
