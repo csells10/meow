@@ -1,14 +1,14 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; direction approved, implementation not started
+**Document status:** Living sprint; documentation baseline accepted, implementation not started
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
 **Safety target:** before the first 2026 regular-season kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern
-**Current checkpoint:** LL-1 — preserve and inventory
-**Next checkpoint:** complete and approve the selective salvage map
+**Current checkpoint:** LL-2 — minimal pregame contract, ready for a separate implementation decision
+**Next checkpoint:** construct and validate the pregame payload boundary without persistence
 
 Companion documents:
 
@@ -24,7 +24,7 @@ Companion documents:
 
 Build the smallest trustworthy path that preserves each eligible regular-season pregame read and feeds the existing claim-learning workers.
 
-Do not continue directly into the previously planned Packet 6 coordinator. Do not merge the archived `dev` branch wholesale into `main` or `learning-lite`. Preserve the verified archive, start future implementation from the production-safe baseline, and selectively reuse only the pieces that support Learning Lite.
+Do not continue directly into the previously planned Packet 6 coordinator. Do not merge preserved `dev` wholesale into `main` or `learning-lite`. Keep `dev` at its historical prototype head, start future implementation from the production-safe baseline, and selectively reuse only the pieces that support Learning Lite.
 
 The sprint is intentionally changeable. Checkpoints exist to make decisions visible, not to force completion of obsolete scope.
 
@@ -124,7 +124,7 @@ Exit gate:
 ### LL-1 — Preserve and inventory
 
 **Target:** before implementation
-**Status:** In progress
+**Status:** Accepted as the current planning baseline; no implementation code has been ported
 
 Objective:
 
@@ -133,12 +133,12 @@ Preserve the current development work and identify exactly what should be reused
 Required work:
 
 1. [x] record current `main` (`b93c41c`) and historical `dev` (`2628720`) commit SHAs;
-2. [x] create and verify the recoverable `archive/dev-pre-learning-lite-20260821` branch for historical `dev`;
-3. [~] inventory the six archived `GameLens_dev` table schemas; the documented Packet 4 shape is recorded, while current live schema/proof-row verification remains pending and read-only;
+2. [x] verify `dev` retains the recoverable historical prototype at `26287205f420f569d81ccfcb28a8e8e0656fc24b`;
+3. [x] inventory the documented six-table `GameLens_dev` prototype shape; defer current live schema verification to LL-3, immediately before any persistence decision;
 4. [x] draft a file-by-file salvage matrix covering all 92 changed files: port/adapt, archive only, superseded, or do not port;
 5. [x] identify the focused tests attached to each salvage candidate;
 6. [x] confirm `learning-lite` starts from current production `main`;
-7. [x] perform no destructive branch reset and verify archive recovery first.
+7. [x] keep `dev` unchanged as the recovery and salvage source.
 
 Exit gate:
 
@@ -149,11 +149,11 @@ Exit gate:
 ### LL-2 — Minimal pregame contract
 
 **Target:** 2026-08-24 through 2026-08-26
-**Status:** Not started
+**Status:** Ready for a separate implementation decision; no code started
 
 Objective:
 
-Port or adapt only the pure safety boundaries needed to construct and identify a pregame response.
+Port or adapt only the pure safety boundaries needed to construct and identify a pregame response. LL-2 is deliberately side-effect-free: it creates no table and writes no snapshot.
 
 Candidate reuse:
 
@@ -166,6 +166,13 @@ Candidate reuse:
 - postgame-field detection and rejection;
 - canonical-capture decision logic;
 - focused unit tests.
+
+Explicitly excluded from LL-2:
+
+- snapshot table creation or verification;
+- snapshot writes or retry reconciliation;
+- Claim Extraction writes;
+- deployment, scheduling, or production wiring.
 
 Required proof:
 
@@ -471,7 +478,7 @@ These states are not interchangeable.
 | Rich Week 1 claims are expected | Pressure to manufacture context | Treat zero claims and unavailable rankings as valid |
 | Snapshot is recreated after kickoff | Irrecoverable leakage | Pre-kickoff timestamp, denylist, hash, and first-valid-capture rule |
 | Existing `/game` changes accidentally | Product regression | Shared builder parity tests and live-route default preservation |
-| Current `dev` is reset before salvage | Proven work and breadcrumbs become hard to recover | Archive and verify before any reset |
+| Preserved `dev` is repurposed or reset | Proven work and breadcrumbs become hard to recover | Keep `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`; do new work only on `learning-lite` |
 | Preseason evidence enters production learning | Misleading cohort | Separate dataset/cohort and explicit rejection |
 | Feature Enrichment sees validation targets | Training leakage | Explicit input allowlist and target denylist |
 | Calibration becomes a catch-all | Unowned ideas and unstable schema | Ownership table and versioned advisory outputs |
@@ -489,7 +496,7 @@ Pause the sprint if:
 - a retry can replace canonical evidence;
 - the target table or environment is ambiguous;
 - a proposed feature uses evaluated-game postgame data;
-- the historical `dev` state is not recoverably preserved before branch surgery;
+- the historical `dev` state is no longer recoverable at `26287205f420f569d81ccfcb28a8e8e0656fc24b`;
 - Week 1 timing would require skipping verification or rollback;
 - a deferred Admin, frontend, or coordinator dependency becomes mandatory without a new scope decision.
 
@@ -499,7 +506,7 @@ Pause the sprint if:
 
 The Week 1 slice is done when:
 
-1. historical `dev` is recoverably archived;
+1. historical `dev` remains recoverable at its recorded commit;
 2. the Learning Lite implementation is based on current `main`;
 3. `/game` behavior remains unchanged;
 4. one canonical pregame snapshot can be captured and verified;
@@ -516,18 +523,16 @@ The Week 1 slice is done when:
 
 ## 11. Open decisions
 
-These are intentionally not locked by LL-0:
+Branch roles are now locked: `main` is production, `learning-lite` owns current Learning Lite work, and `dev` preserves the earlier prototype. Remaining decisions must not be answered implicitly through code:
 
-1. exact archive branch/tag name;
-2. exact fresh implementation branch name;
-3. whether the canonical production snapshot lives in a dedicated dataset or the existing Analytics dataset;
-4. whether the existing claim table is extended in place or receives a controlled production successor;
-5. whether the Week 1 path is automatically invoked or manually confirmed after the morning load;
-6. the minimum useful capture verification query;
-7. whether one small coverage summary is enough without an operational ledger;
-8. when League Discovery receives its first data-readiness QA;
-9. what evidence threshold makes the first 2026 Language Calibration batch meaningful;
-10. whether a future algorithm is intended to predict claim reliability, matchup structure, or another explicitly defined target.
+1. whether the canonical production snapshot lives in a dedicated dataset or the existing Analytics dataset;
+2. whether the existing claim table is extended in place or receives a controlled production successor;
+3. whether the Week 1 path is automatically invoked or manually confirmed after the morning load;
+4. the minimum useful capture verification query;
+5. whether one small coverage summary is enough without an operational ledger;
+6. when League Discovery receives its first data-readiness QA;
+7. what evidence threshold makes the first 2026 Language Calibration batch meaningful;
+8. whether a future algorithm is intended to predict claim reliability, matchup structure, or another explicitly defined target.
 
 Open decisions must not be answered implicitly through code.
 
@@ -552,14 +557,14 @@ Open decisions must not be answered implicitly through code.
 
 ## 13. Immediate next action
 
-Do not implement capture yet.
+Do not implement capture in this documentation checkpoint.
 
-Start LL-1 with a read-only preservation and salvage checkpoint:
+When Christian separately authorizes implementation, begin only LL-2:
 
-1. confirm current `main` and `dev` heads;
-2. propose the exact archive and fresh-branch names;
-3. map every changed `dev` file to keep, port/adapt, archive only, or do not port;
-4. map the six development tables to preserve, reuse, or retire;
-5. identify the minimum test set for LL-2 through LL-4;
-6. document the result in the Learning Lite README;
-7. receive approval before branch or code changes.
+1. work on `learning-lite`, never `dev` or `main`;
+2. port or adapt the smallest pure evidence-loader and shared-builder seams;
+3. produce a deterministic, hashable pregame payload;
+4. prove final-score queries and completed-game writes are unreachable;
+5. run the focused parity, identity, and postgame-rejection tests;
+6. document the evidence in the Learning Lite README;
+7. stop before any table, persistence, deployment, scheduling, or Claim Extraction work.
