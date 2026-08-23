@@ -6,9 +6,9 @@
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
-**Safety target:** before the first 2026 regular-season kickoff on Wednesday, 2026-09-09 at 8:20 p.m. Eastern
-**Current checkpoint:** LL-2 — minimal pregame contract, ready for a separate implementation decision
-**Next checkpoint:** construct and validate the pregame payload boundary without persistence
+**Safety target:** ready by Wednesday, 2026-09-09 at 8:20 p.m. Eastern, before the regular-season opener
+**Current checkpoint:** LL-2 — minimal pregame contract; implementation not started
+**Next action:** invoke the ready-to-paste LL-2 prompt in the Learning Lite README
 
 Companion documents:
 
@@ -149,7 +149,7 @@ Exit gate:
 ### LL-2 — Minimal pregame contract
 
 **Target:** 2026-08-24 through 2026-08-26
-**Status:** Ready for a separate implementation decision; no code started
+**Status:** Ready to start when the README LL-2 prompt is invoked; no code started
 
 Objective:
 
@@ -248,7 +248,7 @@ Exit gate:
 
 ### LL-5 — Final preseason rehearsal
 
-**Target:** 2026-08-27 through 2026-08-29, subject to schedule and implementation readiness
+**Target:** 2026-08-31 through 2026-09-02, subject to schedule and implementation readiness
 **Status:** Not started
 
 Objective:
@@ -274,7 +274,7 @@ If LL-2 through LL-4 are not ready safely, do not rush them merely to use the pr
 
 ### LL-6 — Production-shaped invocation and rollback
 
-**Target:** 2026-08-30 through 2026-09-06
+**Target:** 2026-09-02 through 2026-09-06
 **Status:** Not started
 
 Objective:
@@ -306,7 +306,7 @@ Exit gate:
 
 ### LL-7 — Week 1 pregame operation
 
-**Target:** 2026-09-07 through the 2026-09-09 opener, then the 2026-09-13 main slate
+**Target:** 2026-09-07 through the 2026-09-09 safety deadline and regular-season opener, then the 2026-09-13 main slate
 **Status:** Not started
 
 Objective:
@@ -557,9 +557,7 @@ Open decisions must not be answered implicitly through code.
 
 ## 13. Immediate next action
 
-Do not implement capture in this documentation checkpoint.
-
-When Christian separately authorizes implementation, begin only LL-2:
+The LL-1 documentation checkpoint is closed. The ready-to-paste prompt in the Learning Lite README is the authorized handoff for the next development session. When that prompt is invoked, begin only LL-2:
 
 1. work on `learning-lite`, never `dev` or `main`;
 2. port or adapt the smallest pure evidence-loader and shared-builder seams;
@@ -567,4 +565,4 @@ When Christian separately authorizes implementation, begin only LL-2:
 4. prove final-score queries and completed-game writes are unreachable;
 5. run the focused parity, identity, and postgame-rejection tests;
 6. document the evidence in the Learning Lite README;
-7. stop before any table, persistence, deployment, scheduling, or Claim Extraction work.
+7. update the README with the full LL-2 checkpoint evidence and stop before any table, persistence, deployment, scheduling, or Claim Extraction work.
