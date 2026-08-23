@@ -95,7 +95,7 @@ Agreed direction:
 - New calibration findings remain versioned and advisory until deliberately promoted into runtime behavior.
 - The historical `dev` work must remain preserved before any branch replacement or reset.
 
-**Next checkpoint:** LL-2 — minimal pregame contract, with no persistence or schema work.
+**Historical next checkpoint:** LL-1 — preserve and inventory.
 
 ### Checkpoint LL-1 — Preserve and inventory
 
