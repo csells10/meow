@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** Planning baseline approved; implementation has not started.
+**Current status:** Planning baseline finalized; implementation has not started.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -12,6 +12,13 @@ Learning Lite is the current planning direction for GameLens learning. It replac
 The working principle is:
 
 > Keep the football evidence and learning results. Keep operational plumbing lightweight until real use proves that more is necessary.
+
+## Branch model
+
+- `main` is the production authority.
+- `learning-lite` is the only branch for current Learning Lite planning and future implementation.
+- `dev` preserves the earlier operationalization prototype at commit `26287205f420f569d81ccfcb28a8e8e0656fc24b` and is a selective salvage source, never a wholesale merge candidate.
+- No other long-lived branch is required for the current plan.
 
 ---
 
@@ -88,12 +95,12 @@ Agreed direction:
 - New calibration findings remain versioned and advisory until deliberately promoted into runtime behavior.
 - The historical `dev` work must remain preserved before any branch replacement or reset.
 
-**Next checkpoint:** LL-1 — complete the file-by-file salvage map before implementation.
+**Next checkpoint:** LL-2 — minimal pregame contract, with no persistence or schema work.
 
 ### Checkpoint LL-1 — Preserve and inventory
 
 **Date:** 2026-08-22
-**Status:** In progress
+**Status:** Accepted as the current documentation baseline; implementation remains not started
 **Branch / commit:** `learning-lite`, created from production `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
 
 **Objective**
@@ -111,13 +118,13 @@ Preserve the historical development work, establish an isolated Learning Lite br
 
 - verified GitHub `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`;
 - verified historical `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`;
-- verified `archive/dev-pre-learning-lite-20260821` is identical to that historical `dev` head;
+- verified `dev` itself retains the complete historical prototype at that exact commit, so a duplicate archive branch is not required;
 - created `learning-lite` from the verified `main` commit and confirmed it was initially identical to `main`;
 - kept the BigQuery REST-warning fix isolated from the Learning Lite documentation work.
 
 **Observed evidence**
 
-The historical development state is recoverable from both the `dev` reference and the dedicated archive branch. Learning Lite now has a clean production-based branch without the 92-file development delta.
+The historical development state remains recoverable from `dev` and its exact commit permalink. Learning Lite has a clean production-based branch without the 92-file development delta.
 
 **Data and production effects**
 
@@ -128,20 +135,21 @@ No Learning Lite code ran. No BigQuery data was read or written for this checkpo
 - Product name: **Learning Lite**.
 - Planning and implementation branch: `learning-lite`.
 - Production authority: `main`.
-- Historical development source: `archive/dev-pre-learning-lite-20260821` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`.
-- The historical branch is a file-by-file salvage source, never a wholesale merge candidate.
+- Historical development source: `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`.
+- `dev` is a file-by-file salvage source, never a wholesale merge candidate.
+- Checkpoint sequence: LL-2 builds and validates a side-effect-free pregame payload; LL-3 adds the single immutable snapshot store; LL-4 connects Claim Extraction to that snapshot.
 
 **Known limitations / carry-forward**
 
-The file-by-file salvage matrix and focused test mapping are drafted but not yet owner-approved. This checkpoint remains in progress, and no Learning Lite implementation should begin until Christian reviews the bounded LL-2 set.
+The file-by-file salvage matrix and focused test mapping are accepted as the current planning baseline. They remain intentionally revisable. LL-2 authorizes no table, persistence, deployment, or production behavior change; implementation still requires a separate explicit start decision.
 
 **Rollback or recovery point**
 
-The clean starting point is `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`. Historical development work is preserved at `archive/dev-pre-learning-lite-20260821`.
+The clean starting point is `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`. Historical development work is preserved on `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`.
 
 **Next checkpoint**
 
-Finish LL-1 by reviewing and approving or revising the drafted salvage matrix and exact LL-2 worklist without porting implementation code.
+When implementation is explicitly authorized, begin LL-2 only: construct and validate the pregame-safe payload boundary without persistence, schema changes, deployment, or production wiring.
 
 ---
 
