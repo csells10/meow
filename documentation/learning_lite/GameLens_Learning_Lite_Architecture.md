@@ -5,7 +5,7 @@
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Production authority:** `main`
-**Historical implementation source:** `archive/dev-pre-learning-lite-20260821` at `2628720` and its `documentation/live` packet suite
+**Historical implementation source:** `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b` and its `documentation/live` packet suite
 
 ---
 
@@ -348,7 +348,7 @@ The system should collect trustworthy evidence first. Modeling remains an option
 
 ---
 
-## 9. Main, dev, archive, and salvage posture
+## 9. Main, learning-lite, dev, and salvage posture
 
 ### 9.1 Keep from main
 
@@ -375,9 +375,9 @@ The system should collect trustworthy evidence first. Modeling remains an option
 
 Reuse may mean porting a small function or test rather than copying a full service unchanged.
 
-### 9.3 Preserve as archive evidence
+### 9.3 Preserve on `dev` as historical evidence
 
-- the archived `dev` head at `2628720`;
+- the preserved `dev` head at `26287205f420f569d81ccfcb28a8e8e0656fc24b`;
 - Packet 1–6 documents;
 - development dataset recreation instructions;
 - development table schemas and selected proof rows;
@@ -395,7 +395,7 @@ Reuse may mean porting a small function or test rather than copying a full servi
 - Packet 6–8 orchestration scope;
 - setup and backfill machinery used only by the superseded six-table path.
 
-No archived asset should be deleted until the archive and salvage inventory are verified.
+The `dev` history and exact commit permalink preserve the prototype evidence. Learning Lite work belongs only on `learning-lite`; `dev` should not receive new Learning Lite implementation.
 
 ---
 
