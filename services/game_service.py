@@ -2463,6 +2463,7 @@ def get_pregame_game_contract(
     game_id: str,
     *,
     learning_run_id: str,
+    captured_at: datetime,
     scheduled_kickoff: datetime,
     evidence: Optional[GameDetailsEvidence] = None,
 ) -> dict:
@@ -2472,6 +2473,7 @@ def get_pregame_game_contract(
         payload=payload,
         learning_run_id=learning_run_id,
         game_id=game_id,
+        captured_at=captured_at,
         scheduled_kickoff=scheduled_kickoff,
     )
     return {**identity, "payload": payload}

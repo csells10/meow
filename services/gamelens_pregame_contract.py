@@ -24,6 +24,10 @@ POSTGAME_NESTED_FIELD_NAMES = frozenset(
         "result_code",
     }
 )
+ELIGIBLE_GAME_STATUSES = frozenset({"scheduled"})
+KNOWN_SEASON_TYPES = frozenset(
+    {"preseason", "regular season", "postseason"}
+)
 
 
 def _normalized_identifier(value: Any) -> str:
@@ -37,11 +41,11 @@ def _normalized_identifier(value: Any) -> str:
     return normalized
 
 
-def _utc(value: datetime) -> datetime:
+def _utc(value: datetime, *, field_name: str) -> datetime:
     if not isinstance(value, datetime):
-        raise TypeError("scheduled_kickoff must be a datetime")
+        raise TypeError(f"{field_name} must be a datetime")
     if value.tzinfo is None:
-        raise ValueError("scheduled_kickoff must include a timezone")
+        raise ValueError(f"{field_name} must include a timezone")
     return value.astimezone(timezone.utc)
 
 
@@ -60,7 +64,10 @@ def build_capture_id(
         (
             _normalized_identifier(learning_run_id),
             _normalized_identifier(game_id),
-            _utc(scheduled_kickoff).isoformat(),
+            _utc(
+                scheduled_kickoff,
+                field_name="scheduled_kickoff",
+            ).isoformat(),
         )
     )
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
@@ -122,6 +129,39 @@ def require_pregame_payload(payload: Mapping[str, Any]) -> None:
         )
 
 
+def require_eligible_pregame_payload(
+    *,
+    payload: Mapping[str, Any],
+    game_id: Any,
+    captured_at: datetime,
+    scheduled_kickoff: datetime,
+) -> None:
+    """Require one scheduled, supported-phase payload captured pre-kickoff."""
+    require_pregame_payload(payload)
+
+    header = payload.get("header") or {}
+    payload_game_id = str(header.get("game_id") or "")
+    requested_game_id = str(game_id or "")
+    if not payload_game_id or payload_game_id != requested_game_id:
+        raise ValueError("payload_game_id_mismatch")
+
+    game_status = str(header.get("game_status") or "").strip().casefold()
+    if game_status not in ELIGIBLE_GAME_STATUSES:
+        raise ValueError("game_not_scheduled")
+
+    season_type = str(header.get("season_type") or "").strip().casefold()
+    if season_type not in KNOWN_SEASON_TYPES:
+        raise ValueError("season_type_unknown")
+
+    captured_at_utc = _utc(captured_at, field_name="captured_at")
+    kickoff_utc = _utc(
+        scheduled_kickoff,
+        field_name="scheduled_kickoff",
+    )
+    if captured_at_utc >= kickoff_utc:
+        raise ValueError("kickoff_reached")
+
+
 def canonical_payload_json(payload: Mapping[str, Any]) -> str:
     """Return the stable JSON representation used for response hashing."""
     require_pregame_payload(payload)
@@ -145,9 +185,16 @@ def identify_pregame_payload(
     payload: Mapping[str, Any],
     learning_run_id: str,
     game_id: Any,
+    captured_at: datetime,
     scheduled_kickoff: datetime,
 ) -> dict:
     """Identify one valid pregame payload without reading or writing data."""
+    require_eligible_pregame_payload(
+        payload=payload,
+        game_id=game_id,
+        captured_at=captured_at,
+        scheduled_kickoff=scheduled_kickoff,
+    )
     return {
         "capture_id": build_capture_id(
             learning_run_id=learning_run_id,

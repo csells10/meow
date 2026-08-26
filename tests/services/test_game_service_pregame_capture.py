@@ -33,6 +33,7 @@ HEADER = {
 }
 
 KICKOFF = datetime(2026, 9, 10, 0, 20, tzinfo=timezone.utc)
+CAPTURED_AT = datetime(2026, 9, 9, 12, 0, tzinfo=timezone.utc)
 
 PREGAME_PRODUCT_SECTIONS = (
     "header",
@@ -180,12 +181,14 @@ class TestPregameResponseBuilder(unittest.TestCase):
         first = game_service.get_pregame_game_contract(
             HEADER["game_id"],
             learning_run_id="gamelens_2026_regular_season_v1",
+            captured_at=CAPTURED_AT,
             scheduled_kickoff=KICKOFF,
             evidence=fixed,
         )
         second = game_service.get_pregame_game_contract(
             HEADER["game_id"],
             learning_run_id="gamelens_2026_regular_season_v1",
+            captured_at=CAPTURED_AT,
             scheduled_kickoff=KICKOFF,
             evidence=fixed,
         )

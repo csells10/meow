@@ -12,6 +12,7 @@ from services.gamelens_pregame_contract import (
 
 
 KICKOFF = datetime(2026, 9, 10, 0, 20, tzinfo=timezone.utc)
+CAPTURED_AT = datetime(2026, 9, 9, 12, 0, tzinfo=timezone.utc)
 GAME_ID = "20260909_SEA@NE"
 LEARNING_RUN_ID = "gamelens_2026_regular_season_v1"
 
@@ -45,12 +46,14 @@ class TestPregameContract(unittest.TestCase):
             payload=payload,
             learning_run_id=LEARNING_RUN_ID,
             game_id=GAME_ID,
+            captured_at=CAPTURED_AT,
             scheduled_kickoff=KICKOFF,
         )
         second = identify_pregame_payload(
             payload=dict(reversed(list(payload.items()))),
             learning_run_id=LEARNING_RUN_ID,
             game_id=GAME_ID,
+            captured_at=CAPTURED_AT,
             scheduled_kickoff=KICKOFF,
         )
 
@@ -66,6 +69,27 @@ class TestPregameContract(unittest.TestCase):
                 scheduled_kickoff=KICKOFF,
             ),
         )
+
+    def test_identity_rejects_noneligible_fixture(self):
+        with self.assertRaisesRegex(ValueError, "kickoff_reached"):
+            identify_pregame_payload(
+                payload=pregame_payload(),
+                learning_run_id=LEARNING_RUN_ID,
+                game_id=GAME_ID,
+                captured_at=KICKOFF,
+                scheduled_kickoff=KICKOFF,
+            )
+
+        mismatched = pregame_payload()
+        mismatched["header"]["game_id"] = "different_game"
+        with self.assertRaisesRegex(ValueError, "payload_game_id_mismatch"):
+            identify_pregame_payload(
+                payload=mismatched,
+                learning_run_id=LEARNING_RUN_ID,
+                game_id=GAME_ID,
+                captured_at=CAPTURED_AT,
+                scheduled_kickoff=KICKOFF,
+            )
 
     def test_postgame_shaped_payload_fails_closed(self):
         payload = pregame_payload()
