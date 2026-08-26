@@ -1,14 +1,14 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; documentation baseline accepted, implementation not started
+**Document status:** Living sprint; LL-2 implemented locally and awaiting review
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
 **Safety target:** ready by Wednesday, 2026-09-09 at 8:20 p.m. Eastern, before the regular-season opener
-**Current checkpoint:** LL-2 — minimal pregame contract; implementation not started
-**Next action:** invoke the ready-to-paste LL-2 prompt in the Learning Lite README
+**Current checkpoint:** LL-2 — minimal pregame contract; controlled-fixture exit proof passed, awaiting review
+**Next action:** review LL-2 before separately authorizing either LL-3 or Matchup Lens M1
 
 Companion documents:
 
@@ -149,7 +149,7 @@ Exit gate:
 ### LL-2 — Minimal pregame contract
 
 **Target:** 2026-08-24 through 2026-08-26
-**Status:** Ready to start when the README LL-2 prompt is invoked; no code started
+**Status:** Implemented locally on `learning-lite`; 23 focused tests passed; awaiting review
 
 Objective:
 
@@ -184,7 +184,10 @@ Required proof:
 
 Exit gate:
 
-- one eligible game can produce a valid, hashable, side-effect-free pregame payload in a test or dry-run boundary.
+- [x] one eligible controlled fixture produced a valid, hashable, side-effect-free pregame payload;
+- [x] live/pregame product-section parity, no final-score query, no completed-game write, and fail-closed postgame rejection were proven;
+- [x] no table, persistence, deployment, production, route, auth, CORS, frontend, or Matchup Lens behavior changed;
+- [ ] Christian has reviewed and accepted the LL-2 checkpoint record.
 
 ### LL-3 — Immutable snapshot persistence
 
@@ -553,16 +556,24 @@ Open decisions must not be answered implicitly through code.
 - Deferred coordinator, run ledger, Admin visibility, frontend, automatic calibration, and modeling scope.
 - Made checkpoint README updates mandatory.
 
+### 2026-08-26 — LL-2 controlled-fixture exit proof
+
+- Added one pure pregame identity, canonical JSON/SHA-256, and fail-closed postgame-field contract.
+- Routed the existing live and new pregame entry points through one shared response builder.
+- Proved pregame mode cannot query final score or invoke the completed-game writer.
+- Preserved Matchup Lean, confidence, Model Trust, claim-language support, Lens Tags, routes, auth, CORS, and frontend behavior.
+- Passed 23 focused tests, Python compilation, and whitespace validation.
+- Created no table, persistence, deployment, production, or Matchup Lens behavior.
+- Stopped at review before LL-3 or Matchup Lens M1.
+
 ---
 
 ## 13. Immediate next action
 
-The LL-1 documentation checkpoint is closed. The ready-to-paste prompt in the Learning Lite README is the authorized handoff for the next development session. When that prompt is invoked, begin only LL-2:
+LL-2 has reached its controlled-fixture exit gate. Review the README checkpoint record and implementation commits. Then explicitly choose one of three paths:
 
-1. work on `learning-lite`, never `dev` or `main`;
-2. port or adapt the smallest pure evidence-loader and shared-builder seams;
-3. produce a deterministic, hashable pregame payload;
-4. prove final-score queries and completed-game writes are unreachable;
-5. run the focused parity, identity, and postgame-rejection tests;
-6. document the evidence in the Learning Lite README;
-7. update the README with the full LL-2 checkpoint evidence and stop before any table, persistence, deployment, scheduling, or Claim Extraction work.
+1. accept LL-2 and separately authorize LL-3;
+2. accept LL-2 and separately authorize Matchup Lens M1; or
+3. request a bounded LL-2 correction.
+
+Do not begin persistence, Matchup Lens implementation, deployment, scheduling, or production work until that decision is recorded.

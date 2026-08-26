@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-1 planning baseline accepted; LL-2 remains the next authorized implementation checkpoint and is ready to start from the handoff prompt below. Matchup Lens M1 is documented and queued, but it is not part of LL-2 and is not yet authorized.
+**Current status:** LL-2 is implemented locally on `learning-lite` and has passed its controlled-fixture exit proof. It is awaiting review; neither LL-3 nor Matchup Lens M1 is authorized.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -153,6 +153,113 @@ Begin LL-2 only: construct and validate the pregame-safe payload boundary withou
 
 ---
 
+### Checkpoint LL-2 — Minimal pregame contract
+
+**Date:** 2026-08-26
+**Status:** Implemented locally and proven against controlled fixtures; awaiting review
+**Branch / commits:** `learning-lite`; `26a93f2fb4c49346da1e487de34539e7c9a66174`, `321f160f809c4cb6af45f500708222c04d8a3b43`, `24db9bb01bfb9ba50ccb8001f5dfd0e05c833511`, and `4102ab7e0a67856d7cb3d5a737db35d0905fcf1c`
+
+**Objective**
+
+Construct and identify the response GameLens would produce before kickoff through one shared product builder, while making final-score queries, completed-game writes, and postgame-shaped payloads unreachable from the pregame boundary.
+
+**Files changed**
+
+Implementation and focused proof:
+
+- `services/game_service.py`
+- `services/gamelens_pregame_contract.py`
+- `tests/_gcp_stubs.py`
+- `tests/services/test_game_service_pregame_capture.py`
+- `tests/services/test_gamelens_pregame_contract.py`
+- `tests/test_game_window_selection.py`
+
+Checkpoint closeout:
+
+- `documentation/learning_lite/README.md`
+- `documentation/learning_lite/GameLens_Learning_Lite_Sprint.md`
+
+No query, route, auth, CORS, application-registration, frontend, schema, setup, coordinator, Admin, or persistence file changed.
+
+**Verification performed**
+
+From the repository root:
+
+```text
+python -m unittest \
+  tests.services.test_gamelens_pregame_contract \
+  tests.services.test_game_service_pregame_capture \
+  tests.test_game_window_selection \
+  tests.test_game_service_confidence_calibration \
+  tests.test_qa_calibrated_matchup_lean_parity \
+  tests.test_metric_registry
+```
+
+Result: `Ran 23 tests — OK`.
+
+```text
+python -m py_compile \
+  services/gamelens_pregame_contract.py \
+  services/game_service.py \
+  tests/_gcp_stubs.py \
+  tests/services/test_gamelens_pregame_contract.py \
+  tests/services/test_game_service_pregame_capture.py \
+  tests/test_game_window_selection.py
+```
+
+Result: passed with no output.
+
+```text
+git diff --check
+```
+
+Result: passed with no output.
+
+**Observed evidence**
+
+- Controlled eligible fixture: `20260909_SEA@NE`, Scheduled, 2026 Regular Season Week 1; capture time `2026-09-09T12:00:00Z`, before scheduled kickoff `2026-09-10T00:20:00Z`.
+- Deterministic identity: `capture_ca1f097100b6563570b23464`.
+- Canonical payload SHA-256: `c4a5307a2366a5fee895a3ba085a24970283d221f1419ad35b3d1dfdfabcc851`.
+- Repeating the same fixture, learning-run ID, kickoff, and response produced the same capture ID, hash, and payload.
+- Live and pregame entry paths produced equivalent pregame product sections from the same evidence.
+- Pregame loading did not call `get_final_score`; pregame construction did not call `save_model_results`.
+- Supplied final-score evidence was ignored by pregame mode, and a postgame-shaped builder result raised `postgame_fields_populated` before it could be identified or hashed.
+- The shared builder preserved Matchup Lean, confidence, Model Trust, ranking context, matchup breakdown, and claim-language annotations. The focused proof retained `language_boost_allowed`, the backend support rendered by the frontend as “Fits matchup.”
+- `lens_tags` remains `REPEATED STRING` in the existing ranking schema, is still normalized/carried as a Python `list`, and serialized as a JSON array. No lens-tag producer or schema file changed.
+- `routes/game_routes.py`, `routes/games.py`, `auth/firebase_auth.py`, `app.py`, and all frontend code were unchanged, preserving the existing `/game` route, Firebase authorization, CORS registration, route registration, and frontend contract.
+
+**Data and production effects**
+
+No BigQuery table was created, altered, verified, read, or written by LL-2 proof. The focused tests used controlled in-memory evidence and a local BigQuery import stub. No snapshot, claim, outcome, receipt, or other persistence write occurred. No deployment, scheduling, trigger, traffic, production invocation, merge to `main`, or change to production behavior occurred.
+
+**Decisions**
+
+- Reused the existing `game_service.py` product calculations and inserted only an evidence container, evidence loader, shared builder, and pregame entry point.
+- Added a small pure `gamelens_pregame_contract.py` instead of porting the broader archived learning contract. It owns only deterministic capture identity, canonical JSON/SHA-256, postgame-field detection, and fail-closed validation.
+- Did not port `queries/gamelens_snapshot_queries.py`, slate selection, canonical retry decisions, snapshot manifests, storage, or any LL-3 behavior. The controlled fixture was sufficient for the LL-2 exit gate.
+- Kept the live `get_game_details(game_id)` signature and route unchanged; it now delegates through the shared builder with the existing live defaults.
+- Kept bounded behavior commits separate: pure identity/validation, shared response boundary, self-contained window-selection proof, and explicit per-fixture pre-kickoff eligibility enforcement.
+
+**Known limitations / carry-forward**
+
+- LL-2 is proven against controlled fixtures only. It intentionally did not execute a real BigQuery read or invoke the production route.
+- LL-2 validates one supplied fixture's game identity, Scheduled status, supported phase, timezone-aware capture time, and pre-kickoff boundary. Slate selection and schedule-to-kickoff assembly are later bounded work.
+- LL-2 does not store the response, reconcile retries, select a slate, extract claims, or provide an operator command.
+- The exact LL-3 table/dataset/schema and the exact Matchup Lens M1 formula remain unresolved and must not be inferred from this code.
+
+**Rollback or recovery point**
+
+- Pre-LL-2 Learning Lite head: `65f7584c5d8bed1415e4301de86b269a5a5950b9`.
+- Production authority remains `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`.
+- Historical salvage source remains `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`.
+- LL-2 can be recovered by reverting the four bounded implementation commits above on `learning-lite`; no data or infrastructure recovery is required.
+
+**Next checkpoint**
+
+Stop at the LL-2 exit gate and review this evidence. After review, Christian must explicitly authorize either LL-3 or Matchup Lens M1 (or request a correction to LL-2). Neither later checkpoint is authorized by the completed LL-2 work.
+
+---
+
 ## Checkpoint documentation contract
 
 Every Learning Lite checkpoint must update this README before the checkpoint is considered closed.
@@ -235,70 +342,14 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ---
 
-## Next work — ready-to-paste LL-2 development prompt
+## Next work — LL-2 review gate
 
-Using this prompt is Christian's explicit authorization to implement **LL-2 only**. It does not authorize LL-3, persistence, deployment, or any later checkpoint.
+LL-2 has reached its bounded exit gate. Review the checkpoint record above and the four implementation commits before authorizing more work.
 
-```text
-Start GameLens Learning Lite checkpoint LL-2 in csells10/meow on the learning-lite branch.
+The next decision is deliberately not embedded in code:
 
-This prompt is explicit authorization to implement LL-2 only. Do not begin LL-3 or any later checkpoint.
+1. accept LL-2 as the pregame safety boundary;
+2. request a bounded correction to LL-2; or
+3. explicitly authorize either LL-3 or Matchup Lens M1 as a separate checkpoint.
 
-Before editing:
-1. Verify the current GitHub branch state and work only on learning-lite.
-2. Treat main as the production authority and do not modify main or dev.
-3. Read completely, in order:
-   - documentation/learning_lite/README.md
-   - documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
-   - documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
-   - documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
-   - documentation/learning_lite/GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md
-   - documentation/GameLens_Product_Ideas.md
-4. Inspect current learning-lite/main code first. Use dev at
-   26287205f420f569d81ccfcb28a8e8e0656fc24b only as a read-only salvage source.
-   Do not merge or cherry-pick dev wholesale.
-5. Reconcile the exact LL-2 file and test list against current code before changing anything.
-
-LL-2 objective:
-Implement the smallest side-effect-free pregame contract that can construct and identify the response GameLens would produce before kickoff.
-
-Candidate behavior to reuse or adapt only when needed:
-- a side-effect-free evidence container and loader;
-- a shared game-response builder;
-- a pregame-only entry point;
-- deterministic capture identity;
-- canonical payload SHA-256;
-- detection and rejection of postgame-shaped payloads.
-
-Required proof:
-- the live and pregame builders produce equivalent pregame product sections from the same evidence;
-- pregame mode cannot query final score;
-- pregame mode cannot invoke completed-game outcome writes;
-- postgame-shaped payloads fail closed;
-- one eligible fixture produces a deterministic, hashable payload;
-- existing /game behavior, Matchup Lean, confidence, claim-language support including “Fits matchup,” auth, CORS, routes, and frontend behavior remain unchanged;
-- lens_tags remains BigQuery REPEATED STRING, Python list[str], and a JSON array.
-
-Hard LL-2 boundaries:
-- no table creation or schema change;
-- no BigQuery or other persistence writes;
-- no snapshot storage or retry reconciliation;
-- no Claim Extraction writes;
-- no coordinator, receipt ledger, Admin work, frontend work, backfill, or broad refactor;
-- no Matchup Lens formula registry, service, API response, query, dashboard, or frontend implementation; Matchup Lens M1 requires a separate explicit checkpoint after LL-2 review;
-- no deployment, merge to main, scheduling, trigger change, traffic change, or production invocation.
-
-Working method:
-- prefer existing main/learning-lite behavior over porting;
-- adapt only the smallest useful seams from dev;
-- keep one behavior per commit;
-- run the smallest focused package-style tests from the repository root;
-- stop if preserving the live route requires broader scope;
-- do not continue merely because more dev code exists.
-
-Before closing LL-2:
-- update this README with the checkpoint date, branch/commit, exact files, tests and results, observed evidence, data and production effects, decisions, gaps, recovery point, and exact next checkpoint;
-- update the Sprint only if scope, sequencing, status, or acceptance criteria changed;
-- explicitly state that no table, persistence, deployment, or production behavior changed;
-- stop at the LL-2 exit gate and request review before either LL-3 or Matchup Lens M1.
-```
+No persistence, Matchup Lens implementation, deployment, or production invocation is authorized until that review decision is recorded.
