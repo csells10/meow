@@ -16,9 +16,15 @@ from services.confidence_calibration import (
     INSUFFICIENT_DURABILITY_REASON,
     apply_core_area_durability_confidence_calibration,
 )
+from services.gamelens_pregame_contract import (
+    identify_pregame_payload,
+    require_pregame_payload,
+)
 from utils.logging_setup import log_event
 from google.cloud import bigquery
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Optional
 
 
 FINAL_STATUSES = {"Final", "Final/OT"}
@@ -39,6 +45,19 @@ RANKING_FEATURED_METRICS = [
     "turnover_margin",
     "pass_attempts",
 ]
+
+
+@dataclass(frozen=True)
+class GameDetailsEvidence:
+    """Inputs consumed by the one canonical game-response builder."""
+
+    header: dict
+    away_metrics: dict
+    home_metrics: dict
+    ranking_context: dict
+    away_rankings: dict
+    home_rankings: dict
+    final_score: Optional[dict] = None
 
 
 def fmt(val):
@@ -2233,11 +2252,53 @@ def build_claim_language_context(
         "offensive_efficiency_support_by_side": offensive_efficiency_support_by_side,
     }
 
+def load_game_details_evidence(
+    game_id: str,
+    *,
+    include_final_score: bool = True,
+) -> GameDetailsEvidence:
+    """Load one request's evidence without constructing product sections."""
+    header = get_game_header(game_id)
+    if not header:
+        return GameDetailsEvidence(
+            header={},
+            away_metrics={},
+            home_metrics={},
+            ranking_context=build_unavailable_ranking_context(
+                reason="missing_game_header",
+                game_id=game_id,
+            ),
+            away_rankings={},
+            home_rankings={},
+            final_score=None,
+        )
+
+    away_metrics, home_metrics = get_team_metrics(game_id)
+    final_score = get_final_score(game_id) if include_final_score else None
+    ranking_context, away_rankings, home_rankings = (
+        get_ranking_context_for_game_safe(game_id=game_id)
+    )
+
+    return GameDetailsEvidence(
+        header=header,
+        away_metrics=away_metrics,
+        home_metrics=home_metrics,
+        ranking_context=ranking_context,
+        away_rankings=away_rankings,
+        home_rankings=home_rankings,
+        final_score=final_score,
+    )
+
+
 # =========================
-# MAIN FUNCTION
+# MAIN RESPONSE BUILDER
 # =========================
 
-def get_game_details(game_id: str) -> dict:
+def build_game_details_from_evidence(
+    evidence: GameDetailsEvidence,
+    *,
+    pregame_only: bool = False,
+) -> dict:
     """
     Build the full /game/<game_id> API response.
 
@@ -2256,19 +2317,19 @@ def get_game_details(game_id: str) -> dict:
     They do not change matchup_lean, model_outcome, or model_trust.
     """
 
-    header = get_game_header(game_id)
+    header = evidence.header
 
     if not header:
         return build_unavailable_game_details_response(
             reason="missing_game_header"
         )
 
-    away_metrics, home_metrics = get_team_metrics(game_id)
-    final_score = get_final_score(game_id)
-
-    ranking_context, away_rankings, home_rankings = get_ranking_context_for_game_safe(
-        game_id=game_id
-    )
+    away_metrics = evidence.away_metrics
+    home_metrics = evidence.home_metrics
+    ranking_context = evidence.ranking_context
+    away_rankings = evidence.away_rankings
+    home_rankings = evidence.home_rankings
+    final_score = None if pregame_only else evidence.final_score
 
     # Support both old and new build_team_comparison signatures.
     # Newer version can accept away_rankings/home_rankings for near-even handling.
@@ -2351,7 +2412,7 @@ def get_game_details(game_id: str) -> dict:
 
     game_status = str(header.get("game_status") or "").lower()
 
-    if game_status in {"final", "final/ot"}:
+    if not pregame_only and game_status in {"final", "final/ot"}:
         save_model_results(
             header=header,
             matchup_lean=matchup_lean,
@@ -2378,3 +2439,45 @@ def get_game_details(game_id: str) -> dict:
         "claim_language_context": claim_language_context,
         "matchup_breakdown": response_matchup_breakdown,
     }
+
+
+def get_pregame_game_details(
+    game_id: str,
+    *,
+    evidence: Optional[GameDetailsEvidence] = None,
+) -> dict:
+    """Build a fail-closed pregame response with no score query or write."""
+    pregame_evidence = evidence or load_game_details_evidence(
+        game_id,
+        include_final_score=False,
+    )
+    payload = build_game_details_from_evidence(
+        pregame_evidence,
+        pregame_only=True,
+    )
+    require_pregame_payload(payload)
+    return payload
+
+
+def get_pregame_game_contract(
+    game_id: str,
+    *,
+    learning_run_id: str,
+    scheduled_kickoff: datetime,
+    evidence: Optional[GameDetailsEvidence] = None,
+) -> dict:
+    """Construct and identify one pregame response without persistence."""
+    payload = get_pregame_game_details(game_id, evidence=evidence)
+    identity = identify_pregame_payload(
+        payload=payload,
+        learning_run_id=learning_run_id,
+        game_id=game_id,
+        scheduled_kickoff=scheduled_kickoff,
+    )
+    return {**identity, "payload": payload}
+
+
+def get_game_details(game_id: str) -> dict:
+    """Preserve the live route through the shared response builder."""
+    evidence = load_game_details_evidence(game_id, include_final_score=True)
+    return build_game_details_from_evidence(evidence, pregame_only=False)
