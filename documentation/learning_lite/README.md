@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-2 is implemented locally on `learning-lite` and has passed its controlled-fixture exit proof. It is awaiting review; neither LL-3 nor Matchup Lens M1 is authorized.
+**Current status:** LL-2 is accepted as the side-effect-free pregame safety boundary after controlled-fixture and local read-only data review. One pre-existing snap-metric data-quality issue is tracked separately; neither LL-3 nor Matchup Lens M1 is authorized.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -30,8 +30,9 @@ Read these documents in order:
 2. [Learning Lite Sprint](./GameLens_Learning_Lite_Sprint.md) — current checkpoint, proposed sequence, acceptance gates, Week 1 target, risks, and open decisions.
 3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — the decision filter for all 92 archived development changes and their tests; it says what may be selectively adapted, deferred, preserved, or omitted and is not a build checklist.
 4. [Matchup Lens Product, Data, Query, and Implementation Specification](./GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md) — the product, data, calculation, query, API, navigation, infrastructure, state, and QA authority for the Matchup Lens experience.
-5. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
-6. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
+5. [Learning Lite Findings Log](./GameLens_Learning_Lite_Findings_Log.md) — append-only review findings, observed data gaps, impact, decisions, and resolution criteria.
+6. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
+7. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
 
 The packet documents under `documentation/live` remain valuable implementation evidence. They are not the current authority for what should be built next.
 
@@ -156,7 +157,7 @@ Begin LL-2 only: construct and validate the pregame-safe payload boundary withou
 ### Checkpoint LL-2 — Minimal pregame contract
 
 **Date:** 2026-08-26
-**Status:** Implemented locally and proven against controlled fixtures; awaiting review
+**Status:** Accepted as the side-effect-free pregame safety boundary after controlled-fixture and local read-only data review
 **Branch / commits:** `learning-lite`; `26a93f2fb4c49346da1e487de34539e7c9a66174`, `321f160f809c4cb6af45f500708222c04d8a3b43`, `24db9bb01bfb9ba50ccb8001f5dfd0e05c833511`, and `4102ab7e0a67856d7cb3d5a737db35d0905fcf1c`
 
 **Objective**
@@ -256,7 +257,36 @@ No BigQuery table was created, altered, verified, read, or written by LL-2 proof
 
 **Next checkpoint**
 
-Stop at the LL-2 exit gate and review this evidence. After review, Christian must explicitly authorize either LL-3 or Matchup Lens M1 (or request a correction to LL-2). Neither later checkpoint is authorized by the completed LL-2 work.
+LL-2 is accepted. No later implementation checkpoint is authorized by that acceptance. Before LL-3 persists a real-data payload, resolve or explicitly waive the open snap-metric finding recorded in the [Learning Lite Findings Log](./GameLens_Learning_Lite_Findings_Log.md), then explicitly authorize the chosen next checkpoint.
+
+### LL-2 review follow-up — 2026-08-26
+
+**Review outcome**
+
+Christian accepted LL-2's contract mechanics as the side-effect-free pregame safety boundary.
+
+**Local verification**
+
+- fast-forwarded local `learning-lite` to `ebba299ee7f5511126ed02f2e164bf4235b4b567`;
+- reran the 23 focused tests: `Ran 23 tests — OK`;
+- reproduced controlled fixture `20260909_SEA@NE`, capture ID `capture_ca1f097100b6563570b23464`, and payload SHA-256 `c4a5307a2366a5fee895a3ba085a24970283d221f1419ad35b3d1dfdfabcc851`;
+- confirmed the fixture is synthetic; the real scheduled opener is `20260909_NE@SEA`.
+
+**Read-only BigQuery evidence**
+
+- Facts contained 33 games and 32 teams through 2026-08-23;
+- Windowed Metrics and Rankings each covered 32 teams through the same source date;
+- Rankings contained 12,208 rows with zero future-source rows, zero negative-lag rows, and populated `lens_tags` on all 12,208 rows;
+- BigQuery reported `lens_tags` as non-null `ARRAY<STRING>`, preserving the required repeated-string shape;
+- a real `20260827_PIT@BUF` review found eligible evidence for both teams but exposed systemic zero/missing snap-total semantics, recorded as `LL-FIND-001`.
+
+**Data and production effects**
+
+The follow-up used local tests and read-only BigQuery `SELECT` queries. It created, altered, and wrote no table or row. It invoked no production route, deployment, schedule, trigger, traffic change, snapshot write, claim write, outcome write, or later checkpoint behavior.
+
+**Decision**
+
+LL-2 is accepted because its contract mechanics passed and did not create the discovered source-data problem. The snap-metric issue remains open outside LL-2 implementation scope and must be resolved or explicitly waived before a real-data snapshot is persisted.
 
 ---
 
@@ -342,14 +372,12 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ---
 
-## Next work — LL-2 review gate
+## Next work — post-LL-2 decision gate
 
-LL-2 has reached its bounded exit gate. Review the checkpoint record above and the four implementation commits before authorizing more work.
+LL-2 is accepted as the pregame safety boundary. The current decision is what to authorize next:
 
-The next decision is deliberately not embedded in code:
+1. authorize a bounded correction for `LL-FIND-001`;
+2. explicitly waive that finding for a defined proof and authorize LL-3; or
+3. explicitly authorize Matchup Lens M1 as a separate checkpoint.
 
-1. accept LL-2 as the pregame safety boundary;
-2. request a bounded correction to LL-2; or
-3. explicitly authorize either LL-3 or Matchup Lens M1 as a separate checkpoint.
-
-No persistence, Matchup Lens implementation, deployment, or production invocation is authorized until that review decision is recorded.
+No correction, persistence, Matchup Lens implementation, deployment, or production invocation is authorized by the LL-2 acceptance alone.

@@ -1,20 +1,21 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; LL-2 implemented locally and awaiting review
+**Document status:** Living sprint; LL-2 accepted after controlled-fixture and local read-only data review
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
 **Safety target:** ready by Wednesday, 2026-09-09 at 8:20 p.m. Eastern, before the regular-season opener
-**Current checkpoint:** LL-2 — minimal pregame contract; controlled-fixture exit proof passed, awaiting review
-**Next action:** review LL-2 before separately authorizing either LL-3 or Matchup Lens M1
+**Current checkpoint:** LL-2 — minimal pregame contract; accepted as the side-effect-free pregame safety boundary
+**Next action:** explicitly authorize a bounded response to the tracked snap-metric finding, waive it for a defined proof, or separately authorize Matchup Lens M1; LL-3 remains unstarted
 
 Companion documents:
 
 - [Learning Lite README](./README.md)
 - [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md)
 - [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md)
+- [Learning Lite Findings Log](./GameLens_Learning_Lite_Findings_Log.md)
 - [GameLens Product Ideas](../GameLens_Product_Ideas.md)
 - [Archived live packet suite at the preserved `dev` head](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live)
 
@@ -149,7 +150,7 @@ Exit gate:
 ### LL-2 — Minimal pregame contract
 
 **Target:** 2026-08-24 through 2026-08-26
-**Status:** Implemented locally on `learning-lite`; 23 focused tests passed; awaiting review
+**Status:** Accepted on `learning-lite`; 23 focused tests passed locally; read-only data review completed
 
 Objective:
 
@@ -187,7 +188,7 @@ Exit gate:
 - [x] one eligible controlled fixture produced a valid, hashable, side-effect-free pregame payload;
 - [x] live/pregame product-section parity, no final-score query, no completed-game write, and fail-closed postgame rejection were proven;
 - [x] no table, persistence, deployment, production, route, auth, CORS, frontend, or Matchup Lens behavior changed;
-- [ ] Christian has reviewed and accepted the LL-2 checkpoint record.
+- [x] Christian reviewed and accepted the LL-2 contract mechanics; the pre-existing snap-metric data issue is tracked separately as `LL-FIND-001`.
 
 ### LL-3 — Immutable snapshot persistence
 
@@ -487,6 +488,7 @@ These states are not interchangeable.
 | Calibration becomes a catch-all | Unowned ideas and unstable schema | Ownership table and versioned advisory outputs |
 | Every concern creates a new table | Hobby project gains enterprise maintenance burden | View/query/log first; table only after repeated need |
 | Future algorithm overwrites evidence | Research cannot be reproduced | Append/version outputs; never mutate source observations |
+| Missing snap totals are ranked as real zeroes | Misleading rank, tier, and edge language can enter a pregame response | Track as `LL-FIND-001`; resolve or explicitly waive before real-data snapshot persistence |
 
 ---
 
@@ -566,14 +568,24 @@ Open decisions must not be answered implicitly through code.
 - Created no table, persistence, deployment, production, or Matchup Lens behavior.
 - Stopped at review before LL-3 or Matchup Lens M1.
 
+### 2026-08-26 — LL-2 local acceptance review
+
+- Christian fast-forwarded local `learning-lite` to `ebba299ee7f5511126ed02f2e164bf4235b4b567`.
+- Reproduced all 23 passing tests and the documented capture ID and payload SHA-256.
+- Performed read-only BigQuery checks against Schedule, Facts, Windowed Metrics, Rankings, and schema metadata.
+- Confirmed 32-team downstream coverage, aligned 2026-08-23 source dates, zero future-source/negative-lag rows, complete lens-tag coverage, and non-null `ARRAY<STRING>` storage.
+- Accepted LL-2's contract mechanics.
+- Logged systemic zero/missing snap-total semantics as `LL-FIND-001`; Matchup Lean and confidence are protected, but ranking/tier/edge language may be misleading.
+- Created or changed no table, row, deployment, route, schedule, traffic, or production behavior.
+
 ---
 
 ## 13. Immediate next action
 
-LL-2 has reached its controlled-fixture exit gate. Review the README checkpoint record and implementation commits. Then explicitly choose one of three paths:
+LL-2 is accepted. Choose and explicitly authorize one next path:
 
-1. accept LL-2 and separately authorize LL-3;
-2. accept LL-2 and separately authorize Matchup Lens M1; or
-3. request a bounded LL-2 correction.
+1. a bounded correction for `LL-FIND-001`;
+2. an explicit, scoped waiver of `LL-FIND-001` followed by LL-3; or
+3. Matchup Lens M1 as a separate checkpoint.
 
-Do not begin persistence, Matchup Lens implementation, deployment, scheduling, or production work until that decision is recorded.
+Do not begin a correction, persistence, Matchup Lens implementation, deployment, scheduling, or production work until that decision is recorded.
