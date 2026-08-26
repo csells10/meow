@@ -1,4 +1,5 @@
 import json
+import math
 import unittest
 from datetime import datetime, timezone
 
@@ -143,6 +144,29 @@ class TestPregameContract(unittest.TestCase):
             ["scoring-efficiency", "strong-signal"],
         )
         self.assertIsInstance(serialized["lens_tags"], list)
+
+    def test_canonical_payload_rejects_non_json_values(self):
+        payload = pregame_payload()
+        payload["unsupported"] = object()
+
+        with self.assertRaises(TypeError):
+            payload_sha256(payload)
+
+    def test_canonical_payload_rejects_non_finite_numbers(self):
+        for value in (math.nan, math.inf, -math.inf):
+            with self.subTest(value=value):
+                payload = pregame_payload()
+                payload["ranking_context"]["unsafe_number"] = value
+                with self.assertRaisesRegex(ValueError, "JSON compliant"):
+                    payload_sha256(payload)
+
+    def test_canonical_payload_preserves_list_order_and_numeric_identity(self):
+        first = pregame_payload()
+        first["ranking_context"]["ordered"] = [1, 1.0, True, None]
+        second = pregame_payload()
+        second["ranking_context"]["ordered"] = [1.0, 1, True, None]
+
+        self.assertNotEqual(payload_sha256(first), payload_sha256(second))
 
 
 if __name__ == "__main__":

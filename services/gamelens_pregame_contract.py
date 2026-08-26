@@ -170,7 +170,7 @@ def canonical_payload_json(payload: Mapping[str, Any]) -> str:
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
-        default=str,
+        allow_nan=False,
     )
 
 
