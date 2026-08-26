@@ -122,7 +122,15 @@ class Job:
 def parameter_values(job_config):
     values = {}
     for parameter in job_config.query_parameters:
-        name, _, value = parameter.args
+        args = getattr(parameter, "args", None)
+        if args is not None:
+            name, _, value = args
+        else:
+            name = parameter.name
+            if hasattr(parameter, "value"):
+                value = parameter.value
+            else:
+                value = list(parameter.values)
         values[name] = value
     return values
 
@@ -174,6 +182,31 @@ class TestSnapshotStorage(unittest.TestCase):
                 client=Client(),
                 runtime_config=runtime_config("production"),
             )
+
+    def test_fake_client_reads_public_bigquery_parameter_attributes(self):
+        scalar = type(
+            "ScalarParameter",
+            (),
+            {"name": "capture_id", "value": "capture_public_api"},
+        )()
+        array = type(
+            "ArrayParameter",
+            (),
+            {"name": "lens_tags", "values": ("one", "two")},
+        )()
+        config = type(
+            "QueryConfig",
+            (),
+            {"query_parameters": [scalar, array]},
+        )()
+
+        self.assertEqual(
+            parameter_values(config),
+            {
+                "capture_id": "capture_public_api",
+                "lens_tags": ["one", "two"],
+            },
+        )
 
     def test_existing_table_contract_is_exact(self):
         result = self.storage.verify_table_contract()
