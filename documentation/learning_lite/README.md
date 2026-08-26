@@ -512,3 +512,90 @@ Read-only BigQuery verification established:
 - historical rows: preserved; no replacement, migration, truncation, or deletion is authorized.
 
 LL-3 will verify and reuse this table. No setup or table-creation file is needed. The proof remains blocked from any actual write until the bounded code and focused tests pass and Christian runs the explicit local write command.
+
+### LL-3 implementation checkpoint — pre-write
+
+**Date:** 2026-08-26
+**Status:** Implemented and focused-test complete locally; awaiting Christian's manual dry-run, development write, read-back, identical retry, and conflict proof
+**Branch / commits:** `learning-lite`; `9d79580`, `90179a1`, `21dfa25`, `ab97928`, and `0a956c5`
+
+**Objective**
+
+Add one development-only, one-game, insert-only snapshot seam that reuses the accepted LL-2 builder and the verified existing table without adding a coordinator, receipt, stage, Admin, frontend, or later learning behavior.
+
+**Files changed**
+
+- `services/gamelens_pregame_contract.py`;
+- `queries/gamelens_snapshot_queries.py`;
+- `services/gamelens_snapshot_storage.py`;
+- `services/gamelens_snapshot_capture.py`;
+- `run_gamelens_snapshot_capture.py`;
+- `tests/queries/__init__.py`;
+- `tests/queries/test_gamelens_snapshot_queries.py`;
+- `tests/services/test_gamelens_pregame_contract.py`;
+- `tests/services/test_gamelens_snapshot_storage.py`;
+- `tests/services/test_gamelens_snapshot_capture.py`;
+- `tests/test_run_gamelens_snapshot_capture.py`;
+- the Learning Lite README, Sprint, and Findings Log.
+
+No setup file was added because the exact approved table already exists. No protected live product, route, auth, CORS, application-registration, frontend, Model Trust, claim-language, metric-registry, or live-query file changed.
+
+**Implemented behavior**
+
+- strict canonical JSON rejects unsupported objects and non-finite numbers before hashing or storage;
+- one read-only loader fetches one scheduled game, its pregame windowed metrics, and rankings without querying final score;
+- the loader may explicitly read production evidence only while the runtime remains development-only;
+- storage verifies the exact 22-field schema, `captured_at` partition, and `game_id`, `season_type` clustering before reconciliation;
+- insert-only parameterized BigQuery DML uses `WHERE NOT EXISTS` and never issues `UPDATE`, `DELETE`, `TRUNCATE`, `CREATE`, or `REPLACE`;
+- every lookup and read-back requires exactly zero or one row for a capture ID and fails closed on duplicates;
+- an existing identical payload returns `identical_no_op` without DML;
+- an existing different payload/hash raises `canonical_capture_conflict` without mutation;
+- the manual runner is dry-run by default and requires `--write` for the one approved development reconciliation;
+- capture rechecks schedule identity, Scheduled status, and the pre-kickoff clock immediately before storage.
+
+**Verification performed**
+
+Accepted LL-2/product regression packages:
+
+```text
+python -m unittest \
+  tests.services.test_gamelens_pregame_contract \
+  tests.services.test_game_service_pregame_capture \
+  tests.test_game_window_selection \
+  tests.test_game_service_confidence_calibration \
+  tests.test_qa_calibrated_matchup_lean_parity \
+  tests.test_metric_registry
+```
+
+Result: `Ran 26 tests — OK`. The accepted 23 tests remain present; three strict JSON-domain tests were added.
+
+Focused LL-3 packages:
+
+```text
+python -m unittest \
+  tests.queries.test_gamelens_snapshot_queries \
+  tests.services.test_gamelens_snapshot_storage \
+  tests.services.test_gamelens_snapshot_capture \
+  tests.test_run_gamelens_snapshot_capture
+```
+
+Result: `Ran 20 tests — OK`.
+
+Python compilation and `git diff --check` passed. Protected product-file blob IDs remain identical to the accepted `58d2a805` starting point, including `services/game_service.py` at `a048842c`.
+
+**Observed evidence and data effects**
+
+- read: `nfl-stream-406420.GameLens_dev.pregame_snapshots` metadata, schema, counts, duplicate check, and non-JSON lineage fields;
+- observed: seven rows, seven distinct capture IDs, and zero duplicate groups;
+- created tables: none;
+- altered or replaced tables: none;
+- written, updated, or deleted rows: none;
+- production writes, routes, deployments, schedules, triggers, traffic, and invocations: none.
+
+**Recovery point**
+
+Pre-LL-3 implementation head: `58d2a8055e23f0d30ec349209a6bc978228409d8`. The seven historical development rows remain unchanged. The bounded implementation can be recovered by reverting the five LL-3 commits listed above; no data recovery is presently required.
+
+**Next checkpoint**
+
+Christian must fast-forward the local `learning-lite` branch, rerun the two focused test groups, execute the runner without `--write`, review the capture ID/hash/table summary, then explicitly run the one development write and identical retry. Return the structured outputs and the bounded conflict/read-back evidence before LL-3 can reach its exit gate.

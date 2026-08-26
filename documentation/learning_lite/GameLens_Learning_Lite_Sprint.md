@@ -586,6 +586,16 @@ Open decisions must not be answered implicitly through code.
 - Logged systemic zero/missing snap-total semantics as `LL-FIND-001`; Matchup Lean and confidence are protected, but ranking/tier/edge language may be misleading.
 - Created or changed no table, row, deployment, route, schedule, traffic, or production behavior.
 
+### 2026-08-26 — LL-3 scoped implementation, pre-write
+
+- Recorded Christian's controlled-fixture waiver of `LL-FIND-001`; it expires at the LL-3 exit gate.
+- Verified and selected the existing `nfl-stream-406420.GameLens_dev.pregame_snapshots` table with seven unique historical rows.
+- Added strict JSON-domain validation, one-game read-only evidence loading, exact-table verification, insert-only reconciliation, and a dry-run-default manual runner.
+- Added no setup path because the approved table already exists.
+- Passed 26 LL-2/product regression tests and 20 focused LL-3 tests.
+- Preserved all protected product, route, auth, CORS, frontend, Model Trust, claim-language, metric-registry, and live-query files.
+- Created, replaced, altered, or written no table or row; the manual development proof remains outstanding.
+
 ---
 
 ## 13. Immediate next action
