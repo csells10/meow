@@ -49,11 +49,18 @@ def payload():
             "game_week": "Week 1",
         },
         "final_score": None,
+        "game_profile": [],
+        "matchup_lean": {},
         "model_outcome": None,
+        "model_trust": {},
+        "team_comparison": [],
+        "core_area_comparison": {},
         "ranking_context": {
             "available": False,
             "reason": "no_ranking_rows_found",
         },
+        "claim_language_context": {},
+        "matchup_breakdown": {},
     }
 
 
@@ -188,6 +195,22 @@ class TestSnapshotStorage(unittest.TestCase):
         self.assertTrue(result["material_change"])
         self.assertEqual(len(self.client.rows), 1)
         self.assertEqual(saved["response_payload"], row["response_payload"])
+        self.assertEqual(
+            set(saved["response_payload"]),
+            {
+                "header",
+                "final_score",
+                "game_profile",
+                "matchup_lean",
+                "model_outcome",
+                "model_trust",
+                "team_comparison",
+                "core_area_comparison",
+                "ranking_context",
+                "claim_language_context",
+                "matchup_breakdown",
+            },
+        )
         self.assertEqual(saved["payload_sha256"], row["payload_sha256"])
         self.assertEqual(saved["lens_tags"], ["scoring-efficiency"])
         self.assertFalse(saved["ranking_context_available"])
