@@ -164,6 +164,16 @@ Begin LL-2 only: construct and validate the pregame-safe payload boundary withou
 
 Construct and identify the response GameLens would produce before kickoff through one shared product builder, while making final-score queries, completed-game writes, and postgame-shaped payloads unreachable from the pregame boundary.
 
+**Contract flow**
+
+1. Load the game header, metrics, and ranking evidence through the pregame boundary without requesting final score.
+2. Build the same pregame product sections as the live `/game` path through one shared response builder.
+3. Require matching game identity, Scheduled status, supported season phase, timezone-aware timestamps, and capture before kickoff.
+4. Reject postgame-shaped fields before the payload can be identified or hashed.
+5. Derive one deterministic capture ID from the stable learning cohort, game ID, and scheduled kickoff.
+6. Canonicalize the JSON response and calculate its SHA-256 fingerprint.
+7. Return the identified payload in memory without table creation, persistence, Claim Extraction, deployment, or production invocation.
+
 **Files changed**
 
 Implementation and focused proof:
@@ -268,6 +278,7 @@ Christian accepted LL-2's contract mechanics as the side-effect-free pregame saf
 **Local verification**
 
 - fast-forwarded local `learning-lite` to `ebba299ee7f5511126ed02f2e164bf4235b4b567`;
+- recorded LL-2 acceptance and `LL-FIND-001` in documentation commit `a8954ab33b6a1aec432f19788d6478195b439207`;
 - reran the 23 focused tests: `Ran 23 tests — OK`;
 - reproduced controlled fixture `20260909_SEA@NE`, capture ID `capture_ca1f097100b6563570b23464`, and payload SHA-256 `c4a5307a2366a5fee895a3ba085a24970283d221f1419ad35b3d1dfdfabcc851`;
 - confirmed the fixture is synthetic; the real scheduled opener is `20260909_NE@SEA`.
@@ -381,3 +392,107 @@ LL-2 is accepted as the pregame safety boundary. The current decision is what to
 3. explicitly authorize Matchup Lens M1 as a separate checkpoint.
 
 No correction, persistence, Matchup Lens implementation, deployment, or production invocation is authorized by the LL-2 acceptance alone.
+
+---
+
+## LL-3 readiness handoff — planning only
+
+This handoff makes the next checkpoint reviewable; it does not authorize LL-3.
+
+### Preconditions before LL-3 may write
+
+1. Christian explicitly authorizes LL-3.
+2. `LL-FIND-001` is either **Resolved** with evidence or **Waived** for a defined scope and duration in the Findings Log.
+3. `learning-lite` is current with `origin/learning-lite` and descends from accepted LL-2 baseline `a8954ab33b6a1aec432f19788d6478195b439207`.
+4. `main` remains the production authority and `dev` remains read-only salvage at `26287205f420f569d81ccfcb28a8e8e0656fc24b`.
+5. The exact development dataset, single snapshot table, schema, permissions, and recovery approach are reviewed before the first table creation or write.
+6. The proposed file and focused-test list is reconciled against current code before editing.
+
+### LL-2 seams LL-3 may use
+
+- `GameDetailsEvidence` and the side-effect-free evidence loader;
+- the shared live/pregame response builder;
+- `get_pregame_game_details(...)` and `get_pregame_game_contract(...)`;
+- deterministic capture identity;
+- canonical JSON and payload SHA-256;
+- pre-kickoff eligibility validation;
+- postgame-field fail-closed validation;
+- the 23 focused LL-2 regression tests.
+
+LL-3 must not replace these seams with a second product builder or a broader archived service.
+
+### Copy-ready LL-3 prompt
+
+Use this prompt only after the preconditions above are satisfied:
+
+```text
+Start GameLens Learning Lite checkpoint LL-3 in csells10/meow on the learning-lite branch.
+
+This prompt is explicit authorization to implement LL-3 only. Do not begin LL-4, Matchup Lens M1, deployment, scheduling, production invocation, or any later checkpoint.
+
+Before editing:
+
+1. Verify the current GitHub branch state and work only on learning-lite.
+2. Treat main as the production authority and do not modify main or dev.
+3. Read completely, in order:
+   - documentation/learning_lite/README.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
+   - documentation/learning_lite/GameLens_Learning_Lite_Findings_Log.md
+4. Confirm LL-FIND-001 is Resolved or explicitly Waived for this proof. If it remains Open, stop without creating a table or writing data.
+5. Inspect current learning-lite/main code first. Use dev at 26287205f420f569d81ccfcb28a8e8e0656fc24b only as a read-only, file-by-file salvage source. Do not merge or cherry-pick dev wholesale.
+6. Reconcile the exact LL-3 file, schema, and focused-test list against current code before changing anything.
+7. Inspect the current development BigQuery datasets and historical snapshot schema read-only. Propose the exact target dataset, one table name, schema, permissions, and recovery path. Stop for Christian's approval before the first table creation or write unless those exact targets are already explicitly authorized.
+
+LL-3 objective:
+
+Persist the one irreplaceable datum: one immutable, pregame-safe GameLens response per eligible game, using the accepted LL-2 contract without recreating the earlier six-table operational platform.
+
+Required behavior:
+
+- store the complete validated pregame payload;
+- retain capture_id, learning_run_id/cohort, game_id, environment, season/phase/week, scheduled_kickoff, captured_at, payload_sha256, full response JSON, ranking availability/reason, source dates, model/ruleset versions, and relevant evidence lineage;
+- make the first valid canonical capture immutable;
+- treat the same capture ID and same hash as an identical no-op retry;
+- reject or quarantine the same capture ID with a different hash without replacing history;
+- preserve honest unavailable rankings and missing context;
+- provide a manual one-game invocation and read-back verification;
+- keep every development write isolated from production tables.
+
+Required proof:
+
+- one approved development or shadow fixture writes exactly one readable snapshot;
+- the stored payload passes the LL-2 pregame validator;
+- the stored SHA-256 matches a freshly canonicalized read-back payload;
+- an identical retry makes no material data change;
+- a conflicting retry cannot overwrite the canonical row;
+- a postgame-shaped payload cannot be stored;
+- existing /game behavior, Matchup Lean, confidence, Model Trust, claim-language support including “Fits matchup,” auth, CORS, routes, frontend behavior, and lens_tags shape remain unchanged.
+
+Hard LL-3 boundaries:
+
+- one snapshot table only; no stage_runs, stage_game_results, receipts, duplicate outcome ledger, coordinator, Admin, frontend, backfill framework, or broad refactor;
+- no Claim Extraction or claim-training writes;
+- no Matchup Lens formula, service, API, query, dashboard, or frontend implementation;
+- no production dataset write, deployment, merge to main, scheduling, trigger change, traffic change, or production invocation;
+- do not silently choose the dataset/table/schema or waive LL-FIND-001 through code.
+
+Working method:
+
+- prefer existing main/learning-lite behavior;
+- adapt only the smallest useful immutable-write and retry seams from dev;
+- keep one behavior per commit;
+- run the smallest focused package-style tests from the repository root;
+- stop if persistence requires changing the live route or broadening scope.
+
+Before closing LL-3:
+
+- update README.md with the checkpoint date, branch/commits, exact files, schema and table, tests/results, inserted/read row evidence, retry evidence, observed hashes, data and production effects, decisions, gaps, and recovery point;
+- update the Sprint if status, sequencing, scope, or acceptance criteria changed;
+- update the Findings Log if LL-FIND-001 or another finding changed status;
+- explicitly state every table read, created, or written and confirm production behavior did not change;
+- stop at the LL-3 exit gate and request review before LL-4, Matchup Lens M1, deployment, or production work.
+```
+
+If the prompt is used while any precondition is unresolved, the correct result is a read-only blocker report, not implementation.

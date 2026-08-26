@@ -1,6 +1,6 @@
 # GameLens Learning Lite Architecture
 
-**Document status:** Living planning baseline; implementation has not started
+**Document status:** Living architecture; LL-2 accepted as the side-effect-free pregame boundary; LL-3 not started
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
