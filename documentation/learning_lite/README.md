@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-2 is accepted as the side-effect-free pregame safety boundary after controlled-fixture and local read-only data review. One pre-existing snap-metric data-quality issue is tracked separately; neither LL-3 nor Matchup Lens M1 is authorized.
+**Current status:** LL-2 is accepted. LL-3 is authorized and in progress under a scoped `LL-FIND-001` waiver for one controlled development-fixture proof; no LL-3 table or row has been created, replaced, altered, deleted, or written. Matchup Lens M1 remains unauthorized.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -496,3 +496,19 @@ Before closing LL-3:
 ```
 
 If the prompt is used while any precondition is unresolved, the correct result is a read-only blocker report, not implementation.
+
+### LL-3 authorization and verified data target — 2026-08-26
+
+Christian explicitly approved the scoped `LL-FIND-001` waiver for the controlled LL-3 development-fixture proof and approved the existing development destination.
+
+Read-only BigQuery verification established:
+
+- target: `nfl-stream-406420.GameLens_dev.pregame_snapshots`;
+- existing grain evidence: seven rows and seven distinct capture IDs;
+- duplicate capture IDs: zero observed groups;
+- schema: the historical 22-field snapshot contract matches exactly;
+- partitioning: daily on `captured_at`;
+- clustering: `game_id`, then `season_type`;
+- historical rows: preserved; no replacement, migration, truncation, or deletion is authorized.
+
+LL-3 will verify and reuse this table. No setup or table-creation file is needed. The proof remains blocked from any actual write until the bounded code and focused tests pass and Christian runs the explicit local write command.

@@ -7,8 +7,8 @@
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
 **Safety target:** ready by Wednesday, 2026-09-09 at 8:20 p.m. Eastern, before the regular-season opener
-**Current checkpoint:** LL-2 — minimal pregame contract; accepted as the side-effect-free pregame safety boundary
-**Next action:** explicitly authorize a bounded response to the tracked snap-metric finding, waive it for a defined proof, or separately authorize Matchup Lens M1; LL-3 remains unstarted
+**Current checkpoint:** LL-3 — immutable snapshot persistence; authorized and in progress
+**Next action:** implement LL-3 only against the verified existing development snapshot table, then stop for Christian's write/read/retry/conflict proof and exit-gate review
 
 Companion documents:
 
@@ -193,7 +193,7 @@ Exit gate:
 ### LL-3 — Immutable snapshot persistence
 
 **Target:** 2026-08-26 through 2026-08-28
-**Status:** Not started
+**Status:** In progress; scoped finding waiver and existing-table contract approved on 2026-08-26, with no LL-3 write yet
 
 Objective:
 
@@ -206,6 +206,14 @@ Required work:
 - implement insert, identical no-op retry, and conflicting-payload rejection/quarantine behavior;
 - provide one manual read-back verification;
 - avoid `stage_runs`, `stage_game_results`, and receipt storage.
+
+Approved target boundary:
+
+- reuse `nfl-stream-406420.GameLens_dev.pregame_snapshots` exactly as verified;
+- preserve its seven historical rows;
+- retain its 22-field schema, daily `captured_at` partition, and `game_id`, `season_type` clustering;
+- do not create, replace, migrate, truncate, or delete the table;
+- the `LL-FIND-001` waiver applies only to the controlled LL-3 development-fixture proof and expires at this checkpoint's exit gate.
 
 Required proof:
 
@@ -582,10 +590,4 @@ Open decisions must not be answered implicitly through code.
 
 ## 13. Immediate next action
 
-LL-2 is accepted. Choose and explicitly authorize one next path:
-
-1. a bounded correction for `LL-FIND-001`;
-2. an explicit, scoped waiver of `LL-FIND-001` followed by LL-3; or
-3. Matchup Lens M1 as a separate checkpoint.
-
-Do not begin a correction, persistence, Matchup Lens implementation, deployment, scheduling, or production work until that decision is recorded.
+LL-3 is authorized and in progress under the scoped `LL-FIND-001` waiver. Implement only the one-game, development-only immutable snapshot seam against the verified existing table. Stop before LL-4, Matchup Lens M1, deployment, scheduling, production invocation, or any broader operational work.

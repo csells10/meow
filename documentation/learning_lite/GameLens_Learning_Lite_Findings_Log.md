@@ -41,12 +41,12 @@ This log is append-only. A finding may originate in Learning Lite review without
 
 ---
 
-## Open findings
+## Findings
 
 ### LL-FIND-001 — Missing snap totals ranked as real zeroes
 
 **Date discovered:** 2026-08-26  
-**Status:** Open  
+**Status:** Waived for the controlled LL-3 development-fixture proof only
 **Severity:** Medium; bounded away from Matchup Lean and confidence, but exposed in ranking, tier, context, and possible edge language  
 **Discovered during:** Local read-only LL-2 acceptance review  
 **Affected surface:** 2026 preseason Facts, Windowed Metrics, Rankings, and any `/game` explanation that consumes the affected ranking rows
@@ -126,3 +126,29 @@ A separately authorized correction or waiver must document:
 **Data and production effects**
 
 Discovery used local tests and read-only BigQuery `SELECT` queries. No table or row was created, altered, or written. No snapshot, claim, outcome, receipt, deployment, schedule, trigger, traffic, route, or production behavior changed.
+
+### LL-FIND-001 status update — 2026-08-26
+
+**Previous status:** Open
+**Current status:** Waived for the controlled LL-3 development-fixture proof only
+**Approved by:** Christian
+
+**Waiver scope**
+
+- permits one controlled LL-3 proof against the existing development-only `nfl-stream-406420.GameLens_dev.pregame_snapshots` table;
+- permits no production snapshot, deployment, scheduling, trigger, traffic, or later-checkpoint use;
+- does not treat the snap-total semantics as corrected;
+- expires at the LL-3 exit gate, where this finding returns to Open unless separately resolved or waived again.
+
+**Read-only target verification**
+
+- the existing table contained seven rows and seven distinct `capture_id` values;
+- no duplicate `capture_id` group was observed;
+- the table matched the historical 22-field snapshot contract;
+- `captured_at` is the partitioning column;
+- clustering is `game_id`, then `season_type`;
+- no table or row was created, replaced, altered, deleted, or written during verification.
+
+**Decision**
+
+LL-3 must reuse and verify the existing table. It must not create, replace, migrate, truncate, or delete it. The seven historical rows remain immutable evidence.
