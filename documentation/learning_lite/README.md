@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-1 planning baseline accepted; LL-2 is ready to start from the handoff prompt below; implementation has not started.
+**Current status:** LL-1 planning baseline accepted; LL-2 remains the next authorized implementation checkpoint and is ready to start from the handoff prompt below. Matchup Lens M1 is documented and queued, but it is not part of LL-2 and is not yet authorized.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -56,6 +56,7 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 - **LL-2:** construct and validate a deterministic, hashable, pregame-safe `/game` payload with no final-score query, completed-game write, table, or persistence;
 - **LL-3:** add one immutable pregame snapshot per eligible game, identical-retry safety, conflict protection, and a manual read-back check;
 - **LL-4:** add snapshot lineage to claim-training rows and connect the existing Level 1/Claim Extraction owner through a thin adapter;
+- **Matchup Lens M1:** after LL-2 is accepted or the sequence is explicitly re-planned, authorize a separate bounded checkpoint to canonicalize the six-lens formula and registry, reconcile the discovery values, and add unit tests; it must not be folded into LL-2;
 - at every checkpoint, port only the focused safety tests that travel with the approved behavior.
 
 ### Preserve for optional future use
@@ -148,7 +149,7 @@ The clean starting point is `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
 
 **Next checkpoint**
 
-When implementation is explicitly authorized, begin LL-2 only: construct and validate the pregame-safe payload boundary without persistence, schema changes, deployment, or production wiring.
+Begin LL-2 only: construct and validate the pregame-safe payload boundary without persistence, schema changes, deployment, production wiring, or Matchup Lens implementation. After LL-2 reaches its exit gate, review whether Matchup Lens M1 or LL-3 should be authorized next; neither is authorized by the LL-2 prompt.
 
 ---
 
@@ -234,7 +235,7 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ---
 
-## Start LL-2 on 2026-08-24 — ready-to-paste development prompt
+## Next work — ready-to-paste LL-2 development prompt
 
 Using this prompt is Christian's explicit authorization to implement **LL-2 only**. It does not authorize LL-3, persistence, deployment, or any later checkpoint.
 
@@ -251,6 +252,7 @@ Before editing:
    - documentation/learning_lite/GameLens_Learning_Lite_Architecture.md
    - documentation/learning_lite/GameLens_Learning_Lite_Sprint.md
    - documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md
+   - documentation/learning_lite/GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md
    - documentation/GameLens_Product_Ideas.md
 4. Inspect current learning-lite/main code first. Use dev at
    26287205f420f569d81ccfcb28a8e8e0656fc24b only as a read-only salvage source.
@@ -283,6 +285,7 @@ Hard LL-2 boundaries:
 - no snapshot storage or retry reconciliation;
 - no Claim Extraction writes;
 - no coordinator, receipt ledger, Admin work, frontend work, backfill, or broad refactor;
+- no Matchup Lens formula registry, service, API response, query, dashboard, or frontend implementation; Matchup Lens M1 requires a separate explicit checkpoint after LL-2 review;
 - no deployment, merge to main, scheduling, trigger change, traffic change, or production invocation.
 
 Working method:
@@ -297,5 +300,5 @@ Before closing LL-2:
 - update this README with the checkpoint date, branch/commit, exact files, tests and results, observed evidence, data and production effects, decisions, gaps, recovery point, and exact next checkpoint;
 - update the Sprint only if scope, sequencing, status, or acceptance criteria changed;
 - explicitly state that no table, persistence, deployment, or production behavior changed;
-- stop at the LL-2 exit gate and request review before LL-3.
+- stop at the LL-2 exit gate and request review before either LL-3 or Matchup Lens M1.
 ```
