@@ -1,6 +1,10 @@
 import unittest
 from unittest.mock import patch
 
+from tests._gcp_stubs import install_bigquery_stub
+
+install_bigquery_stub()
+
 
 with patch("google.cloud.bigquery.Client"):
     from queries import game_queries
