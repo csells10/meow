@@ -81,6 +81,78 @@ def _schema_signature(schema) -> tuple:
     )
 
 
+def _display_json_value(value: Any) -> str:
+    rendered = repr(value)
+    return rendered if len(rendered) <= 160 else rendered[:157] + "..."
+
+
+def _json_differences(candidate: Any, saved: Any, path: str = "$") -> list[dict]:
+    differences = []
+    if isinstance(candidate, Mapping) and isinstance(saved, Mapping):
+        for key in sorted(set(candidate) | set(saved)):
+            child_path = f"{path}.{key}"
+            if key not in candidate or key not in saved:
+                differences.append(
+                    {
+                        "path": child_path,
+                        "candidate_type": (
+                            type(candidate[key]).__name__
+                            if key in candidate
+                            else "missing"
+                        ),
+                        "saved_type": (
+                            type(saved[key]).__name__
+                            if key in saved
+                            else "missing"
+                        ),
+                        "candidate_value": _display_json_value(
+                            candidate.get(key)
+                        ),
+                        "saved_value": _display_json_value(saved.get(key)),
+                    }
+                )
+                continue
+            differences.extend(
+                _json_differences(candidate[key], saved[key], child_path)
+            )
+        return differences
+
+    if isinstance(candidate, list) and isinstance(saved, list):
+        if len(candidate) != len(saved):
+            differences.append(
+                {
+                    "path": path,
+                    "candidate_type": "list",
+                    "saved_type": "list",
+                    "candidate_value": f"length={len(candidate)}",
+                    "saved_value": f"length={len(saved)}",
+                }
+            )
+        for index, (candidate_item, saved_item) in enumerate(
+            zip(candidate, saved)
+        ):
+            differences.extend(
+                _json_differences(
+                    candidate_item,
+                    saved_item,
+                    f"{path}[{index}]",
+                )
+            )
+        return differences
+
+    if type(candidate) is not type(saved) or candidate != saved:
+        differences.append(
+            {
+                "path": path,
+                "candidate_type": type(candidate).__name__,
+                "saved_type": type(saved).__name__,
+                "candidate_value": _display_json_value(candidate),
+                "saved_value": _display_json_value(saved),
+            }
+        )
+    return differences
+
+
 class BigQuerySnapshotStorage:
     """Verify and reconcile one immutable row in the approved dev table."""
 
@@ -154,6 +226,46 @@ class BigQuerySnapshotStorage:
                 f"duplicate_canonical_capture:{capture_id}:{len(rows)}"
             )
         return rows[0] if rows else None
+
+    def inspect_existing_candidate(self, row: Mapping[str, Any]) -> dict:
+        """Compare one candidate with its stored row without running DML."""
+        candidate = self._validate_candidate_row(row)
+        self.verify_table_contract()
+        saved_rows = self.read_capture_rows(candidate["capture_id"])
+        if len(saved_rows) != 1:
+            raise SnapshotIntegrityError(
+                "inspection_canonical_row_count:"
+                f"{candidate['capture_id']}:{len(saved_rows)}"
+            )
+
+        saved = saved_rows[0]
+        saved_payload = saved.get("response_payload")
+        if not isinstance(saved_payload, Mapping):
+            raise SnapshotIntegrityError("stored_payload_not_json_object")
+        require_eligible_pregame_payload(
+            payload=saved_payload,
+            game_id=saved.get("game_id"),
+            captured_at=saved.get("captured_at"),
+            scheduled_kickoff=saved.get("scheduled_kickoff"),
+        )
+        differences = _json_differences(
+            candidate["response_payload"],
+            saved_payload,
+        )
+        return {
+            "inspection": "read_only",
+            "row_count": 1,
+            "stored_payload_sha256": saved.get("payload_sha256"),
+            "fresh_readback_sha256": payload_sha256(saved_payload),
+            "candidate_payload_sha256": candidate["payload_sha256"],
+            "payloads_semantically_equal": (
+                candidate["response_payload"] == saved_payload
+            ),
+            "payload_difference_count": len(differences),
+            "payload_differences": differences[:25],
+            "payload_differences_truncated": len(differences) > 25,
+            "stored_captured_at": saved.get("captured_at"),
+        }
 
     def reconcile_snapshot(self, row: Mapping[str, Any]) -> dict:
         """Insert once; return no-op for identity; reject every conflict."""

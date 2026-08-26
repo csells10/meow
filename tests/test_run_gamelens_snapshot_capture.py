@@ -1,3 +1,5 @@
+import contextlib
+import io
 import unittest
 
 from tests._gcp_stubs import install_bigquery_stub
@@ -30,6 +32,29 @@ class TestSnapshotCaptureRunner(unittest.TestCase):
         ])
 
         self.assertTrue(args.write)
+
+    def test_existing_inspection_is_mutually_exclusive_with_write(self):
+        parser = build_parser()
+        args = parser.parse_args([
+            "--game-id", "20260827_PIT@BUF",
+            "--learning-run-id", "gamelens_2026_preseason_ll3_v1",
+            "--model-version", "game_service_v1",
+            "--ruleset-version", "ll3_v1",
+            "--inspect-existing",
+        ])
+
+        self.assertTrue(args.inspect_existing)
+        self.assertFalse(args.write)
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parser.parse_args([
+                    "--game-id", "20260827_PIT@BUF",
+                    "--learning-run-id", "gamelens_2026_preseason_ll3_v1",
+                    "--model-version", "game_service_v1",
+                    "--ruleset-version", "ll3_v1",
+                    "--write",
+                    "--inspect-existing",
+                ])
 
 
 if __name__ == "__main__":

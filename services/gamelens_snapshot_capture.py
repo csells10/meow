@@ -131,7 +131,10 @@ class SnapshotCaptureService:
         ruleset_version: str,
         metric_pipeline_run_id: Optional[str] = None,
         write: bool = False,
+        inspect_existing: bool = False,
     ) -> dict:
+        if write and inspect_existing:
+            raise ValueError("write and inspect_existing are mutually exclusive")
         loaded = self.evidence_loader.load(game_id)
         captured_at = self.now()
         contract = self.contract_builder(
@@ -155,6 +158,17 @@ class SnapshotCaptureService:
             model_version=model_version,
             ruleset_version=ruleset_version,
         )
+
+        if inspect_existing:
+            inspection = self.storage.inspect_existing_candidate(row)
+            return {
+                **self._summary(
+                    row,
+                    status="inspection",
+                    material_change=False,
+                ),
+                **inspection,
+            }
 
         if not write:
             self.storage.verify_table_contract()

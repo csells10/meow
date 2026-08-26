@@ -102,6 +102,7 @@ class Storage:
         self.rows = {}
         self.reconcile_calls = 0
         self.verify_calls = 0
+        self.inspect_calls = 0
 
     def verify_table_contract(self):
         self.verify_calls += 1
@@ -119,6 +120,14 @@ class Storage:
 
     def read_snapshot(self, capture_id):
         return copy.deepcopy(self.rows.get(capture_id))
+
+    def inspect_existing_candidate(self, row):
+        self.inspect_calls += 1
+        return {
+            "inspection": "read_only",
+            "row_count": 1,
+            "payload_difference_count": 1,
+        }
 
 
 def contract_builder(
@@ -154,7 +163,7 @@ class TestSnapshotCaptureService(unittest.TestCase):
             now=lambda: NOW,
         )
 
-    def capture(self, *, write=False):
+    def capture(self, *, write=False, inspect_existing=False):
         return self.service.capture_one(
             game_id=GAME_ID,
             learning_run_id="gamelens_2026_preseason_ll3_v1",
@@ -162,6 +171,7 @@ class TestSnapshotCaptureService(unittest.TestCase):
             ruleset_version="ll3_v1",
             metric_pipeline_run_id="observed_manual_read_20260826",
             write=write,
+            inspect_existing=inspect_existing,
         )
 
     def test_dry_run_verifies_table_without_reconciliation(self):
@@ -192,6 +202,16 @@ class TestSnapshotCaptureService(unittest.TestCase):
             saved["evidence_context"]["source_lineage"]["access_mode"],
             "read_only",
         )
+
+    def test_existing_inspection_is_read_only(self):
+        result = self.capture(inspect_existing=True)
+
+        self.assertEqual(result["status"], "inspection")
+        self.assertEqual(result["inspection"], "read_only")
+        self.assertFalse(result["material_change"])
+        self.assertEqual(result["row_count"], 1)
+        self.assertEqual(self.storage.inspect_calls, 1)
+        self.assertEqual(self.storage.reconcile_calls, 0)
 
     def test_identical_service_retry_is_no_op(self):
         self.capture(write=True)

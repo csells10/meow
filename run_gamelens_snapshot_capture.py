@@ -33,10 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="production",
         help="Read-only evidence source; every write remains in GameLens_dev.",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--write",
         action="store_true",
         help="Perform the insert-only reconciliation; default is dry-run.",
+    )
+    mode.add_argument(
+        "--inspect-existing",
+        action="store_true",
+        help="Compare the candidate with its stored row using reads only.",
     )
     return parser
 
@@ -69,6 +75,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ruleset_version=args.ruleset_version,
         metric_pipeline_run_id=args.metric_pipeline_run_id,
         write=args.write,
+        inspect_existing=args.inspect_existing,
     )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0

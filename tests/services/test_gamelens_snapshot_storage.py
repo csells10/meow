@@ -260,6 +260,34 @@ class TestSnapshotStorage(unittest.TestCase):
             "no_ranking_rows_found",
         )
 
+    def test_read_only_inspection_reports_json_number_normalization(self):
+        row = snapshot_row()
+        row["response_payload"]["matchup_lean"] = {"confidence": 1.0}
+        row["payload_sha256"] = payload_sha256(row["response_payload"])
+        saved = copy.deepcopy(row)
+        saved["response_payload"]["matchup_lean"]["confidence"] = 1
+        self.client.rows = [saved]
+
+        result = self.storage.inspect_existing_candidate(row)
+
+        self.assertEqual(result["inspection"], "read_only")
+        self.assertEqual(result["row_count"], 1)
+        self.assertTrue(result["payloads_semantically_equal"])
+        self.assertEqual(result["payload_difference_count"], 1)
+        self.assertEqual(
+            result["payload_differences"],
+            [
+                {
+                    "path": "$.matchup_lean.confidence",
+                    "candidate_type": "float",
+                    "saved_type": "int",
+                    "candidate_value": "1.0",
+                    "saved_value": "1",
+                }
+            ],
+        )
+        self.assertEqual(self.client.insert_calls, 0)
+
     def test_identical_retry_is_no_op_and_preserves_original_row(self):
         row = snapshot_row()
         self.storage.reconcile_snapshot(row)
