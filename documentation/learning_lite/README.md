@@ -517,7 +517,7 @@ LL-3 will verify and reuse this table. No setup or table-creation file is needed
 
 **Date:** 2026-08-26
 **Status:** Implemented and focused-test complete locally; awaiting Christian's manual dry-run, development write, read-back, identical retry, and conflict proof
-**Branch / commits:** `learning-lite`; `9d79580`, `90179a1`, `21dfa25`, `ab97928`, and `0a956c5`
+**Branch / implementation commits:** `learning-lite`; `77bc0be`, `5c411d7`, `db045ff`, `e17ce42`, and `d8f843a`
 
 **Objective**
 
