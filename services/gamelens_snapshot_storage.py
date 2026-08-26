@@ -374,6 +374,7 @@ class BigQuerySnapshotStorage:
                 @metric_pipeline_run_id,
                 @model_version,
                 @ruleset_version
+            FROM (SELECT 1) AS source
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM `{self.table_id}`

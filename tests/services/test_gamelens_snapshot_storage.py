@@ -218,6 +218,14 @@ class TestSnapshotStorage(unittest.TestCase):
             ["game_id", "season_type"],
         )
 
+    def test_insert_select_has_a_source_before_not_exists_filter(self):
+        sql_before_filter = self.storage._insert_if_absent_sql().split(
+            "WHERE NOT EXISTS",
+            1,
+        )[0]
+
+        self.assertIn("FROM (SELECT 1) AS source", sql_before_filter)
+
     def test_first_insert_is_readable_and_hash_verified(self):
         row = snapshot_row()
 
