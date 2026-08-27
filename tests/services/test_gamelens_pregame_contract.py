@@ -160,13 +160,43 @@ class TestPregameContract(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "JSON compliant"):
                     payload_sha256(payload)
 
-    def test_canonical_payload_preserves_list_order_and_numeric_identity(self):
+    def test_canonical_payload_normalizes_integral_float_representation(self):
+        integer_payload = pregame_payload()
+        integer_payload["ranking_context"]["numbers"] = {
+            "negative_zero": 0,
+            "positive": 5,
+            "negative": -2,
+            "percentile": 100,
+        }
+        float_payload = pregame_payload()
+        float_payload["ranking_context"]["numbers"] = {
+            "negative_zero": -0.0,
+            "positive": 5.0,
+            "negative": -2.0,
+            "percentile": 100.0,
+        }
+
+        self.assertEqual(
+            payload_sha256(integer_payload),
+            payload_sha256(float_payload),
+        )
+
+    def test_canonical_payload_preserves_list_order_and_json_type_identity(self):
         first = pregame_payload()
-        first["ranking_context"]["ordered"] = [1, 1.0, True, None]
+        first["ranking_context"]["ordered"] = [1, 1.5, True, None]
         second = pregame_payload()
-        second["ranking_context"]["ordered"] = [1.0, 1, True, None]
+        second["ranking_context"]["ordered"] = [1.5, 1, True, None]
 
         self.assertNotEqual(payload_sha256(first), payload_sha256(second))
+
+        boolean_payload = pregame_payload()
+        boolean_payload["ranking_context"]["value"] = True
+        numeric_payload = pregame_payload()
+        numeric_payload["ranking_context"]["value"] = 1
+        self.assertNotEqual(
+            payload_sha256(boolean_payload),
+            payload_sha256(numeric_payload),
+        )
 
 
 if __name__ == "__main__":

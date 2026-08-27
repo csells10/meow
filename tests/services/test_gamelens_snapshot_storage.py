@@ -135,6 +135,19 @@ def parameter_values(job_config):
     return values
 
 
+def bigquery_json_round_trip(value):
+    if isinstance(value, dict):
+        return {
+            key: bigquery_json_round_trip(nested)
+            for key, nested in value.items()
+        }
+    if isinstance(value, list):
+        return [bigquery_json_round_trip(nested) for nested in value]
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
 class Client:
     def __init__(self):
         self.rows = []
@@ -162,7 +175,9 @@ class Client:
         if any(row["capture_id"] == capture_id for row in self.rows):
             return Job(affected=0)
         saved = dict(values)
-        saved["response_payload"] = json.loads(saved["response_payload"])
+        saved["response_payload"] = bigquery_json_round_trip(
+            json.loads(saved["response_payload"])
+        )
         saved["evidence_context"] = json.loads(saved["evidence_context"])
         self.rows.append(saved)
         return Job(affected=1)
@@ -228,6 +243,12 @@ class TestSnapshotStorage(unittest.TestCase):
 
     def test_first_insert_is_readable_and_hash_verified(self):
         row = snapshot_row()
+        row["response_payload"]["matchup_lean"] = {
+            "away_value": 5.0,
+            "home_value": -2.0,
+            "confidence": 0.625,
+        }
+        row["payload_sha256"] = payload_sha256(row["response_payload"])
 
         result = self.storage.reconcile_snapshot(row)
         saved = self.storage.read_snapshot(row["capture_id"])
@@ -253,6 +274,14 @@ class TestSnapshotStorage(unittest.TestCase):
             },
         )
         self.assertEqual(saved["payload_sha256"], row["payload_sha256"])
+        self.assertEqual(
+            saved["response_payload"]["matchup_lean"],
+            {
+                "away_value": 5,
+                "home_value": -2,
+                "confidence": 0.625,
+            },
+        )
         self.assertEqual(saved["lens_tags"], ["scoring-efficiency"])
         self.assertFalse(saved["ranking_context_available"])
         self.assertEqual(

@@ -162,11 +162,31 @@ def require_eligible_pregame_payload(
         raise ValueError("kickoff_reached")
 
 
+def _storage_stable_json_value(value: Any) -> Any:
+    """Normalize JSON numbers that BigQuery stores with one representation.
+
+    BigQuery's native JSON type reads an integral JSON number such as ``5.0``
+    back as ``5``.  Normalize that distinction before serialization so the
+    pre-write and post-readback SHA-256 inputs remain identical.  Booleans are
+    left alone even though Python models ``bool`` as a subclass of ``int``.
+    """
+    if isinstance(value, Mapping):
+        return {
+            key: _storage_stable_json_value(nested)
+            for key, nested in value.items()
+        }
+    if isinstance(value, list):
+        return [_storage_stable_json_value(nested) for nested in value]
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
 def canonical_payload_json(payload: Mapping[str, Any]) -> str:
-    """Return the stable JSON representation used for response hashing."""
+    """Return the BigQuery-storage-stable JSON used for response hashing."""
     require_pregame_payload(payload)
     return json.dumps(
-        payload,
+        _storage_stable_json_value(payload),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
