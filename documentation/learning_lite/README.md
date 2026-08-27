@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-2 is accepted. LL-3 is authorized and in progress under a scoped `LL-FIND-001` waiver for one controlled development-fixture proof; no LL-3 table or row has been created, replaced, altered, deleted, or written. Matchup Lens M1 remains unauthorized.
+**Current status:** LL-2 is accepted with a storage-stable JSON hash correction tested on 2026-08-27. LL-3 remains in progress under the scoped `LL-FIND-001` waiver: its first controlled development insert created one row, but read-back correctly rejected the proof because BigQuery normalized integral JSON floats such as `5.0` to `5`. The exact failed row remains preserved while its approved export-first, one-row recovery is prepared. Matchup Lens M1 remains unauthorized.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -599,3 +599,66 @@ Pre-LL-3 implementation head: `58d2a8055e23f0d30ec349209a6bc978228409d8`. The se
 **Next checkpoint**
 
 Christian must fast-forward the local `learning-lite` branch, rerun the two focused test groups, execute the runner without `--write`, review the capture ID/hash/table summary, then explicitly run the one development write and identical retry. Return the structured outputs and the bounded conflict/read-back evidence before LL-3 can reach its exit gate.
+
+### LL-3 first-write finding and guarded recovery — 2026-08-26 through 2026-08-27
+
+**Status:** Hash correction and recovery tooling complete locally; failed row still present; evidence export and deletion not yet executed
+**Branch / implementation commits:** `learning-lite`; `9b51c18` and `f0cbae3`
+
+The controlled `20260827_PIT@BUF` write inserted one row for `capture_78f546a459294669fd10da22`, then failed closed during the immediate read-back verification. The read-only inspection established:
+
+- candidate/stored payload SHA-256: `e49483554d559791611822653f7bc2b335500c462bb5d277840e84c3d1719a20`;
+- freshly canonicalized native-JSON read-back SHA-256 under the original LL-2 rule: `115187701cad1a5fffe511e1108f07234cc8c7a3db461fcb20478a0e2d944c46`;
+- exactly one stored row and 96 lens tags;
+- semantic payload equality;
+- 33 representation differences, all integral JSON floats such as `5.0` read back as integers such as `5`;
+- no missing, added, or meaningfully changed payload value.
+
+The failed row is proof evidence, not an accepted LL-3 canonical capture. It has not been overwritten, edited, or silently accepted.
+
+**Approved correction**
+
+- canonical JSON recursively normalizes only integral floats to integers before SHA-256 calculation and storage serialization;
+- non-integral numbers, booleans, strings, nulls, mapping keys, and list order remain distinct;
+- unsupported objects and non-finite numbers continue to fail before hashing or storage;
+- the storage test fake now reproduces BigQuery's observed integral-float normalization during its JSON write/read cycle.
+
+**Approved recovery boundary**
+
+Christian approved export and guarded deletion of only the failed development proof row. `run_gamelens_snapshot_recovery.py` is hard-locked to the exact project, dataset, table, capture ID, game ID, learning run, model version, ruleset version, original payload hash, stored timestamp, and 96-tag count. It:
+
+1. verifies the unchanged 22-field table contract and exactly one matching row;
+2. validates the row as pregame-safe and confirms the corrected read-back hash;
+3. exports the complete row to a new evidence file without overwriting an existing file;
+4. requires that file's SHA-256 on a separate deletion invocation;
+5. regenerates and byte-compares the live-row evidence before DML;
+6. uses one parameterized `DELETE` whose predicates name every locked identity field and whose subquery requires exactly one row for the capture ID;
+7. requires exactly one affected row and verifies zero matching rows afterward.
+
+The ordinary snapshot storage service remains insert-only and exposes no delete method. The recovery command is a one-capture exception; it cannot target another capture from CLI arguments.
+
+**Verification performed**
+
+- accepted LL-2/product packages: `Ran 27 tests — OK`;
+- focused LL-3 packages plus guarded recovery: `Ran 32 tests — OK`;
+- dedicated recovery package: `Ran 7 tests — OK`;
+- Python compilation and `git diff --check`: passed.
+
+**Data effects as of this checkpoint**
+
+- created or altered tables: none;
+- inserted development rows: one failed proof artifact;
+- updated or deleted rows: none;
+- seven historical development rows: unchanged;
+- production reads used by the controlled evidence loader: read-only;
+- production writes, routes, deployments, schedules, triggers, traffic, and invocations: none.
+
+**Next proof sequence**
+
+1. publish and fast-forward the correction;
+2. rerun the 27-test and 32-test gates locally;
+3. export the exact failed row outside the repository and retain its reported file SHA-256;
+4. run the guarded one-row deletion with that SHA-256;
+5. rerun the corrected one-game write before kickoff and require `inserted` plus verified read-back;
+6. rerun the identical command and require `identical_no_op` with no material change;
+7. document the completed evidence and stop at the LL-3 exit gate.

@@ -193,7 +193,7 @@ Exit gate:
 ### LL-3 — Immutable snapshot persistence
 
 **Target:** 2026-08-26 through 2026-08-28
-**Status:** In progress; scoped finding waiver and existing-table contract approved on 2026-08-26, with no LL-3 write yet
+**Status:** In progress; the first controlled write inserted one development row but failed closed on BigQuery native-JSON numeric normalization. The storage-stable LL-2 hash correction and export-first one-row recovery were approved and tested on 2026-08-27; cleanup has not yet run.
 
 Objective:
 
@@ -214,6 +214,14 @@ Approved target boundary:
 - retain its 22-field schema, daily `captured_at` partition, and `game_id`, `season_type` clustering;
 - do not create, replace, migrate, truncate, or delete the table;
 - the `LL-FIND-001` waiver applies only to the controlled LL-3 development-fixture proof and expires at this checkpoint's exit gate.
+
+Approved failed-proof recovery exception:
+
+- export and preserve the complete `capture_78f546a459294669fd10da22` row before cleanup;
+- delete only that exact development row after the unchanged export SHA-256 is supplied back to the guarded command;
+- keep the ordinary LL-3 storage seam insert-only and expose no general delete interface;
+- preserve all seven historical rows and every production table;
+- repeat the corrected first-write/read-back and identical-no-op proofs before accepting LL-3.
 
 Required proof:
 

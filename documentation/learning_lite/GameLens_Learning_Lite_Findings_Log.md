@@ -152,3 +152,45 @@ Discovery used local tests and read-only BigQuery `SELECT` queries. No table or 
 **Decision**
 
 LL-3 must reuse and verify the existing table. It must not create, replace, migrate, truncate, or delete it. The seven historical rows remain immutable evidence.
+
+---
+
+## LL-FIND-002 — Native JSON integral-float normalization broke lexical payload hashing
+
+**Date discovered:** 2026-08-26
+**Status:** Recovery approved and implemented locally; open until the corrected write/read-back and retry proof completes
+**Checkpoint:** LL-3 first controlled development write
+**Affected row:** `capture_78f546a459294669fd10da22` for `20260827_PIT@BUF`
+
+**Observation**
+
+The insert-only DML created exactly one development row, but the immediate read-back failed closed because the stored hash did not match a freshly serialized native-JSON payload. Read-only inspection reported one row, semantic payload equality, and 33 path/type differences. Every difference was an integral float read back as an integer, for example `5.0` versus `5`; no football value or payload field changed meaningfully.
+
+**Root cause**
+
+LL-2's original canonical JSON rule preserved Python's lexical distinction between integral floats and integers. BigQuery's native `JSON` representation did not preserve that distinction. The pre-write hash therefore described a representation that could not be reproduced after storage, even though the JSON values were semantically equal.
+
+**Observed hashes**
+
+- original candidate and stored hash: `e49483554d559791611822653f7bc2b335500c462bb5d277840e84c3d1719a20`;
+- original-rule fresh read-back hash: `115187701cad1a5fffe511e1108f07234cc8c7a3db461fcb20478a0e2d944c46`.
+
+**Decision and authorization**
+
+Christian approved a bounded LL-2 hash correction plus guarded cleanup of this one failed `GameLens_dev` proof artifact. Integral floats normalize recursively to integers before canonical serialization. Genuine type/value differences remain protected. The recovery must export the full row first, require the unchanged evidence-file SHA-256, and lock deletion to the exact table, row identity, original hash, timestamp, model/ruleset, and tag count. All seven historical rows remain immutable.
+
+**Data and production effects at documentation time**
+
+- one failed proof row exists in `nfl-stream-406420.GameLens_dev.pregame_snapshots`;
+- no row has been updated or deleted;
+- no table has been created, altered, replaced, migrated, or truncated;
+- no production write, deployment, schedule, trigger, route, traffic, or frontend behavior changed.
+
+**Resolution criteria**
+
+1. corrected LL-2 and LL-3/recovery test gates pass locally;
+2. the failed row is exported and its evidence SHA-256 recorded;
+3. the guarded deletion affects exactly that one row and verifies it is absent;
+4. the corrected capture inserts one readable pregame snapshot whose stored hash equals a fresh read-back hash;
+5. an identical retry is a no-op and a conflicting retry remains unable to overwrite the row;
+6. production behavior and the seven historical rows remain unchanged.
