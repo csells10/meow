@@ -1,57 +1,90 @@
 # Chunk A — Evidence Inventory Handoff
 
-**Status:** blocked  
+**Status:** complete  
 **Branch:** `feature/matchup-lens-api`  
 **Starting commit:** `0fc31dd1dab27def79c19c14d83c20bcbec52fe9`  
-**Retrieval time (UTC):** 2026-09-15T22:18:13Z  
+**Prior blocked-handoff commit:** `2416a0bdf913c0b0e36609884a93a0235b75d792`  
+**Live verification completed (UTC):** 2026-09-15T22:32:55Z  
 **Assigned model / effort:** `gpt-5.6-sol` / High  
 **Scope:** Chunk A only — read-only evidence inventory
 
 ## Outcome
 
-Chunk A is **blocked**, not failed. The repository-side inventory is complete, but the live acceptance gate cannot pass because this environment has no BigQuery connector, no `bq` or `gcloud` CLI, no configured Google application credentials, and no Google project environment setting. No live result was invented or promoted from the plan's reported evidence.
+Chunk A is **complete**. Christian ran the approved read-only BigQuery queries from his authenticated local Google Cloud CLI and returned the full results. Repository and live evidence are now reconciled without changing data or application behavior.
 
-No application code, existing test, service, route, query, pipeline, schema, table, scheduled job, learning system, orchestrator state, Endpoint Plan, or Product Roadmap was changed. No deployment, merge, or BigQuery write was performed.
+No application code, existing test, service, route, shared query, pipeline, schema, table, scheduled job, learning system, orchestrator state, Endpoint Plan, or Product Roadmap was changed. No deployment, merge, or BigQuery write was performed.
 
 ## Scope completed
 
-- Read the Endpoint Plan and Product Roadmap completely, in the required order.
-- Checked `documentation/New API/handoffs/`; it did not exist at the starting commit, so there were no earlier handoffs.
+- Read the Endpoint Plan and Product Roadmap completely in the required order.
+- Confirmed there were no handoffs before the first Chunk A handoff.
 - Inspected the branch versions of:
   - `queries/game_queries.py`
   - `analytics/metric_registry.py`
   - `agg/build_windowed_metrics.py`
   - `agg/build_metric_rankings.py`
-- Reconciled the plan's 59-item sample catalog against the checked-in registry.
-- Identified the ranking builder's code-level eligibility filter, duplicate grain, percentile validation, tag normalization, and source-date carry-forward behavior.
-- Defined the exact live read-only checks still required for the Chunk A acceptance gate.
+- Reconciled the plan's 59-item sample catalog, the 73-item checked-in registry, the 70 code-eligible metrics, and the 63 live ranking metrics by exact name.
+- Verified canonical DET/BUF IDs and game context.
+- Verified DET/BUF ranking coverage, missing metrics, percentiles, tag presence, raw duplicate grain, source dates, `games_in_window`, and `latest_included_game_id`.
+- Captured the live DET/BUF lens-tag vocabulary.
+
+## Provenance
+
+| Item | Value |
+|---|---|
+| Google Cloud project | `nfl-stream-406420` |
+| Dataset | `Analytics` |
+| Rankings table | `team_metric_rankings_2026` |
+| Windowed table | `team_metrics_windowed_2026` |
+| Schedule table | `nfl-stream-406420.League.schedule` |
+| Ranking selection | `window_type = regular_season_to_date`, `as_of_date = 2026-09-14` |
+| Target game | `20260917_DET@BUF` |
+| Scheduled game date | `2026-09-17` |
+| Query execution | Christian's authenticated local BigQuery CLI, read-only |
+| Evidence reported to this handoff | 2026-09-15 UTC |
 
 ## Evidence matrix
 
-| Check | Result | Provenance | Gate |
-|---|---|---|---|
-| Plan sample catalog | 59 distinct metric names | Endpoint Plan §8 | Repository evidence |
-| Current checked-in registry | 73 metrics; `EXPECTED_METRICS` and `METRIC_REGISTRY` agree exactly | `analytics/metric_registry.py` at starting commit | Pass |
-| Registry vs plan catalog | All 59 plan names remain registered; 14 registered names are absent from the plan catalog | Exact set comparison of branch files | Pass |
-| Code-eligible ranking metrics | 70 maximum before null/missing live values: 73 registered minus 3 explicit excludes | Registry plus `load_windowed_rows()` filter in ranking builder | Pass as code inventory only |
-| Live rankings metric count | Not retrieved. The plan/roadmap reports 63 for 2026-09-14, but this run did not independently verify it | BigQuery access unavailable | **Blocked** |
-| Actual 59-versus-live reconciliation | Not established. A 59-versus-63 claim would be stale/incomplete because the current registry contains 73 | Repository evidence plus blocked live query | **Blocked** |
-| DET/BUF metric coverage | Not retrieved | BigQuery access unavailable | **Blocked** |
-| Ranking raw duplicate grain | Builder validates `season + as_of_date + window_type + metric + team_id`; live selected snapshot not queried | `validate_rankings_df()` | **Blocked live check** |
-| Windowed raw duplicate grain | Builder validates `season + team_id + data_date + window_type + metric`; live selected snapshot not queried | `validate_windowed_df()` | **Blocked live check** |
-| Percentile null/range | Ranking schema requires `league_percentile`; builder validates 0–100. Live selected rows were not queried | Ranking builder | **Blocked live check** |
-| Lens tags | Every registry metric has at least one configured tag; 99 distinct configured tag strings; builder normalizes tags to arrays | Registry and ranking builder | Pass as code inventory only |
-| Exclusions | `pressure_rate`, `sacks_plus_sacks_taken`, and `sack_to_turnover_ratio` are explicit registry/ranking exclusions | Registry | Pass |
-| Six-lens coverage | Cannot be claimed from repository tags alone because the current Lovable six-lens tag/input vocabulary is a Chunk B dependency; production row coverage also remains unqueried | Roadmap A/B boundary | **Blocked** |
-| Source-date safety | Query helper chooses latest ranking `as_of_date < game_date`; ranking builder guarantees `source_data_date <= as_of_date` | `get_team_rankings_for_game()`, ranking builder | Pass as code logic only |
-| DET/BUF source dates | Expected 2026-09-14 basis is reported by the plan, not independently verified here | BigQuery access unavailable | **Blocked** |
-| `games_in_window` alignment | Windowed rows carry `games_in_window` and `latest_included_game_id` at `data_date`; counts must align to each ranking row's `source_data_date`, not merely the latest windowed date before kickoff | Windowed and ranking builders | Pass as design finding; **blocked live values** |
+| Check | Verified result | Provenance |
+|---|---|---|
+| Plan sample catalog | 59 distinct names | Endpoint Plan §8 |
+| Checked-in registry | 73 metrics; `EXPECTED_METRICS` and `METRIC_REGISTRY` agree | Branch `analytics/metric_registry.py` |
+| Code-eligible metrics | 70: 73 registered minus 3 explicit exclusions | Registry plus ranking-builder filter |
+| Live ranking catalog | 63 distinct metrics | BigQuery ranking snapshot |
+| Metric health | No null percentiles, invalid percentiles, or missing tags in the live catalog | BigQuery inventory |
+| League coverage | 61 metrics rank 32 teams; `red_zone_efficiency` ranks 31; `fourth_down_pct` ranks 20 | BigQuery inventory |
+| Canonical away team | DET, team ID `11` | Schedule table |
+| Canonical home team | BUF, team ID `4` | Schedule table |
+| BUF coverage | 63 rows / 63 distinct metrics | BigQuery selected-team inventory |
+| DET coverage | 62 rows / 62 distinct metrics | BigQuery selected-team inventory |
+| Shared DET/BUF coverage | 62 metrics | Set comparison; BUF has all 63 and DET lacks one |
+| DET missing metric | `fourth_down_pct` | BigQuery live-catalog anti-join |
+| Selected-team percentiles | Zero null; zero outside 0–100 | BigQuery selected-team inventory |
+| Selected-team tag presence | Zero null/empty tag arrays | BigQuery selected-team inventory |
+| Raw ranking duplicates | Zero duplicate grain groups; zero rows in duplicate groups | BigQuery ranking-grain query |
+| Ranking `as_of_date` | `2026-09-14` | Query selection |
+| DET/BUF `source_data_date` | `2026-09-13` for every returned team metric | BigQuery selected-team inventory |
+| BUF window alignment | 63/63 rows matched; `games_in_window = 1`; latest game `20260913_BUF@HOU` | Exact source-date join |
+| DET window alignment | 62/62 rows matched; `games_in_window = 1`; latest game `20260913_NO@DET` | Exact source-date join |
+| Unmatched window rows | Zero for both teams | Exact source-date join |
+| Live DET/BUF tag vocabulary | 90 distinct tags | BigQuery `UNNEST(lens_tags)` query |
 
-## Metric reconciliation
+## Actual metric reconciliation
 
-### Current repository truth
+### Counts
 
-The checked-in registry contains **73** metrics. The Endpoint Plan's sample catalog contains **59**. The following 14 registered metrics are absent from that sample catalog:
+| Inventory | Count |
+|---|---:|
+| Endpoint Plan sample catalog | 59 |
+| Checked-in registry | 73 |
+| Code-eligible after explicit exclusions | 70 |
+| Live 2026-09-14 ranking catalog | 63 |
+
+The original framing of “59 in code versus 63 live” is not current repository truth. The checked-in registry contains 73 metrics. The plan's 59-name JSON catalog is a sample/subset and must not become a runtime allowlist.
+
+### Live metrics absent from the 59-item plan sample
+
+All 14 registered additions are live:
 
 - `passing_first_downs`
 - `rushing_first_downs`
@@ -68,246 +101,200 @@ The checked-in registry contains **73** metrics. The Endpoint Plan's sample cata
 - `blocked_punt`
 - `blocked_xp`
 
-There are no plan-catalog metrics missing from the registry.
+### Plan-sample/registry metrics absent from live rankings
 
-The ranking builder excludes metrics when `ranking_usage = 'exclude'` or `data_quality_status = 'exclude'`. The three explicit exclusions are:
+Ten registered names are absent from the live ranking catalog:
 
-- `pressure_rate`
-- `sacks_plus_sacks_taken`
-- `sack_to_turnover_ratio`
+- Explicit ranking exclusions:
+  - `pressure_rate`
+  - `sacks_plus_sacks_taken`
+  - `sack_to_turnover_ratio`
+- Code-eligible metrics without live ranking rows:
+  - `total_offensive_snaps`
+  - `offensive_snap_load`
+  - `total_defensive_snaps`
+  - `defensive_snap_load`
+  - `total_special_teams_snaps`
+  - `special_teams_snap_pct`
+  - `total_snaps`
 
-Therefore, the code-level maximum rankable inventory is **70**, subject to live non-null availability. The plan/roadmap's reported **63 live metrics** would imply seven fewer live metrics than that code-level maximum, but identifying those seven requires the blocked live query. The acceptance gate does not permit guessing them.
+Thus:
 
-### Actual 59-versus-live result
+- 59 sample − 10 absent sample metrics + 14 live additions = 63 live metrics.
+- 73 registry − 3 explicit exclusions − 7 other metrics without live ranking rows = 63 live metrics.
 
-**Blocked.** This run cannot truthfully provide the requested live set. The correct future comparison is now:
-
-1. 59 plan-sample metrics;
-2. 73 registered metrics;
-3. 70 code-eligible ranking metrics;
-4. the independently queried live ranking metric set.
+The endpoint must remain dynamic and return what the existing ranking helper supplies; it must not hardcode 59, 63, 70, or 73.
 
 ## Duplicate-grain findings
 
-The code defines and validates these grains:
+The ranking builder's protected grain is:
 
-- Ranking: `season + as_of_date + window_type + metric + team_id`.
-- Windowed: `season + team_id + data_date + window_type + metric`.
+```text
+season + as_of_date + window_type + metric + team_id
+```
 
-The existing API helper converts ranking rows to dictionaries keyed by metric, so duplicate raw rows would be overwritten after retrieval. Therefore, runtime dictionary cardinality cannot prove raw uniqueness. The selected live source grain must be checked directly in BigQuery before implementation.
+For DET and BUF at the selected 2026-09-14 snapshot:
 
-No live duplicate count was obtained.
+- duplicate grain groups: `0`
+- rows in duplicate groups: `0`
+
+The existing helper still reshapes rows into dictionaries keyed by metric and would overwrite duplicates after retrieval. Therefore, this clean one-time inventory does not by itself create a runtime duplicate guarantee. Chunk C must decide whether the endpoint needs raw-boundary duplicate detection or whether this inventory plus existing builder validation is sufficient.
+
+The exact source-date windowed join also returned 63 BUF and 62 DET rows—equal to their ranking counts—with zero unmatched rows. No duplicate multiplication was observed at the matching windowed grain.
 
 ## Source-date and games-in-window alignment
 
-The ranking builder uses carry-forward evidence: for each ranking `as_of_date`, each team/metric can use its latest `source_data_date <= as_of_date`. Consequently:
+The important distinction is now proven:
 
-- `as_of_date` is not necessarily the team's actual windowed snapshot date.
-- `games_in_window` and `latest_included_game_id` must be joined to the canonical team, season, window type, metric, and the ranking row's `source_data_date`.
-- Selecting only the latest windowed `data_date < game_date` can attach a count from a newer snapshot than the ranking evidence.
-- If counts disagree across metrics/source dates, the contract must not silently collapse them into one team-level count.
+- Ranking comparison date: `2026-09-14`
+- Actual DET and BUF evidence date: `2026-09-13`
+- Target game date: `2026-09-17`
 
-The plan's expected DET/BUF values—ranking date 2026-09-14 and one game per team—remain acceptance targets, not verified results from this run.
+The ranking builder carries forward each team's latest `source_data_date <= as_of_date`. The plan's expected September 14 ranking basis is correct, but September 14 is not the teams' source-data date.
 
-## Lens-tag and coverage findings
+Exact matching on canonical team, metric, window, and ranking `source_data_date` produced:
 
-- The registry configures tags for all 73 metrics.
-- The registry contains 99 distinct tag strings.
-- Ranking code normalizes repeated tag values to plain arrays and rejects non-array tag payloads during validation.
-- Live tag vocabulary, live null/empty arrays, DET/BUF coverage, and six-lens readiness were not verified.
-- Six-lens completeness also requires the current Lovable inclusion, exclusion, weight, modifier, and null-handling rules. Chunk A must not infer those rules.
+| Team | Ranking metrics | Matched window rows | Games | Latest included game |
+|---|---:|---:|---:|---|
+| BUF / 4 | 63 | 63 | 1 | `20260913_BUF@HOU` |
+| DET / 11 | 62 | 62 | 1 | `20260913_NO@DET` |
 
-## Read-only queries required to unblock Chunk A
+This confirms both one-game counts from data. A lookup that selects only the latest windowed date before kickoff could attach evidence newer than the ranking source. Chunk C must freeze source-date-aligned count semantics.
 
-All queries target project `nfl-stream-406420`, dataset `Analytics`, season 2026, window `regular_season_to_date`, selected ranking date 2026-09-14, and canonical DET/BUF IDs resolved from the schedule table. Retrieval time must be recorded when executed.
+## Coverage and missing-metric finding
 
-### 1. Live metric inventory and metadata coverage
+BUF contains all 63 live catalog metrics. DET contains 62 and lacks only `fourth_down_pct`.
 
-```sql
-SELECT
-  metric,
-  COUNT(DISTINCT team_id) AS teams_ranked,
-  COUNT(*) AS row_count,
-  COUNTIF(league_percentile IS NULL) AS null_percentile_rows,
-  COUNTIF(league_percentile < 0 OR league_percentile > 100) AS invalid_percentile_rows,
-  COUNTIF(lens_tags IS NULL) AS null_lens_tag_rows,
-  COUNTIF(ARRAY_LENGTH(lens_tags) = 0) AS empty_lens_tag_rows,
-  ANY_VALUE(ranking_usage) AS ranking_usage,
-  ANY_VALUE(data_quality_status) AS data_quality_status,
-  MIN(source_data_date) AS min_source_data_date,
-  MAX(source_data_date) AS max_source_data_date
-FROM `nfl-stream-406420.Analytics.team_metric_rankings_2026`
-WHERE window_type = 'regular_season_to_date'
-  AND as_of_date = DATE '2026-09-14'
-GROUP BY metric
-ORDER BY metric;
+The absence is compatible with a zero-denominator condition (no fourth-down attempts), but this query set did not separately prove the causal numerator/denominator values. The safe product behavior is unchanged: preserve the missing metric as missing and never convert it to zero.
+
+Transport coverage for DET/BUF is therefore:
+
+- away metric count: 62
+- home metric count: 63
+- shared metric count: 62
+- missing away metrics: [`fourth_down_pct`]
+- missing home metrics: []
+
+Whether that missing metric makes a particular frontend lens incomplete remains a Chunk B/C contract question.
+
+## Lens-tag findings
+
+Every returned DET/BUF metric has a non-empty tag array. The selected matchup exposes 90 distinct live tags:
+
+```text
+aggression, ball-security, blocked-kicks, coaching-tendency,
+combined-source-metric, context, control-profile, cumulative,
+data-quality-watch, defense, defensive-exposure, defensive-scoring,
+discipline, disruption, drive-context, drive-conversion,
+drive-efficiency, drive-killers, drive-sustainability, drive-volume,
+efficiency, explosiveness, extra-point-defense, field-goal-defense,
+field-position, fourth-down, game-script, giveaways, naming-review,
+negative-plays, non-offensive-scoring, offensive-context,
+offensive-efficiency, offensive-output, offensive-style,
+opponent-penalties, opponent-volume, opportunity, outcome-total,
+overlap-risk, pace, pass-heavy, passing-efficiency,
+passing-production, passing-td-environment, passing-volume, penalties,
+per-game, play-volume, possession, pressure, pressure-allowed,
+production, protection, punt-pressure, rare-event, red-zone, risk,
+run-heavy, rushing-efficiency, rushing-production,
+rushing-td-environment, rushing-volume, safeties, scoring,
+scoring-chances, scoring-efficiency, scoring-efficiency-allowed,
+scoring-suppression, situational, small-sample, special-teams,
+strong-signal, supporting, swing-play, takeaway-margin, takeaways,
+td-share, team-wide, third-down, touchdown-efficiency, touchdowns,
+turnovers, two-point-conversions, two-point-return, volatility,
+volume-sensitive, yardage, yardage-efficiency, yardage-suppression
 ```
 
-### 2. Resolve canonical DET/BUF team IDs and header
+This proves backend tag availability, not six-lens readiness. The exact Lovable tag inclusion, exclusion, weight, modifier, and null-handling rules remain the explicit Chunk B dependency.
 
-```sql
-SELECT
-  gameID,
-  gameDate,
-  season,
-  gameWeek,
-  seasonType,
-  CAST(teamIDAway AS STRING) AS away_team_id,
-  away AS away_team_abv,
-  CAST(teamIDHome AS STRING) AS home_team_id,
-  home AS home_team_abv
-FROM `nfl-stream-406420.League.schedule`
-WHERE gameID = '20260917_DET@BUF'
-LIMIT 1;
+## Queries and commands used
+
+All BigQuery commands used `--project_id=nfl-stream-406420 --use_legacy_sql=false` and were read-only.
+
+1. Live metric inventory grouped by metric, including team count, row count, percentile checks, tag checks, usage, quality, and source-date range.
+2. Schedule lookup for `20260917_DET@BUF`.
+3. Selected DET/BUF ranking coverage grouped by canonical team.
+4. Live-catalog anti-join to identify team-specific missing metrics.
+5. Ranking duplicate-grain query for the selected teams/date/window.
+6. Exact ranking-to-windowed join on canonical team, metric, window, and `source_data_date`.
+7. `UNNEST(lens_tags)` vocabulary query for DET/BUF.
+
+Repository inspections used GitHub branch reads for the two controlling documents, prior handoff, ranking/windowed query code, builders, and registry.
+
+The local CLI required this session-only environment correction before use:
+
+```bash
+export CLOUDSDK_PYTHON='C:\Users\csell\OneDrive\Desktop\Projects\Meow\meow\nfl\Scripts\python.exe'
 ```
 
-If runtime configuration resolves a different schedule object, use that resolved object and record it.
-
-### 3. DET/BUF selected ranking rows
-
-```sql
-SELECT *
-FROM `nfl-stream-406420.Analytics.team_metric_rankings_2026`
-WHERE window_type = 'regular_season_to_date'
-  AND as_of_date = DATE '2026-09-14'
-  AND CAST(team_id AS STRING) IN UNNEST(@canonical_team_ids)
-ORDER BY team_id, metric;
-```
-
-### 4. Raw ranking duplicate grain
-
-```sql
-SELECT
-  season,
-  as_of_date,
-  window_type,
-  metric,
-  CAST(team_id AS STRING) AS team_id,
-  COUNT(*) AS row_count
-FROM `nfl-stream-406420.Analytics.team_metric_rankings_2026`
-WHERE window_type = 'regular_season_to_date'
-  AND as_of_date = DATE '2026-09-14'
-  AND CAST(team_id AS STRING) IN UNNEST(@canonical_team_ids)
-GROUP BY season, as_of_date, window_type, metric, team_id
-HAVING COUNT(*) > 1
-ORDER BY team_id, metric;
-```
-
-### 5. Matching windowed rows at ranking source dates
-
-```sql
-WITH selected_rankings AS (
-  SELECT DISTINCT
-    CAST(team_id AS STRING) AS team_id,
-    metric,
-    source_data_date
-  FROM `nfl-stream-406420.Analytics.team_metric_rankings_2026`
-  WHERE window_type = 'regular_season_to_date'
-    AND as_of_date = DATE '2026-09-14'
-    AND CAST(team_id AS STRING) IN UNNEST(@canonical_team_ids)
-)
-SELECT
-  r.team_id,
-  r.metric,
-  r.source_data_date,
-  w.games_in_window,
-  w.latest_included_game_id,
-  w.data_date,
-  COUNT(*) OVER (
-    PARTITION BY r.team_id, r.metric, r.source_data_date
-  ) AS matching_windowed_rows
-FROM selected_rankings r
-LEFT JOIN `nfl-stream-406420.Analytics.team_metrics_windowed_2026` w
-  ON CAST(w.team_id AS STRING) = r.team_id
- AND w.metric = r.metric
- AND w.window_type = 'regular_season_to_date'
- AND w.data_date = r.source_data_date
-ORDER BY r.team_id, r.metric;
-```
-
-### 6. Tag vocabulary and metric membership
-
-```sql
-SELECT
-  tag,
-  COUNT(DISTINCT metric) AS metric_count,
-  ARRAY_AGG(DISTINCT metric ORDER BY metric) AS metrics
-FROM `nfl-stream-406420.Analytics.team_metric_rankings_2026`,
-UNNEST(lens_tags) AS tag
-WHERE window_type = 'regular_season_to_date'
-  AND as_of_date = DATE '2026-09-14'
-GROUP BY tag
-ORDER BY tag;
-```
-
-## Commands and inspections used
-
-- GitHub branch/ref read for `feature/matchup-lens-api`.
-- Full GitHub file reads for the two controlling documents and relevant query/build/registry code.
-- Set comparison of exact metric keys from the Endpoint Plan and branch registry.
-- Read-only environment capability checks:
-  - `command -v bq`
-  - `command -v gcloud`
-  - presence-only checks for `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, and `BQ_PROJECT`
-  - available connector inventory for a BigQuery-capable tool
-
-No credential values were printed.
+No credential values were printed or changed.
 
 ## Files changed
 
-- Added `documentation/New API/handoffs/Chunk_A_Evidence_Inventory_Handoff.md`
+- Updated `documentation/New API/handoffs/Chunk_A_Evidence_Inventory_Handoff.md`
 
 No other file was changed.
 
 ## Validation performed
 
-- Confirmed the branch at start: `0fc31dd1dab27def79c19c14d83c20bcbec52fe9`.
-- Confirmed the new handoff path did not previously exist.
-- Confirmed 73 registry keys equal the 73 `EXPECTED_METRICS` keys.
-- Confirmed all 59 plan-catalog keys exist in the registry.
-- Confirmed the exact 14 registry additions relative to the sample catalog.
-- Confirmed the exact three explicit ranking exclusions.
-- Confirmed all registry metrics configure at least one lens tag.
-- Confirmed no BigQuery read was available; recorded the gate as blocked.
-- Confirmed only this handoff is intended for the commit.
+- Verified canonical game, date, season phase, week, and team IDs.
+- Verified the live catalog contains 63 exact metric names.
+- Verified the 59/73/70/63 set reconciliation.
+- Verified league team coverage and the two partial metrics.
+- Verified DET/BUF row and distinct-metric counts.
+- Verified DET's only missing metric.
+- Verified zero null/out-of-range percentiles for DET/BUF.
+- Verified zero null/empty tag arrays for DET/BUF.
+- Verified zero selected ranking duplicate groups.
+- Verified every DET/BUF ranking row matches the exact windowed source date.
+- Verified both one-game counts and latest included game IDs.
+- Verified all evidence dates precede the September 17 target game.
+- Verified 90 distinct live DET/BUF tags.
+- Verified only this handoff is changed by the completion commit.
 
-## Unresolved blockers and risks
+## Unresolved risks for later chunks
 
-1. Live metric names and the actual live count remain unverified.
-2. The live seven-metric difference between 70 code-eligible and the plan-reported 63 is unknown.
-3. DET/BUF team IDs, row counts, shared coverage, missing metrics, percentiles, tags, source dates, duplicates, counts, and latest included game IDs remain unverified.
-4. The plan's statement that the checked-in registry contains 59 metrics is inconsistent with the branch's current 73-metric registry. The Endpoint Plan must remain unedited in this chunk; Chunk C must resolve catalog semantics explicitly.
-5. A naive team-level `games_in_window` lookup can mismatch carry-forward ranking evidence. Contract work must use source-date-aligned counts or explicitly define an honest unavailable state.
-6. Six-lens readiness cannot be declared until both live evidence and Chunk B's frontend rules are available.
+1. Chunk B must supply the exact frontend six-lens rules before lens readiness can be claimed.
+2. Chunk C must define whether the response's `metric_catalog` means the live league catalog, union of team metrics, registry catalog, or another explicit denominator.
+3. Chunk C must freeze source-date-aligned `games_in_window` behavior.
+4. Chunk C must decide the endpoint's runtime duplicate-protection policy because the helper's dictionary reshape cannot detect overwritten duplicates.
+5. Chunk C must define partial-lens handling for DET's missing `fourth_down_pct`.
+6. The seven code-eligible snap metrics have no live ranking rows at this snapshot; they must not be fabricated or silently counted as live coverage.
 
 ## Next recommended chunk
 
-**Repeat/finish Chunk A with authorized read-only BigQuery access.** Do not proceed to Chunk B or contract freezing on the assumption that the reported 63 rows remain current. Once the live inventory is captured and reconciled, Chunk A can be marked complete and the roadmap can advance to Chunk B.
+**Chunk B — Obtain the exact frontend contract.** Chunk A's evidence gate is satisfied. Chunk B remains documentation/interface discovery only and must not begin implementation or contact Lovable directly; Christian owns all Lovable communication.
 
 ## Ready-to-copy prompt for the next chat
 
 ```text
 [@GitHub](plugin://github@openai-curated-remote) Continue GameLens on branch feature/matchup-lens-api in csells10/meow.
 
-This chat is a narrow continuation of Chunk A only. Do not create additional agents and do not begin Chunk B or implementation.
+This is a controlled execution of Chunk B only: obtain the exact frontend contract.
+
+Use the model and effort assigned to Chunk B in documentation/New API/GameLens_Matchup_Lens_API_Product_Roadmap.md. Keep the task narrow. Do not create additional agents. Do not proceed to Chunk C or any later chunk.
 
 First read completely, in order:
 1. documentation/New API/GameLens_Matchup_Lens_API_Endpoint_Plan.md
 2. documentation/New API/GameLens_Matchup_Lens_API_Product_Roadmap.md
 3. documentation/New API/handoffs/Chunk_A_Evidence_Inventory_Handoff.md
 
-Chunk A is currently blocked only because the prior environment lacked live BigQuery access. Use authorized read-only BigQuery access and run the handoff's six inventory checks against nfl-stream-406420 for game 20260917_DET@BUF, regular_season_to_date, ranking as_of_date 2026-09-14.
+Chunk A is complete. Treat its live 59/73/70/63 reconciliation, DET/BUF coverage, September 13 source dates, one-game counts, latest included game IDs, duplicate findings, and 90-tag vocabulary as the accepted evidence basis.
 
-Requirements:
-- Resolve canonical DET/BUF team IDs from the configured schedule table.
-- Capture project/dataset/table, selection date, query grain, and UTC retrieval time.
-- Reconcile the 59 plan-sample metrics, 73 checked-in registry metrics, 70 code-eligible metrics, and the actual live metric set by exact name.
-- Report DET/BUF metric counts, shared/missing sets, source dates, percentile null/range results, tag vocabulary, exclusions, raw duplicate grains, games_in_window, and latest_included_game_id.
-- Align windowed evidence to each ranking row's source_data_date; do not attach a newer unrelated snapshot.
-- Perform no BigQuery writes and make no code, test, service, route, query, pipeline, schema, table, scheduler, learning, orchestrator, Endpoint Plan, or Product Roadmap changes.
-- If access is still unavailable, update only the handoff with the exact blocked check and remain blocked.
-- If the live acceptance gate passes, update the existing handoff status to complete with actual results and provenance.
-- Commit and push only the Chunk A handoff update to feature/matchup-lens-api.
+For Chunk B:
+- Use Endpoint Plan §§10–11 and the roadmap's Chunk B brief.
+- Prepare one consolidated question packet for Christian to send to Lovable.
+- Request the exact current LensSnapshot and team-row TypeScript interfaces; six-lens definitions; required tags and inputs; weights/modifiers/exclusions; missing/null behavior; 0–100 percentile expectation; authenticated API helper/base URL; cache behavior; and smallest adapter insertion point.
+- Produce a normalized field-mapping handoff and unresolved-question list.
+- Do not contact Lovable yourself.
+- Do not infer missing formulas or eligibility rules.
+- Do not change application code, tests, services, routes, queries, pipelines, schemas, tables, jobs, learning systems, orchestrator state, the Endpoint Plan, or Product Roadmap.
+- Do not deploy or merge.
+- Create documentation/New API/handoffs/Chunk_B_Frontend_Contract_Handoff.md.
+- The handoff must include status, branch/starting commit, scope, accepted Chunk A inputs, the ready-to-copy Lovable question packet, returned answers if Christian provides them in the chat, normalized field mapping, unresolved blockers, files changed, validation, next recommended chunk, and a complete prompt for the following chat.
+- If Lovable's answers are not returned in the same chat, mark Chunk B blocked and stop.
+- Commit and push only the new or updated Chunk B handoff to feature/matchup-lens-api.
 - Report the commit SHA and local fast-forward commands.
-- Stop after Chunk A.
+- Stop after Chunk B.
 ```
