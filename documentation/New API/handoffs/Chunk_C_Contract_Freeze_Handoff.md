@@ -1,14 +1,15 @@
 # Chunk C — Matchup Lens Contract Freeze Handoff
 
-**Status:** complete  
+**Status:** complete; post-freeze documentation amendment PASS; implementation/live validation blocked  
 **Branch:** `feature/matchup-lens-api`  
 **Starting commit:** `08192f10a2cfd07d2b3b711f6265607e60ef70b9`  
 **Assigned model / effort:** `gpt-5.6-sol` / High  
-**Scope:** Chunk C only — documentation contract freeze; no implementation
+**Amendment starting commit:** `6fc17e0c378c64db0d2ffe823b307e86e35f2de8`  
+**Scope:** Chunk C post-freeze documentation amendment only; no Chunk D implementation
 
 ## Outcome
 
-Chunk C is **complete**. The separate contract decision record freezes `matchup_lens_v1`, every required HTTP state, runtime catalog and coverage semantics, source-date alignment, raw duplicate protection, lens readiness, numeric validation, display-field derivation, the two-team rank safeguard, named metric coverage, synthetic fixture requirements, and exact D/E file ownership.
+Chunk C is **complete**, including this post-freeze documentation amendment. The controlling record now aligns `matchup_lens_v1` with verified live BigQuery and Lovable evidence: `context` is valid transport evidence but not scoring/readiness evidence, and production provenance strings `numerator`/`denominator` are not response fields and must not be coerced.
 
 No application code, existing test, service, route, query, pipeline, schema, table, scheduled job, learning system, orchestrator state, Endpoint Plan, or Product Roadmap was changed. No deployment, merge, Lovable contact, or BigQuery write occurred.
 
@@ -20,7 +21,7 @@ The frozen implementation contract is:
 
 If this handoff and the detailed record appear to differ, the detailed record controls.
 
-## Accepted Chunk A and Chunk B evidence
+## Accepted Chunk A, Chunk B, and post-freeze live evidence
 
 | Evidence | Accepted result |
 |---|---|
@@ -38,8 +39,14 @@ If this handoff and the detailed record appear to differ, the detailed record co
 | Percentiles | Upstream polarity-corrected 0–100 |
 | API/frontend seam | Existing Firebase client, game-ID key, static source hazards, and adapter location known |
 | Rank blocker | Two response teams would produce false ranks out of two |
+| Live smoke outcome | `409 INVALID_METRIC_EVIDENCE`; failed, not passed |
+| Live aligned dates | Snapshot `2026-09-14`; source `2026-09-13` |
+| Live aligned inventory | BUF 63 / DET 62 / shared 62; dynamic, not fixed denominators |
+| Live consistency | Raw/helper metric keys match; no catalog definition conflicts |
+| Valid transport signals | `strong`, `supporting`, `context` |
+| Live provenance fields | `numerator`/`denominator` are strings unused by Lovable |
 
-No discovery result was rerun. No unresolved A/B fact was filled by pretending it had been observed.
+The original A/B discovery was not rerun. The post-freeze rows above are separately verified live evidence supplied after the `409` smoke failure; the failure is not relabeled as a passing endpoint run.
 
 ## Frozen decisions and rationale
 
@@ -76,7 +83,7 @@ All keys are required; nullable fields are explicit. Available responses require
 
 The catalog is the sorted distinct league ranking metric set at the exact selected `as_of_date` and `window_type`. It is not a fixed 59, 63, 70, or 73 list.
 
-Away/home counts are distinct validated keys for each canonical team. Shared is the set intersection. Missing lists are runtime catalog minus each team's key set. All are computed after raw duplicate validation.
+Away/home counts are distinct validated keys for each canonical team. Shared is the set intersection. Missing lists are runtime catalog minus each team's key set. All are computed after raw duplicate validation. These top-level catalog/team counts include valid `context` evidence and preserve the live 63/62/62 inventory semantics without creating a fixed denominator.
 
 ### Source alignment
 
@@ -92,7 +99,7 @@ Top-level availability requires both scheduled teams. Once both teams are repres
 
 ### Six-lens ownership
 
-The frontend retains all numeric scoring and language. The backend returns only readiness metadata derived from the exact current include/exclude tags. No score or weighting formula is reimplemented by the backend.
+The frontend retains all numeric scoring and language. The backend returns only readiness metadata derived from the exact current include/exclude tags plus signal eligibility. A metric is readiness-eligible only when its tags qualify and its signal is `strong` or `supporting`; `context` is excluded from lens denominators and lens missing lists. No score or weighting formula is reimplemented by the backend.
 
 DET's absent `fourth_down_pct` makes its Drive Control readiness partial, BUF complete, and the comparison partial. The existing frontend score remains calculable from remaining metrics and retains its renormalization; the asymmetry must be visibly warned instead of remaining silent.
 
@@ -100,8 +107,9 @@ DET's absent `fourth_down_pct` makes its Drive Control readiness partial, BUF co
 
 - Null percentile is valid and skipped by the adapter.
 - NaN, Infinity, below 0, or above 100 fails with `INVALID_METRIC_EVIDENCE`.
-- Raw values may be any finite number or null.
-- `signal_strength` must be exactly `strong` or `supporting`.
+- Raw `value` may be any finite number or null.
+- `signal_strength` must be exactly `strong`, `supporting`, or `context`; null, unknown, and differently cased values remain `409 INVALID_METRIC_EVIDENCE`.
+- `numerator` and `denominator` are removed from `MatchupLensMetric`, its exact field order, and numeric validation. Their production values are provenance strings unused by Lovable; do not coerce them.
 - Counts/ranks obey the frozen integer bounds; `allow_nan=False` is mandatory.
 
 ### League-standing decision
@@ -120,7 +128,7 @@ Their 12 hardcoded metric-name consumers remain a separate `named_metric_coverag
 
 ### Later frontend expectations
 
-The record freezes loading, invalid/unknown, `available:false`, partial, 401, 403, 504, retry, query-key, persistence, no-static-fallback, no-preseason-flash, and no-previous-game-placeholder behavior. Client AbortSignal support is deferred; backend upstream timeout mapping is included.
+The record freezes loading, invalid/unknown, `available:false`, partial, 401, 403, 504, retry, query-key, persistence, no-static-fallback, no-preseason-flash, and no-previous-game-placeholder behavior. The later adapter creates definitions and percentiles only for `strong`/`supporting`, omits `context`, never coerces signals, and sends no numeric weights; existing frontend weights/formulas remain frontend-owned. Client AbortSignal support is deferred; backend upstream timeout mapping is included.
 
 ## Synthetic fixture coverage
 
@@ -138,7 +146,8 @@ The decision record labels every fixture as synthetic and defines:
 - source-alignment conflict;
 - duplicate ranking rows;
 - null/NaN/Infinity/below-range/above-range percentile behavior;
-- invalid signal strength;
+- valid `context` transport with readiness/adapter exclusion;
+- null, unknown, and differently cased invalid signal strength;
 - 401/403 authentication/authorization states;
 - upstream timeout;
 - unexpected server failure.
@@ -164,106 +173,50 @@ D must not touch `app.py`, existing services beyond the listed new file, tests, 
 
 E must not edit implementation or existing tests. It returns defects to D and verifies repairs.
 
-## Unresolved blockers and risks
+## Downstream status and obligations
 
-There is no product-decision blocker to beginning D after Christian explicitly authorizes implementation.
+This amendment resolves the contract mismatch but does not repair the endpoint.
 
-Known implementation/review risks are:
-
-1. The runtime catalog/raw-boundary guarantee adds one ranking query job; D/E must measure it rather than silently remove it.
-2. The exact source-aligned games lookup adds one windowed query job.
-3. Flask route specificity must be proven so `/game/<id>/lens-context` reaches the new handler and `/game/<id>` remains unchanged.
-4. League Standing and trace ordinal output are intentionally suppressed for v1.
-5. Current frontend request primitives do not cancel in-flight requests or enforce a client timeout.
+1. Chunk D must implement the amended signal validation, readiness filtering, response field order, and omission of `numerator`/`denominator`.
+2. Chunk D must preserve the full dynamic catalog and top-level/team coverage for `context` evidence and must not change league-context suppression or any unrelated frozen choice.
+3. Chunk E remains blocked until the D repair is committed and a live read-only BigQuery smoke request succeeds.
+4. Chunk E must verify valid `context`, all three invalid-signal classes, unchanged 63/62/62-style dynamic coverage behavior, adapter obligations, and the absence of the two removed response fields.
+5. No endpoint, BigQuery, deployment, or frontend PASS is claimed by this documentation-only amendment.
 
 ## Files changed
 
-- Added `documentation/New API/GameLens_Matchup_Lens_API_Contract_Decision_Record.md`.
-- Added `documentation/New API/handoffs/Chunk_C_Contract_Freeze_Handoff.md`.
+- Updated `documentation/New API/GameLens_Matchup_Lens_API_Contract_Decision_Record.md`.
+- Updated `documentation/New API/handoffs/Chunk_C_Contract_Freeze_Handoff.md`.
 
-No other file was changed.
+No other file is part of this amendment.
 
 ## Validation performed
 
-- Confirmed the branch started exactly at completed Chunk B commit `08192f10a2cfd07d2b3b711f6265607e60ef70b9`.
-- Confirmed only A and B handoffs existed before Chunk C.
-- Read the Endpoint Plan, Product Roadmap, Chunk A, and Chunk B completely in the required order.
-- Checked every required state against an exact HTTP status, safe code, and message.
-- Checked every schema field for required/nullable/type/number/date rules.
-- Reconciled catalog and coverage definitions with the 59/73/70/63 evidence.
-- Reconciled source-aligned counts with the accepted September 13 source dates.
-- Prevented dictionary reshaping from being claimed as a duplicate guarantee.
-- Reconciled DET's missing `fourth_down_pct` with current Drive Control scoring.
-- Kept named metric consumers separate from tag-based lens readiness.
-- Evaluated all three requested rank-blocker options and selected the smallest honest slice.
-- Allocated one writer per D/E file and assigned all persisted tests to E.
-- Confirmed no application code or protected system was changed.
+- Confirmed the branch head was exactly `6fc17e0c378c64db0d2ffe823b307e86e35f2de8` before writing.
+- Read both authorized files completely.
+- Consulted only the directly relevant Chunk B signal/adapter sections and Chunk E live-validation status.
+- Reconciled the amended schema, exact metric field order, validation rules, catalog coverage, lens readiness, adapter behavior, and downstream ownership.
+- Preserved the live snapshot/source dates, BUF/DET/shared 63/62/62 inventory, raw/helper key agreement, and absence of definition conflicts.
+- Preserved league-context suppression and all unrelated frozen decisions.
+- Confirmed this is a documentation-contract PASS only. The live smoke remains failed with `409`; the endpoint and BigQuery validation are not marked passed.
 
-## Ready-to-copy prompt for Chunk D
+## Amendment verdict
+
+**PASS — documentation amendment only.** Chunk D repair is required. Chunk E remains blocked until the repair and a successful live read-only BigQuery smoke validation.
+
+## Ready-to-copy prompt for the narrow Chunk D repair
 
 ```text
-[@GitHub](plugin://github@openai-curated-remote) Continue GameLens on branch `feature/matchup-lens-api` in `csells10/meow`.
+Continue GameLens on branch `feature/matchup-lens-api` in `csells10/meow`.
 
-This is a controlled execution of Chunk D only: implement the frozen Matchup Lens backend endpoint.
+Execute only the post-freeze Chunk D repair defined in the amended controlling contract and Chunk C handoff. Do not begin Chunk E, deployment, frontend work, or unrelated cleanup.
 
-Use the model and effort assigned to Chunk D in the Product Roadmap:
+Implement these exact corrections:
 
-- Model: `gpt-5.6-terra`
-- Effort: Medium
+- Accept only `strong | supporting | context` as transported signal strengths; null, unknown, or differently cased values remain `409 INVALID_METRIC_EVIDENCE`.
+- Keep `context` in the dynamic catalog, team metric maps, and top-level/team coverage, but exclude it from lens readiness denominators and missing lists.
+- Remove `numerator` and `denominator` from `MatchupLensMetric` serialization, field order, and numeric validation. They are production provenance strings unused by Lovable; do not coerce them.
+- Preserve all other fields, existing frontend-owned weights/formulas, and league-context suppression.
 
-Keep the task narrow. Do not create additional agents. Do not begin Chunk E, deployment, or frontend work.
-
-Before writing, confirm the branch head contains the completed Chunk C contract record and handoff. Then read these files completely, in order:
-
-1. `documentation/New API/GameLens_Matchup_Lens_API_Endpoint_Plan.md`
-2. `documentation/New API/GameLens_Matchup_Lens_API_Product_Roadmap.md`
-3. `documentation/New API/handoffs/Chunk_A_Evidence_Inventory_Handoff.md`
-4. `documentation/New API/handoffs/Chunk_B_Frontend_Contract_Handoff.md`
-5. `documentation/New API/GameLens_Matchup_Lens_API_Contract_Decision_Record.md`
-6. `documentation/New API/handoffs/Chunk_C_Contract_Freeze_Handoff.md`
-7. Any later existing handoffs, ordered by chunk letter and date
-
-Treat Chunk C's decision record as the controlling implementation contract. Do not reopen its product choices or edit it.
-
-Implement only these owned paths:
-
-- Add `services/matchup_lens_service.py`.
-- Edit `queries/game_queries.py` only to append isolated, parameterized, read-only endpoint helpers for:
-  1. the single raw ranking boundary/runtime-catalog read;
-  2. the exact source-date-aligned windowed lookup.
-- Edit `routes/game_routes.py` only to add the Firebase-authenticated `GET /game/<path:game_id>/lens-context` handler and its service import.
-- Add `documentation/New API/handoffs/Chunk_D_Backend_Implementation_Handoff.md`.
-
-Do not touch `app.py`; the game blueprint is already registered. Do not alter existing functions, `/game/<game_id>`, `/games`, existing services, tests, fixtures, runtime configuration, dependencies, pipelines, tables, schemas, scheduled jobs, learning systems, or orchestrator state. Do not edit the Endpoint Plan, Product Roadmap, contract decision record, or A/B/C handoffs.
-
-Implementation requirements:
-
-1. Preserve the exact `matchup_lens_v1` schema, ordering, field nullability, finite-number rules, ISO dates, reason codes, messages, and state matrix.
-2. Use the existing `@require_firebase_auth` policy and its unchanged 401/403 bodies.
-3. Validate only the game-ID structure; derive all canonical game/team/season/window identity from `get_game_header()` and `select_window_type()`.
-4. Reuse `get_team_rankings_for_game(game_id)` without a metric allowlist and without changing its behavior.
-5. Before trusting its dictionaries, run the one additional raw-boundary ranking read and detect duplicate canonical-team grain at `season + as_of_date + window_type + metric + team_id`.
-6. Build the runtime catalog dynamically from the exact league snapshot. Never hardcode 59, 63, 70, or 73.
-7. Use the exact source-date-aligned windowed lookup. Never attach a newer pregame count to older ranking evidence.
-8. Require both canonical teams for top-level availability. Keep individual lens partial/unavailable states local to that lens.
-9. Return readiness metadata only; do not calculate scores or duplicate frontend weights.
-10. Preserve nullable percentiles. Reject NaN, Infinity, values below 0, values above 100, and invalid signal strength exactly as frozen.
-11. Return only the two matchup teams and the frozen suppression metadata. Do not add league-wide team evidence or precomputed standings.
-12. Return the separate named metric coverage for all 12 Collision/Turnover Watch consumers without using it as an allowlist.
-13. Serialize deterministically with `allow_nan=False` and no internal exception details.
-14. Map supported upstream deadline exceptions to the frozen 504 response; map unexpected exceptions to the frozen 500 response.
-
-Chunk D owns no persisted tests or fixtures. You may run existing tests unchanged and use non-persisted local exercises, but do not add or edit any test file. Chunk E will independently add endpoint tests after D.
-
-Do not deploy, merge, contact Lovable, or perform BigQuery writes. Do not invoke scheduled jobs, learning flows, or orchestrator flows.
-
-Before committing:
-
-- inspect the complete diff;
-- prove only the four authorized D paths changed;
-- verify the nested route exists without changing the existing route;
-- run safe relevant existing checks;
-- record commands, results, unresolved risks, and exact changed paths in the Chunk D handoff.
-
-Commit and push only the authorized Chunk D files to `feature/matchup-lens-api`. Report the resulting commit SHA and my local fast-forward commands. Stop after Chunk D and wait for explicit authorization before Chunk E.
+Add or update only the D-owned implementation/handoff paths required for this repair. Run the relevant safe tests, inspect the complete diff, commit and push, then stop. Chunk E must independently verify the repair and a live read-only BigQuery smoke request must succeed before E can pass.
 ```

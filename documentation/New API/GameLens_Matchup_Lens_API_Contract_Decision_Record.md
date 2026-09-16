@@ -1,11 +1,12 @@
 # GameLens Matchup Lens API Contract Decision Record
 
-**Status:** frozen for review; no implementation authorized by this record  
+**Status:** post-freeze amendment recorded; implementation repair required; Chunk E blocked  
 **Contract:** `matchup_lens_v1`  
 **Branch:** `feature/matchup-lens-api`  
 **Starting commit:** `08192f10a2cfd07d2b3b711f6265607e60ef70b9`  
 **Chunk:** C only  
-**Assigned model / effort:** `gpt-5.6-sol` / High
+**Assigned model / effort:** `gpt-5.6-sol` / High  
+**Post-freeze amendment:** 2026-09-16 — live BigQuery/Lovable smoke repair contract
 
 ## 1. Decision summary
 
@@ -18,6 +19,8 @@ GET /game/<encoded-game-id>/lens-context
 The endpoint is authenticated, read-only, game-ID authoritative, dynamically cataloged, pregame-safe, and limited to the canonical away and home teams. It does not calculate new lens scores, modify the six existing formulas, or alter `/game/<game_id>`.
 
 The endpoint returns `200` with `available: false` for expected evidence absence, `400` for a structurally invalid ID, `404` for an unknown game, `409` for evidence that exists but fails an integrity or safety check, `504` for an upstream deadline, and `500` for an unexpected failure. Existing Firebase authentication owns `401` and `403` bodies.
+
+A post-freeze amendment was required after a live read-only smoke request failed with `409 INVALID_METRIC_EVIDENCE`. Verified production evidence includes the transported signal `context`, and the production `numerator`/`denominator` values are provenance strings unused by Lovable. The amendment accepts `context` without making it scoring-eligible and removes those two provenance fields from the response contract rather than coercing them.
 
 One additional endpoint-specific raw ranking read is required before any metric-keyed dictionary is trusted. It provides the runtime league catalog and preserves raw canonical-team rows long enough to detect duplicates. A separate source-aligned windowed read supplies `games_in_window` and `latest_included_game_id` for the exact source date of each selected ranking row.
 
@@ -44,6 +47,9 @@ Chunk C accepts Chunk A and Chunk B without rerunning or extending their discove
 | Missing percentile behavior | Skip; never zero-fill; renormalize remaining weights |
 | Minimum score evidence | One eligible numeric metric |
 | Percentile contract | Polarity-corrected 0–100 |
+| Valid transported signal strengths | `strong`, `supporting`, `context` |
+| Live smoke result | `409 INVALID_METRIC_EVIDENCE`; contract/implementation mismatch, not an accepted endpoint pass |
+| Live raw/helper agreement | Canonical raw and helper metric keys match; no catalog definition conflicts |
 
 None of 59, 63, 70, or 73 is a runtime allowlist or fixed denominator.
 
@@ -181,7 +187,7 @@ interface MatchupLensBasis {
   window_source: string;
 }
 
-type SignalStrength = "strong" | "supporting";
+type SignalStrength = "strong" | "supporting" | "context";
 
 interface MatchupLensMetric {
   metric: string;
@@ -194,8 +200,6 @@ interface MatchupLensMetric {
   higher_is_better: boolean | null;
   raw_or_derived: string | null;
   aggregation_method: string | null;
-  numerator: FiniteNumber | null;
-  denominator: FiniteNumber | null;
   format: string | null;
   decimals: NonNegativeInteger | null;
   notes: string | null;
@@ -327,7 +331,7 @@ interface MatchupLensV1Response {
 
 The runtime `metric_catalog` is the lexicographically sorted set of distinct, non-empty metric names present anywhere in the league ranking table at the exact selected `as_of_date` and `window_type`. It is not the Endpoint Plan's 59-name sample, the 73-name registry, the 70 code-eligible set, or a fixed 63-name snapshot.
 
-The endpoint-specific raw-boundary read must also establish one consistent catalog definition per metric for the fields the adapter uses: `label`, `signal_strength`, and `lens_tags`. Conflicting values across raw rows for the same metric produce `409 INVALID_METRIC_EVIDENCE`; the builder must not pick an arbitrary row.
+The endpoint-specific raw-boundary read must also establish one consistent catalog definition per metric for the transported fields `label`, `signal_strength`, and `lens_tags`. Conflicting values across raw rows for the same metric produce `409 INVALID_METRIC_EVIDENCE`; the builder must not pick an arbitrary row.
 
 Coverage is defined as follows:
 
@@ -338,7 +342,7 @@ Coverage is defined as follows:
 - `missing_away_metrics`: `metric_catalog - away_metric_keys`.
 - `missing_home_metrics`: `metric_catalog - home_metric_keys`.
 
-The catalog and every missing list are ordered lexicographically. Counts are computed after raw duplicate validation, never from an overwrite-prone dictionary alone.
+The catalog and every top-level missing list are ordered lexicographically. Counts are computed after raw duplicate validation, never from an overwrite-prone dictionary alone. These full catalog and team coverage values include valid `context` metrics. The verified live inventory therefore retains its dynamic 63/62/62 semantics for BUF/DET/shared metric keys; none of those counts is a fixed denominator.
 
 ## 7. Raw duplicate protection
 
@@ -404,7 +408,9 @@ The backend owns only readiness metadata, using the exact existing eligibility r
 
 `rare-event` is excluded from every lens. Exclusion wins over inclusion. Readiness ignores weights/modifiers because it does not calculate a score.
 
-For each lens, `catalog_eligible_metric_count` is the number of runtime catalog metrics whose consistent catalog tags pass that lens's include/exclude rules. A team metric is numerically eligible only when that metric is present and has a finite `league_percentile` from 0 through 100.
+A metric is readiness-eligible only when its consistent catalog tags pass the existing include/exclude rules **and** `signal_strength` is `strong` or `supporting`. A valid `context` metric remains in transport, `metric_catalog`, team metric maps, and top-level/team coverage, but it is non-scoring and non-readiness-eligible.
+
+For each lens, `catalog_eligible_metric_count` is the number of runtime catalog metrics that pass both the tag rule and the scoring-signal rule. A team metric is numerically eligible only when that readiness-eligible metric is present and has a finite `league_percentile` from 0 through 100. Lens `missing_metrics` is computed only from this readiness-eligible set; `context` metrics are excluded from lens denominators and lens missing lists.
 
 - `complete`: expected count is positive and every expected metric is numerically eligible.
 - `partial`: at least one but fewer than all expected metrics are numerically eligible.
@@ -420,8 +426,8 @@ For the accepted DET/BUF evidence, missing `fourth_down_pct` makes DET Drive Con
 The later adapter maps:
 
 - canonical `team_id` and `team_abv` from `game`/`teams`, never URL `a` or `b`;
-- `metric`, `label`, `signal_strength`, and `lens_tags` into `MetricDefinition`;
-- only finite, in-range, non-null `league_percentile` values into `TeamMetricRow.percentiles`;
+- only metrics whose `signal_strength` is `strong` or `supporting` into `MetricDefinition`, mapping `metric`, `label`, `signal_strength`, and `lens_tags`;
+- only finite, in-range, non-null `league_percentile` values for those same strong/supporting metrics into `TeamMetricRow.percentiles`;
 - `basis.as_of_date` into `LensSnapshot.asOfDate`;
 - backend `display.window_label`, `games_label`, and `context_label` directly;
 - team `latest_source_date` and `data_lag_days` directly.
@@ -432,15 +438,16 @@ The backend derives display values exactly:
 - `games_label`: `<AWAY>: <n> game|games | <HOME>: <n> game|games`, with singular only for 1. Example: `DET: 1 game | BUF: 1 game`.
 - `context_label`: `Pregame evidence through <as_of_date>; comparison, not forecast.`
 
-The adapter must omit a metric key from `percentiles` when `league_percentile` is null. It must not map null to zero.
+The adapter must omit a metric key from `percentiles` when `league_percentile` is null. It must omit `context` metrics from both frontend definitions and percentiles, never coerce `context` to another signal, and never send numeric weights. The existing 2/1 weights and 0.5/0.75 modifiers remain frontend-owned. It must not map null to zero.
 
 ## 11. Numeric and field validation
 
 - `league_percentile = null`: valid transport value; omitted from adapted percentiles and reflected in readiness.
 - `league_percentile = NaN` or ±Infinity: `409 INVALID_METRIC_EVIDENCE`.
 - `league_percentile < 0` or `> 100`: `409 INVALID_METRIC_EVIDENCE`.
-- Raw `value`, `numerator`, or `denominator`: finite JSON number or null; no 0–100 bound.
-- `signal_strength`: exactly `strong` or `supporting`; null, unknown, or differently cased values fail with `409 INVALID_METRIC_EVIDENCE`.
+- Raw `value`: finite JSON number or null; no 0–100 bound.
+- `numerator` and `denominator` are not fields of `MatchupLensMetric`. Their live production values are provenance strings unused by Lovable; the endpoint must not transport, numerically validate, or coerce them.
+- `signal_strength`: exactly `strong`, `supporting`, or `context`; null, unknown, or differently cased values fail with `409 INVALID_METRIC_EVIDENCE`.
 - `lens_tags`: an array of non-empty strings. Trim, de-duplicate, and sort; a null/non-array/member of another type fails with `409 INVALID_METRIC_EVIDENCE`.
 - `games_in_window`, `data_lag_days`, and `decimals`: integer bounds defined by the schema; booleans fail.
 - `league_rank` and `teams_ranked`: positive integers or null. If both are present, `league_rank <= teams_ranked`.
@@ -657,7 +664,10 @@ Each non-auth fixture uses the full envelope from §5, `metric_catalog: []`, `te
 | `window_mismatch` | 409 | false | `WINDOW_MISMATCH` | Ranking row window differs from selected window |
 | `source_alignment_conflict` | 409 | false | `SOURCE_ALIGNMENT_CONFLICT` | Same team has conflicting synthetic game counts |
 | `duplicate_ranking_rows` | 409 | false | `DUPLICATE_RANKING_ROWS` | Two raw rows at the same protected grain |
+| `valid_context_signal_strength` | 200 | true | null | `signal_strength: context`; transported and counted in catalog/team coverage, excluded from lens readiness and later adapter definitions/percentiles |
 | `invalid_null_signal_strength` | 409 | false | `INVALID_METRIC_EVIDENCE` | `signal_strength: null` |
+| `invalid_unknown_signal_strength` | 409 | false | `INVALID_METRIC_EVIDENCE` | `signal_strength: other` |
+| `invalid_cased_signal_strength` | 409 | false | `INVALID_METRIC_EVIDENCE` | `signal_strength: Context` |
 | `invalid_nan_percentile` | 409 | false | `INVALID_METRIC_EVIDENCE` | Python input is NaN before JSON serialization |
 | `invalid_infinite_percentile` | 409 | false | `INVALID_METRIC_EVIDENCE` | Python input is Infinity before JSON serialization |
 | `invalid_low_percentile` | 409 | false | `INVALID_METRIC_EVIDENCE` | `league_percentile: -0.01` |
@@ -697,8 +707,25 @@ Chunk E must not edit implementation files or existing tests. Defects return to 
 - No deploy, merge, Lovable contact, or BigQuery write is authorized.
 - Client-side AbortSignal/timeout remains deferred; backend upstream timeout mapping is included.
 - League Standing and trace rank output remain suppressed until a separately approved league-context contract exists.
+- Chunk D must implement this post-freeze amendment. Chunk E remains blocked until that repair is complete and a live read-only BigQuery smoke request succeeds.
 - The endpoint's runtime catalog depends on the additional raw ranking read. If its cost or latency is unacceptable in D/E measurement, that is a review blocker; it is not permission to fall back to fixed catalogs or dictionary-only uniqueness claims.
 
-## 19. Rationale
+## 19. Post-freeze amendment: live signal and provenance correction
+
+This amendment is prompted by verified live BigQuery and Lovable evidence after the original freeze. The read-only smoke request returned `409 INVALID_METRIC_EVIDENCE`; it did not pass. The aligned evidence was snapshot `2026-09-14`, source date `2026-09-13`, DET 62 metrics, BUF 63 metrics, 62 shared metrics, matching raw/helper keys, and no catalog definition conflicts.
+
+The controlling corrections are exact:
+
+- transported `signal_strength` accepts only `strong`, `supporting`, or `context`;
+- null, unknown, and differently cased signals still return `409 INVALID_METRIC_EVIDENCE`;
+- `context` is valid transported evidence included in the dynamic catalog, team metric maps, and top-level/team coverage, but excluded from lens eligibility, denominators, and lens missing lists;
+- the later adapter creates frontend metric definitions and percentile entries only for `strong`/`supporting`, omits `context`, performs no signal coercion, and sends no numeric weights;
+- `numerator` and `denominator` are removed from `MatchupLensMetric` and its exact field order and numeric-validation rules; no other metric field changes;
+- live `numerator`/`denominator` values are provenance strings unused by Lovable and must not be coerced;
+- the existing frontend weights, modifiers, formulas, and all league-context suppression behavior remain unchanged.
+
+Chunk D must implement these corrections before verification can continue. Chunk E remains blocked until the D repair is complete and the live read-only BigQuery smoke request succeeds. This documentation amendment is a PASS for contract alignment only; it does not claim that the endpoint or BigQuery validation passed.
+
+## 20. Rationale
 
 The frozen design prioritizes honest evidence over apparent completeness. Expected absence remains a usable `200` state, malformed or unsafe evidence cannot masquerade as valid, DET's Drive Control remains calculable without hiding its denominator difference, and the two-team endpoint cannot generate false league ranks. The added reads are the minimum required to support the guarantees already requested: one preserves ranking grain/catalog truth, and one aligns game counts to the exact historical source date.
