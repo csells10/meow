@@ -1,26 +1,38 @@
 # Chunk E — Independent Endpoint Verification Handoff
 
-**Status:** complete — failed; Chunk D repair authorization required
-**Verdict:** **FAIL**
+**Status:** complete — PASS after contract amendment and narrow Chunk D repairs
+**Verdict:** **PASS**
 **Branch:** feature/matchup-lens-api
-**Verified branch head:** 3e2dcef7f189dce1af2959541f27fb3c074b8701
+**Original verified implementation head:** 3e2dcef7f189dce1af2959541f27fb3c074b8701
+**Final verified code/test head:** 108fc4109d6bb1596e4ad6dfadf525a41ed2dfd9
 **Assigned model / effort:** gpt-5.6-sol / High
 **Scope:** Chunk E endpoint-specific verification only
 
 ## Outcome
 
-Chunk E independently verified the frozen Matchup Lens endpoint with clearly
-labeled synthetic data. Thirty-five endpoint checks passed. Two endpoint checks
-failed and reproduce narrow Chunk D contract defects. The relevant unchanged
-window-selection regression tests also passed.
+Chunk E now **passes** after the two original implementation defects were
+repaired, the live BigQuery/Lovable mismatch was resolved through the
+post-freeze Chunk C amendment and corresponding Chunk D repair, and the
+E-owned tests were updated independently to the amended contract.
 
-No implementation file was repaired or edited. No deployment, merge, frontend
-work, Lovable communication, BigQuery write, scheduled job, learning flow, or
-orchestrator flow was performed.
+Final evidence:
 
-The branch must stop here for explicit Chunk D repair authorization. Chunk F is
-not authorized while this verdict is failed.
+- local automated verification: **42 passed, 8 subtests passed in 2.76s**;
+- authenticated read-only live BigQuery builder smoke:
+  **200 / available:true / reason:null**;
+- live catalog / DET / BUF / shared counts: **63 / 62 / 63 / 62**;
+- 16 known `context` metrics transported without entering readiness;
+- production provenance strings are not serialized as `numerator` or
+  `denominator`;
+- deterministic response bytes, date-derived lag, exact source alignment,
+  warning order, and league-rank suppression all passed.
 
+The original failed reproductions and diagnosis remain below as historical
+evidence of what Chunk E found. They are resolved and no longer control the
+verdict.
+
+No deployment, merge, frontend work, BigQuery write, scheduled job, learning
+flow, or orchestrator flow was performed. Chunk F was not started.
 ## Starting-state confirmation
 
 - The GitHub-connected branch head was exactly
@@ -33,8 +45,8 @@ not authorized while this verdict is failed.
 
 ## Changed paths
 
-- Added tests/test_matchup_lens_endpoint.py.
-- Added documentation/New API/handoffs/Chunk_E_Verification_Handoff.md.
+- Added and later amended `tests/test_matchup_lens_endpoint.py`.
+- Added and finalized `documentation/New API/handoffs/Chunk_E_Verification_Handoff.md`.
 
 No fixture file was needed. Every source value in the test module is explicitly
 labeled synthetic. No other repository path is part of the Chunk E commit.
@@ -61,8 +73,8 @@ labeled synthetic. No other repository path is part of the Chunk E commit.
 | NaN, Infinity, below zero, above 100, bad signal, unsafe dates, window mismatch | Pass | Each maps to its frozen safe 409 reason |
 | 404, 504 DeadlineExceeded, safe 500 | Pass | Exact reason codes; synthetic internal exception details absent |
 | No write path | Pass | AST/source inspection finds no BigQuery mutation calls or SQL DML/DDL in the endpoint service or two endpoint query helpers |
-| Zero-game/latest-game invariant | **Fail** | Defect E-D-001 below |
-| Date-derived freshness lag | **Fail** | Defect E-D-002 below |
+| Zero-game/latest-game invariant | Pass after repair | Both contradictory directions map to `409 SOURCE_ALIGNMENT_CONFLICT` |
+| Date-derived freshness lag | Pass after repair | Metric, team, and basis lag derive from validated dates |
 
 ## Defect E-D-001 — zero games can retain a latest included game
 
@@ -141,7 +153,7 @@ The response trusts the helper field:
 The source dates remain safe, but the returned freshness is not the frozen
 date-derived value.
 
-## Commands and results
+## Original commands and results (pre-repair)
 
 Dependency-complete local verification environment:
 
@@ -181,37 +193,64 @@ The unchanged relevant regression file:
 
 Recorded result: 2 passed.
 
-## Live-validation status
+## Final repair verification
 
-**Blocked, not passed.** This execution environment has no approved live Google
-Cloud/BigQuery credentials. No live DET/BUF request or query was attempted.
-Therefore this handoff does not claim:
+### Automated suite
 
-- live DET/BUF endpoint acceptance;
-- live parameter/column-type compatibility;
-- added-query latency or cost;
-- deployed route behavior.
+Christian fast-forwarded the E test amendment commit
+`108fc4109d6bb1596e4ad6dfadf525a41ed2dfd9` and ran:
 
-Chunk A's accepted live evidence remains provenance, but it is not relabeled as
-a Chunk E live run.
+    python -m pytest -q tests/test_matchup_lens_endpoint.py tests/test_game_window_selection.py
+
+Result:
+
+    42 passed, 8 subtests passed in 2.76s
+
+The amended synthetic coverage additionally proves:
+
+- production-shaped string provenance inputs are ignored and the removed
+  `numerator`/`denominator` fields are absent from exact metric output;
+- exact lowercase `context` is transported and included in catalog/team
+  coverage while excluded from readiness denominators and missing lists;
+- null, unknown, and differently cased signals fail safely;
+- all original E-D-001 and E-D-002 reproductions now pass.
+
+### Live BigQuery smoke
+
+**PASS.** Christian ran the repaired builder from the local authenticated
+`nfl` virtual environment with production runtime configuration against
+`20260917_DET@BUF`. The smoke was read-only.
+
+Observed result:
+
+    Status: 200
+    Available: True
+    Reason: None
+    catalog / DET / BUF / shared: 63 / 62 / 63 / 62
+    context metrics transported: 16
+    warning codes:
+      ASYMMETRIC_LENS_EVIDENCE
+      LEAGUE_RANK_OUTPUT_SUPPRESSED
+      PARTIAL_LENS_EVIDENCE
+    BIGQUERY MATCHUP LENS SMOKE PASS
+
+The smoke executed the checked-in builder twice and asserted deterministic,
+newline-terminated JSON; the accepted snapshot/source dates
+`2026-09-14`/`2026-09-13`; exact DET/BUF source-aligned latest games;
+date-derived lag; omission of `numerator` and `denominator`; full dynamic
+coverage; and exclusion of known `context` metrics from readiness missing
+lists. No BigQuery write was performed.
 
 ## Residual risks
 
-1. The two defects above require a narrowly authorized Chunk D repair and a
-   rerun of the affected tests.
-2. Live read-only validation remains blocked on approved credentials.
-3. Query latency/cost for the league boundary read and exact alignment read is
-   unmeasured here.
-4. Runtime BigQuery column types were not independently exercised.
+1. Query latency and billed bytes for the additional boundary and exact
+   alignment reads were not separately benchmarked by this smoke.
+2. The authenticated deployed Cloud Run route has not been exercised because
+   deployment is outside Chunk E.
+3. The Lovable adapter and its no-static-fallback behavior remain Chunk F work.
 
 ## Required next action
 
-Authorize a narrow Chunk D repair for E-D-001 and E-D-002 only. Do not begin
-Chunk F. After the repair is committed to this branch, rerun:
-
-1. the two defect reproductions;
-2. the full endpoint test file;
-3. the unchanged window-selection regression file.
-
-Chunk E can then append a repair-verification result in a separately authorized
-follow-up. Until then the endpoint verification verdict remains **FAIL**.
+Chunk E is closed with a **PASS** verdict. Stop here and wait for explicit
+authorization before Chunk F. Do not deploy, merge, contact Lovable for
+implementation, or begin frontend adapter work under this handoff.
