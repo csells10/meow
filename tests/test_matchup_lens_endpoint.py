@@ -77,8 +77,6 @@ METRIC_ORDER = [
     "higher_is_better",
     "raw_or_derived",
     "aggregation_method",
-    "numerator",
-    "denominator",
     "format",
     "decimals",
     "notes",
@@ -145,6 +143,8 @@ def _synthetic_definitions() -> dict[str, tuple[str, list[str]]]:
         "td_rate": ("supporting", ["context"]),
         "red_zone_efficiency": ("supporting", ["context"]),
         "points_allowed_per_play": ("supporting", ["context"]),
+        # Known transport evidence that must not enter lens readiness/scoring.
+        "context_drive_metric": ("context", ["third-down"]),
         # Deliberately outside the two-team payload and old sample catalogs.
         "runtime_metric_beyond_old_catalog": ("supporting", ["context"]),
     }
@@ -167,8 +167,9 @@ def _metric_payload(
         "higher_is_better": True,
         "raw_or_derived": "synthetic",
         "aggregation_method": None,
-        "numerator": None,
-        "denominator": None,
+        # Production uses provenance names here; the amended endpoint ignores them.
+        "numerator": "synthetic_numerator_source",
+        "denominator": "synthetic_denominator_source",
         "format": "number",
         "decimals": 2,
         "notes": None,
@@ -508,6 +509,8 @@ def test_success_envelope_order_bytes_dynamic_catalog_and_two_teams(
     )
     first_metric = next(iter(payload["teams"]["away"]["metrics"].values()))
     assert list(first_metric) == METRIC_ORDER
+    assert "numerator" not in first_metric
+    assert "denominator" not in first_metric
     assert "allow_nan=False" in inspect.getsource(
         lens_service.serialize_matchup_lens_context
     )
@@ -805,6 +808,38 @@ def test_all_six_rows_named_coverage_warning_order_and_rank_suppression(
     )
 
 
+def test_context_signal_is_transported_counted_and_excluded_from_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = _synthetic_state()
+    _install_state(monkeypatch, state)
+
+    payload, status = lens_service.build_matchup_lens_context(
+        SYNTHETIC_GAME_ID
+    )
+    coverage = payload["coverage"]
+    drive = next(
+        row
+        for row in coverage["lens_readiness"]
+        if row["lens_key"] == "drive-control"
+    )
+
+    assert status == 200
+    assert payload["available"] is True
+    assert "context_drive_metric" in payload["metric_catalog"]
+    assert coverage["away_metric_count"] == len(state["helpers"]["away"])
+    assert coverage["home_metric_count"] == len(state["helpers"]["home"])
+    for side in ("away", "home"):
+        transported = payload["teams"][side]["metrics"][
+            "context_drive_metric"
+        ]
+        assert transported["signal_strength"] == "context"
+        assert drive[side]["catalog_eligible_metric_count"] == 2
+        assert drive[side]["eligible_numeric_metric_count"] == 2
+        assert "context_drive_metric" not in drive[side]["missing_metrics"]
+
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected_reason"),
     [
@@ -812,7 +847,9 @@ def test_all_six_rows_named_coverage_warning_order_and_rank_suppression(
         ("positive_infinity", "INVALID_METRIC_EVIDENCE"),
         ("negative_percentile", "INVALID_METRIC_EVIDENCE"),
         ("high_percentile", "INVALID_METRIC_EVIDENCE"),
-        ("bad_signal", "INVALID_METRIC_EVIDENCE"),
+        ("unknown_signal", "INVALID_METRIC_EVIDENCE"),
+        ("null_signal", "INVALID_METRIC_EVIDENCE"),
+        ("cased_signal", "INVALID_METRIC_EVIDENCE"),
         ("unsafe_source_date", "UNSAFE_EVIDENCE_DATES"),
         ("unsafe_as_of_date", "UNSAFE_EVIDENCE_DATES"),
         ("window_mismatch", "WINDOW_MISMATCH"),
@@ -833,8 +870,12 @@ def test_invalid_metric_date_and_window_states_fail_safely(
         target["league_percentile"] = -0.01
     elif mutation == "high_percentile":
         target["league_percentile"] = 100.01
-    elif mutation == "bad_signal":
+    elif mutation == "unknown_signal":
         target["signal_strength"] = "weak"
+    elif mutation == "null_signal":
+        target["signal_strength"] = None
+    elif mutation == "cased_signal":
+        target["signal_strength"] = "Context"
     elif mutation == "unsafe_source_date":
         target["source_data_date"] = "2099-01-01"
     elif mutation == "unsafe_as_of_date":
