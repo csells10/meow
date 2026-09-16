@@ -1,6 +1,6 @@
 # Chunk D — Backend Implementation Handoff
 
-**Status:** complete; narrow Chunk E defect repair complete
+**Status:** complete; post-freeze contract repair implemented; Chunk E re-verification pending
 **Branch:** `feature/matchup-lens-api`
 **Starting commit:** `83ebe7b`
 **Assigned model / effort:** `gpt-5.6-terra` / Medium
@@ -104,3 +104,68 @@ Chunk F begins.
 ## Next dependency
 
 Chunk E may independently add the endpoint tests and fixtures defined by the contract. No deployment, frontend work, merge, or Chunk E execution is authorized by this handoff.
+
+
+## Post-freeze contract repair after live BigQuery/Lovable evidence
+
+**Repair starting commit:** `4b675c3ad894de15ede6aec5aea899b23826bb2e`  
+**Repair scope:** amended Chunk C signal/readiness/provenance contract only
+
+The read-only live smoke request for `20260917_DET@BUF` reached BigQuery but
+returned the safe `409 INVALID_METRIC_EVIDENCE` state. The source evidence
+itself was aligned: snapshot `2026-09-14`, source date `2026-09-13`, DET 62
+metrics, BUF 63 metrics, matching raw/helper keys, and no catalog-definition
+conflicts. Lovable inspection then confirmed its working demo is normalized
+offline and does not consume ranking-table `numerator` or `denominator`
+provenance fields.
+
+### Implementation
+
+- Exact lowercase `strong`, `supporting`, and `context` are now accepted
+  transport signals in both raw catalog and team-payload validation.
+- Null, unknown, and differently cased signals still fail safely as
+  `409 INVALID_METRIC_EVIDENCE`.
+- `context` remains in the dynamic catalog, transported team metric maps, and
+  top-level/team coverage counts.
+- Six-lens readiness now requires both the existing tag rule and a scoring
+  signal of `strong` or `supporting`. Context metrics do not enter lens
+  denominators or lens missing lists.
+- `numerator` and `denominator` are no longer validated, normalized, or
+  serialized. No other metric response field was removed.
+- No numeric weight was introduced. Existing scoring weights and modifiers
+  remain frontend-owned.
+- The earlier date-derived lag and bidirectional games/latest-game consistency
+  repairs remain intact.
+
+### Changed paths
+
+- Updated `services/matchup_lens_service.py`.
+- Updated this Chunk D handoff.
+
+No query, route, test, fixture, dependency, runtime configuration, pipeline,
+schema, table, job, frontend, learning/orchestrator component, or controlling
+contract document was changed.
+
+### Verification
+
+- Complete service diff inspected: four narrow source substitutions only.
+- Confirmed the service contains no serialized `numerator` or `denominator`
+  keys.
+- Confirmed both accepted-signal checks use exactly
+  `strong | supporting | context`.
+- Confirmed readiness permits only `strong | supporting`.
+- Confirmed the date-derived lag and games/latest-game invariant repairs remain.
+- Python syntax parsing was performed on the complete amended service before
+  the repository write.
+- Persisted Chunk E tests were intentionally not edited. Their exact metric
+  field-order expectation and signal fixtures must be amended independently by
+  Chunk E before its full suite can represent the amended contract.
+
+### Verdict and next dependency
+
+**PASS — narrow Chunk D implementation repair only.**
+
+Live BigQuery validation is not reported as passed. Chunk E remains blocked
+until it updates its independently owned tests for the amended contract and the
+read-only live smoke request succeeds. No Chunk F, deployment, or merge work is
+authorized by this repair.
