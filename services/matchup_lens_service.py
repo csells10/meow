@@ -179,7 +179,7 @@ def _metric_from_payload(payload: dict) -> dict:
     if percentile is not None and not 0 <= percentile <= 100:
         raise LensError(409, "INVALID_METRIC_EVIDENCE")
     signal = _string(payload.get("signal_strength"), required=True)
-    if signal not in {"strong", "supporting"}:
+    if signal not in {"strong", "supporting", "context"}:
         raise LensError(409, "INVALID_METRIC_EVIDENCE")
     league_rank, teams_ranked = _positive_integer(payload.get("league_rank")), _positive_integer(payload.get("teams_ranked"))
     if league_rank is not None and teams_ranked is not None and league_rank > teams_ranked:
@@ -191,7 +191,6 @@ def _metric_from_payload(payload: dict) -> dict:
         "core_area": _string(payload.get("core_area")), "comparison_direction": _string(payload.get("comparison_direction")),
         "higher_is_better": _bool_or_null(payload.get("higher_is_better")),
         "raw_or_derived": _string(payload.get("raw_or_derived")), "aggregation_method": _string(payload.get("aggregation_method")),
-        "numerator": _finite(payload.get("numerator")), "denominator": _finite(payload.get("denominator")),
         "format": _string(payload.get("format")), "decimals": _nonnegative_integer(payload.get("decimals"), nullable=True),
         "notes": _string(payload.get("notes")), "ranking_usage": _string(payload.get("ranking_usage")),
         "signal_strength": signal, "edge_language_allowed": _bool_or_null(payload.get("edge_language_allowed")),
@@ -214,7 +213,7 @@ def _eligible(tags: list[str], included: set[str], excluded: set[str]) -> bool:
 def _readiness(catalog: list[str], definitions: dict, team_metrics: dict) -> tuple[list[dict], list[dict]]:
     rows, warnings = [], []
     for key, display, included, excluded in LENSES:
-        expected = [metric for metric in catalog if _eligible(definitions[metric]["lens_tags"], included, excluded)]
+        expected = [metric for metric in catalog if definitions[metric]["signal_strength"] in {"strong", "supporting"} and _eligible(definitions[metric]["lens_tags"], included, excluded)]
         sides = {}
         for side in ("away", "home"):
             metrics = team_metrics[side]
@@ -266,7 +265,7 @@ def build_matchup_lens_context(game_id: str) -> tuple[dict, int]:
         for row in raw_rows:
             metric = _string(row.get("metric"), required=True)
             definition = (_string(row.get("label"), required=True), _string(row.get("signal_strength"), required=True), tuple(_tags(row.get("lens_tags"))))
-            if definition[1] not in {"strong", "supporting"}:
+            if definition[1] not in {"strong", "supporting", "context"}:
                 return _unavailable(409, "INVALID_METRIC_EVIDENCE", game)
             if metric in definition_values and definition_values[metric] != definition:
                 return _unavailable(409, "INVALID_METRIC_EVIDENCE", game)
