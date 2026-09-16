@@ -1,6 +1,6 @@
 # Chunk D — Backend Implementation Handoff
 
-**Status:** complete
+**Status:** complete; narrow Chunk E defect repair complete
 **Branch:** `feature/matchup-lens-api`
 **Starting commit:** `83ebe7b`
 **Assigned model / effort:** `gpt-5.6-terra` / Medium
@@ -43,6 +43,56 @@ No other path was changed.
 | Complete diff inspection | Completed before commit |
 
 No persisted test or fixture was created or modified; that remains Chunk E ownership. The scratch interpreter does not have the Google packages installed, so the pure synthetic exercise used temporary in-process import stubs rather than attempting a live BigQuery read. No BigQuery job or write was performed.
+
+## Narrow repair after Chunk E
+
+**Repair starting commit:** `9f6bb3c44a42859b02a2e04c058a11f9e6358857`
+**Repair scope:** E-D-001 and E-D-002 only
+
+Chunk E independently reproduced two frozen-contract defects. Christian
+authorized a narrow Chunk D repair before continuing verification.
+
+### E-D-001 — zero-game provenance invariant
+
+The service now requires the source-aligned pair to be internally consistent:
+
+- `games_in_window == 0` requires `latest_included_game_id == null`;
+- `games_in_window > 0` requires a non-null
+  `latest_included_game_id`.
+
+Either contradictory shape returns the existing frozen
+`409 SOURCE_ALIGNMENT_CONFLICT` response.
+
+### E-D-002 — date-derived freshness
+
+For every validated metric, `data_lag_days` is now recomputed as the calendar
+difference between the selected `as_of_date` and the metric's validated
+`source_data_date`. Team lag and `basis.max_data_lag_days` continue to be
+derived from those normalized metric values. A stale but otherwise valid helper
+lag cannot become response truth.
+
+### Repair paths
+
+- Updated `services/matchup_lens_service.py`.
+- Updated this Chunk D handoff.
+
+No query, route, test, fixture, dependency, runtime configuration, pipeline,
+schema, table, job, learning/orchestrator component, or controlling contract
+document was changed.
+
+### Repair verification
+
+| Command | Result |
+|---|---|
+| `python -m pytest -q tests/test_matchup_lens_endpoint.py -k "zero_games_requires_null_latest_included_game_id or lag_is_derived_from_dates_instead_of_trusting_helper_value"` | Passed: 2 passed, 35 deselected |
+| `python -m pytest -q tests/test_matchup_lens_endpoint.py` | Passed: 37 passed |
+| `python -m pytest -q tests/test_game_window_selection.py` | Passed: 2 passed |
+| `python -m py_compile services/matchup_lens_service.py tests/test_matchup_lens_endpoint.py` | Passed |
+
+No live BigQuery call was made in this repair environment. Christian will run
+the later authenticated read-only smoke test from his Visual Studio terminal.
+Chunk E must still record its independent repair-verification verdict before
+Chunk F begins.
 
 ## Unresolved risks for Chunk E
 

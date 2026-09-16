@@ -286,6 +286,10 @@ def build_matchup_lens_context(game_id: str) -> tuple[dict, int]:
                     return _unavailable(409, "INVALID_METRIC_EVIDENCE", game)
                 if payload["source_data_date"] is None or payload["source_data_date"] > as_of_date or payload["source_data_date"] >= game_date:
                     return _unavailable(409, "UNSAFE_EVIDENCE_DATES", game)
+                payload["data_lag_days"] = (
+                    date.fromisoformat(as_of_date)
+                    - date.fromisoformat(payload["source_data_date"])
+                ).days
         requested = [(team_ids[side], metric, payload["source_data_date"]) for side in ("away", "home") for metric, payload in normalized[side].items()]
         window_rows = get_matchup_lens_source_aligned_windows(season, window_type, [row[0] for row in requested], [row[1] for row in requested], [row[2] for row in requested])
         window_map = defaultdict(list)
@@ -303,7 +307,7 @@ def build_matchup_lens_context(game_id: str) -> tuple[dict, int]:
             if len(counts) != 1 or len(latest) != 1:
                 return _unavailable(409, "SOURCE_ALIGNMENT_CONFLICT", game)
             games = next(iter(counts)); latest_game = next(iter(latest))
-            if games > 0 and latest_game is None:
+            if (games == 0 and latest_game is not None) or (games > 0 and latest_game is None):
                 return _unavailable(409, "SOURCE_ALIGNMENT_CONFLICT", game)
             dates = [payload["source_data_date"] for payload in normalized[side].values()]
             side_lags = [payload["data_lag_days"] for payload in normalized[side].values()]
