@@ -2,7 +2,8 @@
 
 **Status:** complete — production release verified  
 **Verdict:** **PASS**  
-**Branch:** `feature/matchup-lens-api`  
+**Release source branch:** `feature/matchup-lens-api`  
+**Repository closure branch:** `main`  
 **Released source commit:** `aedd1885fb03aa7760a9edefd0879bf8778fca01`  
 **Starting branch head:** `f89f684ac6265f138f3903c3329bf94cc05f3294`  
 **Assigned model / effort:** `gpt-5.6-sol` / Medium  
@@ -225,9 +226,45 @@ zero commits.
 
 No frontend or Lovable repository was changed.
 
+## Post-release repository closure
+
+After the production endpoint passed, Christian explicitly approved the clean
+fast-forward and branch cleanup.
+
+- GitHub `main` was fast-forwarded from
+  `b93c41c210288b9b4d450b4145e2d596e566aa67` to the completed Chunk F
+  handoff commit `12cfc134cc67d9cecca924534e74ab4a81284558`.
+- GitHub comparison then reported `main` and
+  `feature/matchup-lens-api` as identical: ahead 0, behind 0, with no changed
+  files.
+- Christian fast-forwarded the local `main` branch and verified local
+  `HEAD`, `origin/main`, and the feature reference all resolved to
+  `12cfc134cc67d9cecca924534e74ab4a81284558`.
+- The local `feature/matchup-lens-api` branch was deleted.
+- The remote `feature/matchup-lens-api` branch was deleted.
+- The approval-gated development trigger `matchup-lens-api-dev`
+  (`e659b04e-153d-474d-bfcc-8f88ab08077f`) was verified
+  `disabled: true` before remote-branch deletion.
+- A final `git fetch --prune origin` showed no remaining
+  `origin/feature/matchup-lens-api` reference.
+- Local `main` remained clean and synchronized with `origin/main` at
+  `12cfc134cc67d9cecca924534e74ab4a81284558`.
+
+The Windows/OneDrive client reported failures while removing empty internal Git
+parent directories under `.git/logs/refs` and `.git/refs`. The actual local
+and remote branch references were removed successfully. No manual modification
+inside `.git` was performed.
+
+Repository merge and branch deletion did not change the running image. The
+production service remains on revision `nfl-games-app-main-00159-hog`, built
+from released source commit
+`aedd1885fb03aa7760a9edefd0879bf8778fca01`.
+
 ## Next dependency
 
-Begin Chunk G in a separate controlled task: provide Lovable the authenticated
-production endpoint and map its dynamic evidence into the existing six-lens
-frontend contract. Chunk G must handle unavailable/partial responses and must
-not use static fallback evidence.
+Begin Chunk G using
+`documentation/New API/GameLens_Matchup_Lens_API_Chunk_G_Integration_Plan.md`.
+Provide Lovable the authenticated production endpoint and map its dynamic
+evidence into the existing six-lens frontend contract. Chunk G must handle
+unavailable/partial responses, suppress rank-dependent output while league
+context is unavailable, and never use static evidence as a live fallback.
