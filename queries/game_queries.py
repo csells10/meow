@@ -664,3 +664,107 @@ def get_team_rankings_for_game(
     }
 
     return away_rankings, home_rankings, ranking_meta
+
+
+def get_matchup_lens_ranking_boundary(
+    season: str,
+    game_date: str,
+    window_type: str,
+):
+    """Return the raw, exact ranking snapshot used by Matchup Lens.
+
+    This intentionally does not reshape rows.  The Matchup Lens service uses
+    the league-wide rows to form its runtime catalog and keeps the two game
+    teams at raw grain long enough to reject duplicate ranking rows.
+    """
+
+    table = RUNTIME_CONFIG.analytics_table(f"team_metric_rankings_{season}")
+    query = f"""
+        WITH selected_snapshot AS (
+            SELECT MAX(as_of_date) AS as_of_date
+            FROM `{table}`
+            WHERE CAST(season AS STRING) = @season
+              AND as_of_date < @game_date
+              AND window_type = @window_type
+        )
+        SELECT
+            r.season, r.as_of_date, r.source_data_date, r.data_lag_days,
+            r.window_type, r.team_id, r.team_abv, r.metric, r.value,
+            r.label, r.definition, r.category, r.core_area,
+            r.comparison_direction, r.higher_is_better, r.raw_or_derived,
+            r.aggregation_method, r.numerator, r.denominator, r.format,
+            r.decimals, r.notes, r.ranking_usage, r.signal_strength,
+            r.edge_language_allowed, r.include_in_core_area_advantage,
+            r.confidence_eligible, r.data_quality_status, r.lens_tags,
+            r.league_rank, r.league_percentile, r.tier, r.tier_label,
+            r.teams_ranked, r.ranking_kind, r.rank_direction,
+            r.rank_interpretation, r.rank_tie_method
+        FROM `{table}` r
+        CROSS JOIN selected_snapshot s
+        WHERE r.as_of_date = s.as_of_date
+          AND CAST(r.season AS STRING) = @season
+          AND r.window_type = @window_type
+        ORDER BY r.metric, r.team_id
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("season", "STRING", str(season)),
+            bigquery.ScalarQueryParameter("game_date", "DATE", game_date),
+            bigquery.ScalarQueryParameter("window_type", "STRING", window_type),
+        ]
+    )
+    return [dict(row) for row in client.query(query, job_config=job_config).result()]
+
+
+def get_matchup_lens_source_aligned_windows(
+    season: str,
+    window_type: str,
+    team_ids: list[str],
+    metrics: list[str],
+    source_data_dates: list[str],
+):
+    """Return windowed rows matched to exact ranking source-date tuples.
+
+    The three arrays are parallel and are deliberately zipped in SQL.  This
+    prevents a team's metric from accidentally matching a newer window row or
+    a different metric's source date.
+    """
+
+    if not (len(team_ids) == len(metrics) == len(source_data_dates)):
+        raise ValueError("Matchup Lens source-alignment tuples must have equal lengths")
+    if not team_ids:
+        return []
+
+    table = RUNTIME_CONFIG.analytics_table(f"team_metrics_windowed_{season}")
+    query = f"""
+        WITH requested AS (
+            SELECT
+                @team_ids[SAFE_OFFSET(offset)] AS team_id,
+                @metrics[SAFE_OFFSET(offset)] AS metric,
+                DATE(@source_data_dates[SAFE_OFFSET(offset)]) AS data_date
+            FROM UNNEST(GENERATE_ARRAY(0, ARRAY_LENGTH(@team_ids) - 1)) AS offset
+        )
+        SELECT
+            w.team_id, w.metric, w.data_date, w.games_in_window,
+            w.latest_included_game_id
+        FROM `{table}` w
+        JOIN requested r
+          ON CAST(w.team_id AS STRING) = r.team_id
+         AND w.metric = r.metric
+         AND w.data_date = r.data_date
+        WHERE CAST(w.season AS STRING) = @season
+          AND w.window_type = @window_type
+        ORDER BY w.team_id, w.metric, w.data_date
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("season", "STRING", str(season)),
+            bigquery.ScalarQueryParameter("window_type", "STRING", window_type),
+            bigquery.ArrayQueryParameter("team_ids", "STRING", team_ids),
+            bigquery.ArrayQueryParameter("metrics", "STRING", metrics),
+            bigquery.ArrayQueryParameter(
+                "source_data_dates", "STRING", source_data_dates
+            ),
+        ]
+    )
+    return [dict(row) for row in client.query(query, job_config=job_config).result()]

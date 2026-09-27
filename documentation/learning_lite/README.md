@@ -1,11 +1,11 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status:** LL-2 is accepted with a storage-stable JSON hash correction tested on 2026-08-27. LL-3 remains in progress under the scoped `LL-FIND-001` waiver: its first controlled development insert created one row, but read-back correctly rejected the proof because BigQuery normalized integral JSON floats such as `5.0` to `5`. The exact failed row remains preserved while its approved export-first, one-row recovery is prepared. Matchup Lens M1 remains unauthorized.
+**Current status (2026-09-27):** `learning-lite` has incorporated `main@41eea7af`, including the released Matchup Lens backend. LL-2 remains accepted. LL-3 remains in progress: the last documented development write failed read-back on BigQuery JSON number normalization, and the corrected recovery/write/retry proof has not been recorded as complete. No production Learning Lite capture is claimed. The historical M1 proposal below is superseded for the released Matchup Lens endpoint by the frozen contract under `documentation/New API/`.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
-**Production authority:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`; Learning Lite documentation has not changed it
-**Week 1 safety target:** be ready by the Wednesday, 2026-09-09 at 8:20 p.m. Eastern safety deadline, before the regular-season opener
+**Production authority:** `main@41eea7af08b51c364c6b575fc2f84ef4b1f28ea0`; this branch reconciliation does not move `main` or deploy Learning Lite
+**Historical Week 1 target:** 2026-09-09 has passed. Missing pre-kickoff captures must remain missing; future capture work applies to upcoming games.
 
 Learning Lite is the current planning direction for GameLens learning. It replaces the proposed six-table operational platform as the next implementation path while preserving the completed packet work as evidence and a source of selectively reusable code.
 
@@ -29,7 +29,7 @@ Read these documents in order:
 1. [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md) — product boundaries, terminology, persistent data model, League Discovery readiness, calibration flexibility, and salvage decisions.
 2. [Learning Lite Sprint](./GameLens_Learning_Lite_Sprint.md) — current checkpoint, proposed sequence, acceptance gates, Week 1 target, risks, and open decisions.
 3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — the decision filter for all 92 archived development changes and their tests; it says what may be selectively adapted, deferred, preserved, or omitted and is not a build checklist.
-4. [Matchup Lens Product, Data, Query, and Implementation Specification](./GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md) — the product, data, calculation, query, API, navigation, infrastructure, state, and QA authority for the Matchup Lens experience.
+4. [Matchup Lens Product, Data, Query, and Implementation Specification](./GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md) — historical exploration. The released endpoint's frozen contract and verification in [`documentation/New API/`](../New%20API/) govern implemented behavior.
 5. [Learning Lite Findings Log](./GameLens_Learning_Lite_Findings_Log.md) — append-only review findings, observed data gaps, impact, decisions, and resolution criteria.
 6. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
 7. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
@@ -80,6 +80,14 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 ---
 
 ## Current checkpoint
+
+### 2026-09-27 — Reconcile `main` into `learning-lite`
+
+- Preserved the existing Learning Lite commits and merged `main@41eea7af` into this branch without changing `main`.
+- Brought in the released Matchup Lens route, query helpers, service, endpoint tests, and release handoffs. No Learning Lite file was overwritten by the merge.
+- Local combined backend test run: `210 passed, 89 subtests passed` using an isolated environment and anonymous Google credentials for import-time clients. No cloud request or data write was used for this verification.
+- LL-3's failed development proof and guarded recovery remain a separate unfinished checkpoint. The branch is current with `main`, but Learning Lite is not production-ready solely because of this merge.
+- `LL-FIND-001` (zero snap totals ranked as evidence) retains only its documented, development-fixture waiver. Resolve or explicitly review it before production capture.
 
 ### Checkpoint LL-0 — Direction and documentation
 

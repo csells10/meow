@@ -1,5 +1,7 @@
 # GameLens Matchup Lens — Product, Data, Query, and Implementation Specification
 
+> Historical exploration: this specification predates the Matchup Lens backend release. For the implemented endpoint, use the frozen contract and release evidence under [`documentation/New API/`](../New%20API/). Proposals here do not supersede shipped behavior.
+
 **Document status:** Proposed product-and-implementation authority; documentation only  
 **Prepared:** 2026-08-25  
 **Product surface:** Matchup Lens  
@@ -1917,4 +1919,3 @@ These decisions must not be answered implicitly through frontend constants.
 - Recorded the exact 2026 discovery coverage and reproducible Explosiveness/Turnover Watch examples.
 - Explicitly recorded that the six-lens production formula still requires canonicalization and prototype-parity QA.
 - Added proposed API, loading, navigation, accessibility, performance, security, observability, and implementation contracts.
-

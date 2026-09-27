@@ -1,14 +1,16 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; LL-2 accepted after controlled-fixture and local read-only data review
+**Document status:** Living sprint; `learning-lite` reconciled with `main@41eea7af` on 2026-09-27; LL-3 proof remains open
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
-**Safety target:** ready by Wednesday, 2026-09-09 at 8:20 p.m. Eastern, before the regular-season opener
+**Historical safety target:** 2026-09-09 has passed; only actual pre-kickoff captures for upcoming games may enter the new cohort
 **Current checkpoint:** LL-3 — immutable snapshot persistence; authorized and in progress
-**Next action:** implement LL-3 only against the verified existing development snapshot table, then stop for Christian's write/read/retry/conflict proof and exit-gate review
+**Next action:** verify the failed development proof row still matches the documented recovery lock, then complete the approved export-first recovery and corrected LL-3 write/read/retry/conflict proof before considering LL-4 or production use
+
+The dates below preserve the original August and Week 1 plan as history. They are not current delivery deadlines. The Matchup Lens endpoint released on `main` after this plan was written; its frozen contract in `documentation/New API/` governs the shipped endpoint.
 
 Companion documents:
 
@@ -608,4 +610,4 @@ Open decisions must not be answered implicitly through code.
 
 ## 13. Immediate next action
 
-LL-3 is authorized and in progress under the scoped `LL-FIND-001` waiver. Implement only the one-game, development-only immutable snapshot seam against the verified existing table. Stop before LL-4, Matchup Lens M1, deployment, scheduling, production invocation, or any broader operational work.
+The one-game LL-3 seam is implemented, and `main` has been reconciled into `learning-lite`. Verify the current development row state, complete the documented guarded recovery only if the locked row is still present and unchanged, then rerun the corrected one-game write/read-back, identical retry, and conflict checks. Record the exit evidence before LL-4 or production invocation. The earlier Matchup Lens M1 proposal is historical; the released endpoint now comes from `main`.
