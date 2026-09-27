@@ -87,6 +87,7 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 - Brought in the released Matchup Lens route, query helpers, service, endpoint tests, and release handoffs. No Learning Lite file was overwritten by the merge.
 - Local combined backend test run: `210 passed, 89 subtests passed` using an isolated environment and anonymous Google credentials for import-time clients. No cloud request or data write was used for this verification.
 - LL-3's failed development proof and guarded recovery remain a separate unfinished checkpoint. The branch is current with `main`, but Learning Lite is not production-ready solely because of this merge.
+- The original `20260827_PIT@BUF` fixture is past kickoff. Its locked failed row can be reviewed/recovered as documented, but a corrected capture proof must use a new eligible game before its actual kickoff; do not backdate or reconstruct the August read.
 - `LL-FIND-001` (zero snap totals ranked as evidence) retains only its documented, development-fixture waiver. Resolve or explicitly review it before production capture.
 
 ### Checkpoint LL-0 — Direction and documentation
