@@ -168,6 +168,7 @@ Postgame Signal Validation = future internal learning ledger
 |---|---|---|---|---|
 | IDEA-001 | League Discovery Tool — Lens Tags Dashboard Concept | Idea / not started | Movers & Shakers / Heatmap | Lens-tag weekly profile view/table |
 | IDEA-002 | Postgame Signal Validation Feedback Loop | Idea / high-value QA concept | Internal validation script / table | Game/signal validation table |
+| IDEA-003 | Opponent-adjusted team strength and week-to-week form | Idea / research | Internal pregame-vs-result study | Point-in-time team strength and evaluation query |
 
 ---
 
@@ -2516,6 +2517,74 @@ The first goal is to learn whether the validation method itself makes sense.
 ---
 
 # Shared Backlog Notes and Paste-Friendly Future Sections
+
+# IDEA-003 — Opponent-Adjusted Team Strength and Week-to-Week Form
+
+## Idea Status
+
+```text
+Status: Idea / research; no change to production lean, confidence, or rankings
+Suggested timing: After the Learning Lite pregame evidence path is trustworthy and historical cohorts can be audited
+Recommended first shape: Read-only internal study and a simple team-strength baseline
+```
+
+## Original Question and Example
+
+Christian's question (2026-09-29): Could an NFL power ranking, and the way a team performs from week to week against different opponents, help GameLens understand or evaluate a matchup? After GameLens showed a thin, Low-confidence Chicago lean against Philadelphia, Chicago won 27–7 on 2026-09-28. The idea may be a better pregame input, a postgame learning signal, or a way to explain why an apparently surprising result was plausible. Preserve all three interpretations until tested.
+
+The final score is confirmed by the [Bears' official recap](https://www.chicagobears.com/news/game-recap-case-keenum-defense-lead-bears-to-dominant-victory-over-eagles). The exact pregame GameLens response and capture time are user-reported here, not independently verified from an immutable snapshot. Do not infer from a 20-point result that Low confidence was wrong: confidence describes pregame uncertainty, not the eventual margin. Do not count one correctly leaned winner as evidence that a new ranking feature improves the model.
+
+## Product and Analytical Question
+
+A single league-wide **team-strength rating** is different from the existing `team_metric_rankings_{season}`, which ranks individual metrics as of a date. A team's **form** is different again: how its recent performance and team identity moved over time. Research whether opponent-adjusted strength and form add information beyond the visible Game Profile, Team Comparison, and Core Areas.
+
+Candidate questions:
+
+1. At the actual pregame cutoff, was Chicago stronger than its record or raw metric ranks suggested because of the quality of earlier opponents? Did Philadelphia's results look different after adjusting for opponent strength?
+2. Did the thin Chicago signal anticipate this result, or did injuries, turnovers, penalties, and in-game events explain more of the 20-point margin?
+3. Across many games, when the matchup lean and a team-strength baseline disagree, which is more informative? Does this change for thin/Low-confidence leans?
+4. Following this result, how much should Chicago's rating change? Does the change persist over subsequent weeks, or was it one exceptional game?
+
+## First Research Shape
+
+- Build an **internal, versioned rating baseline** from GameLens-owned schedule and final scores. A simple Elo-like update or regularized opponent-adjusted point-differential model is enough to start; account for home field and season transitions. Record the exact formula and pregame rating for both teams before each game. Consider margin as an evaluation target, but avoid letting a single blowout dominate updates.
+- Separately derive **form** from existing point-in-time metric rankings, values, coverage, windows, and source dates. Compare prior week or prior comparable window with the pregame read; a rank change alone can reflect movement by other teams. Show the underlying metric and sample size. Avoid using current-game final facts in its own pregame features.
+- Start with a read-only comparison of the baseline to the frozen GameLens lean: rating gap, predicted/leaned side, profile type, confidence, final winner, margin, and postgame residual. If the pregame snapshot is absent, label that game unverified for snapshot-based evaluation; do not reconstruct an August or September pregame state from today's tables.
+- If considering a published third-party power ranking, retain publisher, methodology or ordinal/score definition, release timestamp, license/usage terms, and the version available before kickoff. Test it as a separate candidate. An ordinal rank is not automatically a win probability.
+- Keep **pregame strength**, **week-to-week change**, and **postgame validation** as separate outputs. Any future user-facing treatment should explain the matchup, never silently turn the strength rating into a forced pick.
+
+## Existing Seams and Possible Work
+
+```text
+League.schedule; Scores.scores
+Analytics.game_team_metric_facts_{season}
+Analytics.team_metrics_windowed_{season}
+Analytics.team_metric_rankings_{season}
+Learning Lite immutable pregame snapshots, when available
+Analytics.game_model_outcomes; Analytics.game_model_trust_details
+services/game_service.py (Matchup Lean; review only for now)
+queries/game_queries.py (as-of rankings and game evidence)
+```
+
+Potential first artifact: a reproducible research query or notebook with one row per game and two pregame team-rating values, a versioned rating method, the pregame capture identity/cutoff where available, existing lean/confidence, and final result. Use a view first; create a table or a product API field only after the study shows value and point-in-time reproducibility. Keep any experimental recommendation separate from canonical `matchup_lean`.
+
+## QA and Evaluation Gates
+
+1. Audit the 2026-09-28 PHI@CHI game ID, pregame response/snapshot availability, as-of dates, earlier opponents, and relevant injuries; compare the actual archived pregame payload if it exists. Postgame facts may explain the result but may not become pregame inputs.
+2. Replay the rating chronologically: compute each game's pregame rating using only earlier completed games. Include team identity, season resets, ties, byes, postponements, missing games, and neutral-site/home-field handling.
+3. Compare against simple baselines such as record, home team, and the existing GameLens lean. Evaluate out-of-time seasons or rolling weeks, not a random split that leaks future games.
+4. Report sample size, winner accuracy and Brier/log loss only if probabilities are actually generated, plus margin error if margin is modeled. Check calibration and abstention/Low-confidence slices. Examine disagreement cases and whether improvement survives removal of the Bears–Eagles example.
+5. Avoid double counting: a rating built from scores or existing metrics can correlate strongly with Game Profile and Team Comparison. A useful correlation does not prove incremental predictive value.
+6. Version formulas and as-of snapshots. Record data gaps and source latency. No automatic weight, confidence, claim-language, or frontend change follows from this exploratory study.
+
+## Open Questions and Decision Log
+
+- Does “power rankings” mean an independently calculated team-strength rating, an external published list, a composite of GameLens metric rankings, or simply a clearer weekly team trajectory? Evaluate these as different candidates.
+- Is the target winner probability, expected margin, an explanatory strength context, or a postgame diagnostic? Pick one before designing a model.
+- Should a strength disagreement cap confidence, support a lean, or only appear as context? Defer until historical incremental value and calibration are measured.
+- **2026-09-29:** Captured as IDEA-003. No dataset, calculation, runtime rule, API, or UI change is authorized by this note. Learning Lite's existing checkpoints retain their scope.
+
+---
 
 ## Backburner / Cleanup Inbox
 
