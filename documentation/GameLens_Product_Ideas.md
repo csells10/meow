@@ -6,6 +6,8 @@ This file replaces separate GameLens idea notes so future ideas can live in one 
 
 Use this document as the single running idea backlog for larger GameLens concepts that are not immediately part of the main v1.5/v1.6 execution checklist.
 
+**Quick link:** [IDEA-003: Weekly metric movement — a short, focused explanation](./GameLens_Weekly_Metric_Movement.md).
+
 Important rule:
 
 ```text
@@ -168,7 +170,7 @@ Postgame Signal Validation = future internal learning ledger
 |---|---|---|---|---|
 | IDEA-001 | League Discovery Tool — Lens Tags Dashboard Concept | Idea / not started | Movers & Shakers / Heatmap | Lens-tag weekly profile view/table |
 | IDEA-002 | Postgame Signal Validation Feedback Loop | Idea / high-value QA concept | Internal validation script / table | Game/signal validation table |
-| IDEA-003 | Opponent-adjusted team strength and week-to-week form | Idea / research | Internal pregame-vs-result study | Point-in-time team strength and evaluation query |
+| IDEA-003 | [Weekly metric movement and team-strength research](./GameLens_Weekly_Metric_Movement.md) | Idea / research | First: read-only metric movement study | Existing as-of rankings; optional later opponent-strength baseline |
 
 ---
 
@@ -2519,6 +2521,8 @@ The first goal is to learn whether the validation method itself makes sense.
 # Shared Backlog Notes and Paste-Friendly Future Sections
 
 # IDEA-003 — Opponent-Adjusted Team Strength and Week-to-Week Form
+
+**Current focus (2026-09-29):** [Read the short weekly metric movement note](./GameLens_Weekly_Metric_Movement.md). Christian clarified that the useful first question is how individual metrics and rank positions change from one week to the next, including when a team loses. The opponent-adjusted overall team-strength model below remains a separate possible follow-up. Preserve this earlier exploration as context; it is not the first implementation request.
 
 ## Idea Status
 
