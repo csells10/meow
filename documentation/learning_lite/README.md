@@ -13,6 +13,23 @@ The working principle is:
 
 > Keep the football evidence and learning results. Keep operational plumbing lightweight until real use proves that more is necessary.
 
+## Current stage map — 2026-09-30
+
+| Stage | Current result | Meaning |
+|---|---|---|
+| LL-0 / LL-1 | Accepted | Direction, branch preservation, and the file-by-file salvage baseline were documented before implementation. |
+| LL-2 | Accepted | The pregame-safe, side-effect-free payload boundary passed controlled tests and review. |
+| LL-3 | Accepted for development proof | One upcoming game's immutable snapshot, read-back, identical retry, conflict guard, and guarded recovery passed in `GameLens_dev`. See the dated closure at the end of this README. |
+| LL-4 | Not started | Claim Extraction from the frozen snapshot remains a proposed bounded checkpoint. Its current claim-table schema and exact file/test boundary require review before implementation. |
+| LL-5 through LL-7 | Historical August/Week 1 plan | Their preseason rehearsal and Week 1 dates have passed. Re-scope them for an in-season path before treating them as future execution gates. |
+| LL-8 through LL-10 | Not started or deferred | Postgame learning, League Discovery readiness, and Language Calibration depend on later evidence and explicit decisions. |
+
+**Production posture:** Learning Lite has no production snapshot table, capture invocation, schedule, claim extraction, or deployment. Existing production GameLens behavior remains under `main`. `LL-FIND-001` is Open after its one-proof development waiver expired.
+
+The dated sections below preserve what was known at each checkpoint. An older “next” instruction or “in progress” status is historical once a later dated closure supersedes it.
+
+---
+
 ## Branch model
 
 - `main` is the production authority.
@@ -79,7 +96,9 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 
 ---
 
-## Current checkpoint
+## Checkpoint history and current closure
+
+The latest checkpoint decision is the 2026-09-30 LL-3 development proof closure near the end of this file. Earlier entries remain dated evidence.
 
 ### 2026-09-27 — Reconcile `main` into `learning-lite`
 
@@ -392,7 +411,7 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ---
 
-## Next work — post-LL-2 decision gate
+## Historical post-LL-2 decision gate
 
 LL-2 is accepted as the pregame safety boundary. The current decision is what to authorize next:
 
@@ -404,9 +423,9 @@ No correction, persistence, Matchup Lens implementation, deployment, or producti
 
 ---
 
-## LL-3 readiness handoff — planning only
+## Historical LL-3 readiness handoff
 
-This handoff makes the next checkpoint reviewable; it does not authorize LL-3.
+This was the pre-implementation handoff for LL-3. LL-3 was subsequently authorized and its bounded development proof accepted on 2026-09-30; retain this prompt as historical planning evidence.
 
 ### Preconditions before LL-3 may write
 
