@@ -103,7 +103,7 @@ Week 1 does not require useful current-season rankings, non-zero claims, a learn
 
 ## 5. Checkpoint sequence
 
-Dates are targets, not promises. A checkpoint closes only when its evidence is documented in `README.md`.
+Dates are targets, not promises. A checkpoint closes only when its evidence is documented in `README.md`. As of 2026-09-30, LL-0 through LL-3 have their dated closure evidence; LL-3 is a development-only acceptance. The LL-5 preseason rehearsal and LL-7 Week 1 operation windows have passed, so those future operating gates require an explicit in-season re-plan before execution. LL-4 remains unstarted; its exact current claim-table schema, file list, and focused tests have not yet been approved.
 
 ### LL-0 — Direction and documentation
 
