@@ -46,7 +46,7 @@ This log is append-only. A finding may originate in Learning Lite review without
 ### LL-FIND-001 — Missing snap totals ranked as real zeroes
 
 **Date discovered:** 2026-08-26  
-**Status:** Waived for the controlled LL-3 development-fixture proof only
+**Status:** Open as of 2026-09-30; the controlled LL-3 development-proof waiver has expired
 **Severity:** Medium; bounded away from Matchup Lean and confidence, but exposed in ranking, tier, context, and possible edge language  
 **Discovered during:** Local read-only LL-2 acceptance review  
 **Affected surface:** 2026 preseason Facts, Windowed Metrics, Rankings, and any `/game` explanation that consumes the affected ranking rows
@@ -158,7 +158,7 @@ LL-3 must reuse and verify the existing table. It must not create, replace, migr
 ## LL-FIND-002 — Native JSON integral-float normalization broke lexical payload hashing
 
 **Date discovered:** 2026-08-26
-**Status:** Recovery approved and implemented locally; open until the corrected write/read-back and retry proof completes
+**Status:** Resolved on 2026-09-30 by guarded recovery and corrected development write/read-back/retry proof
 **Checkpoint:** LL-3 first controlled development write
 **Affected row:** `capture_78f546a459294669fd10da22` for `20260827_PIT@BUF`
 
@@ -194,3 +194,34 @@ Christian approved a bounded LL-2 hash correction plus guarded cleanup of this o
 4. the corrected capture inserts one readable pregame snapshot whose stored hash equals a fresh read-back hash;
 5. an identical retry is a no-op and a conflicting retry remains unable to overwrite the row;
 6. production behavior and the seven historical rows remain unchanged.
+
+### LL-FIND-001 status update — 2026-09-30
+
+**Previous status:** Waived for the controlled LL-3 development-fixture proof only
+**Current status:** Open
+
+The one-proof waiver expired when LL-3 met its development exit gate. The snap-total missing/zero semantics were not corrected by the snapshot work. The controlled development proof used `20261001_PIT@CLE`; its successful canonical capture does not establish that affected snap-total rankings are safe for production. Retain the resolution criteria above before production capture or seek a separately documented scoped decision. No source table, registry, product calculation, or production behavior changed as part of this status update.
+
+---
+
+### LL-FIND-002 resolution — 2026-09-30
+
+**Previous status:** Recovery approved and implemented locally; failed proof row still present
+**Current status:** Resolved for the LL-3 development proof
+
+**Recovery and proof evidence**
+
+- Christian exported the complete, locked 22-field `20260827_PIT@BUF` development row outside the repository. The original local evidence-file SHA-256 was `6b6080425a04780c23e7e6789df008a0b54a540918aab6f1f29a4654b868108c`.
+- The guarded deletion verified the unchanged live row against that export, affected exactly one row for `capture_78f546a459294669fd10da22`, and read back zero matching rows. The ordinary capture store remained insert-only.
+- The corrected path captured Scheduled, Regular Season Week 4 `20261001_PIT@CLE` at `2026-09-30T13:20:59.094384Z`, before `2026-10-02T00:15:00Z` kickoff. It inserted `capture_62ecbfb862ef9f3ed05a5626` in the existing `nfl-stream-406420.GameLens_dev.pregame_snapshots` table. Candidate, stored, and fresh read-back hashes matched `f7b37766f17aedd41b52293ed829241c355ca7600654c314eac81777fb5e804b`.
+- The identical retry returned `identical_no_op`, made no material change, verified read-back, and retained the first stored timestamp. The read-only inspector found one row and semantic equality. It intentionally reported 19 raw integral-float/int representation differences; the corrected canonical hash normalized those differences.
+- A changed in-memory candidate with the same capture ID and its own hash raised `canonical_capture_conflict` through storage reconciliation. A read-only client blocked non-SELECT queries; the stored hash, timestamp, and one-row count remained unchanged.
+- Final read-only table inventory: eight rows, eight distinct capture IDs, one new corrected capture, zero failed proof rows, and seven other historical rows. Local focused gates passed: 27 LL-2/product tests and 32 LL-3/recovery tests.
+
+**Data and production effects**
+
+One failed development artifact was deleted after export, and one valid development row was inserted. No historical row was edited; no table was created, replaced, altered, or migrated. Production Schedule, Windowed Metrics, Rankings, and team logos were used as read-only evidence. There was no production table write, deployment, route, scheduling, trigger, traffic, frontend, `/game`, or claim-training change.
+
+**Scope of resolution**
+
+This resolves the BigQuery native-JSON lexical hash mismatch for the proved LL-3 development capture. It does not approve production Learning Lite activation, LL-4, or any change to the separate snap-total issue `LL-FIND-001`.
