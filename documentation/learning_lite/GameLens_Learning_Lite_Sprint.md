@@ -1,14 +1,14 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; `learning-lite` reconciled with `main@41eea7af` on 2026-09-27; LL-3 proof remains open
+**Document status:** Living sprint; LL-3 bounded development proof accepted 2026-09-30; production Learning Lite remains inactive
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
 **Production authority:** `main`
 **Historical safety target:** 2026-09-09 has passed; only actual pre-kickoff captures for upcoming games may enter the new cohort
-**Current checkpoint:** LL-3 — immutable snapshot persistence; authorized and in progress
-**Next action:** verify the failed development proof row still matches the documented recovery lock, then complete the approved export-first recovery and corrected LL-3 write/read/retry/conflict proof before considering LL-4 or production use
+**Current checkpoint:** LL-3 development exit gate met; LL-4 remains a proposed next checkpoint
+**Next action:** review a bounded LL-4 Claim Extraction adapter from the verified canonical snapshot; separately address the reopened `LL-FIND-001` before production capture
 
 The dates below preserve the original August and Week 1 plan as history. They are not current delivery deadlines. The Matchup Lens endpoint released on `main` after this plan was written; its frozen contract in `documentation/New API/` governs the shipped endpoint.
 
@@ -195,7 +195,7 @@ Exit gate:
 ### LL-3 — Immutable snapshot persistence
 
 **Target:** 2026-08-26 through 2026-08-28
-**Status:** In progress; the first controlled write inserted one development row but failed closed on BigQuery native-JSON numeric normalization. The storage-stable LL-2 hash correction and export-first one-row recovery were approved and tested on 2026-08-27; cleanup has not yet run.
+**Status:** Accepted for bounded development proof on 2026-09-30. The failed August row was exported and removed by guarded one-row recovery; an upcoming PIT–CLE snapshot passed write/read-back, identical retry, and read-only conflict proof. No production activation.
 
 Objective:
 
@@ -236,7 +236,7 @@ Required proof:
 
 Exit gate:
 
-- one real or approved shadow game has a verified immutable snapshot and recovery path.
+- [x] One real upcoming game has a verified immutable development snapshot and recovery path. `20261001_PIT@CLE` was captured before kickoff as `capture_62ecbfb862ef9f3ed05a5626` with canonical SHA-256 `f7b37766f17aedd41b52293ed829241c355ca7600654c314eac81777fb5e804b`; read-back verified, identical retry made no change, and a read-only-client conflict candidate was rejected. The final development table count was eight unique rows, including seven other historical rows and no failed August row. Full evidence is in the README.
 
 ### LL-4 — Claim Extraction from snapshot
 
@@ -506,7 +506,7 @@ These states are not interchangeable.
 | Calibration becomes a catch-all | Unowned ideas and unstable schema | Ownership table and versioned advisory outputs |
 | Every concern creates a new table | Hobby project gains enterprise maintenance burden | View/query/log first; table only after repeated need |
 | Future algorithm overwrites evidence | Research cannot be reproduced | Append/version outputs; never mutate source observations |
-| Missing snap totals are ranked as real zeroes | Misleading rank, tier, and edge language can enter a pregame response | Track as `LL-FIND-001`; resolve or explicitly waive before real-data snapshot persistence |
+| Missing snap totals are ranked as real zeroes | Misleading rank, tier, and edge language can enter a pregame response | The LL-3 development-proof waiver expired at its exit gate; `LL-FIND-001` is Open before production capture |
 
 ---
 
@@ -608,6 +608,17 @@ Open decisions must not be answered implicitly through code.
 
 ---
 
+### 2026-09-30 — LL-3 development proof closure
+
+- Christian fast-forwarded local `learning-lite` to `c4d2974`; 27 LL-2/product tests and 32 focused LL-3/recovery tests passed.
+- Exported the exact failed `20260827_PIT@BUF` development row outside the repository (evidence SHA-256 `6b6080425a04780c23e7e6789df008a0b54a540918aab6f1f29a4654b868108c`), then the guarded deletion affected one row and verified its absence.
+- Captured `20261001_PIT@CLE` before kickoff in the existing `GameLens_dev.pregame_snapshots` table: `capture_62ecbfb862ef9f3ed05a5626`, payload SHA-256 `f7b37766f17aedd41b52293ed829241c355ca7600654c314eac81777fb5e804b`, rankings available, 90 lens tags.
+- First write passed read-back; identical retry retained the original timestamp and made no change. Read-only inspection confirmed semantic equality and identical candidate/stored/fresh hashes; 19 raw integral-float/int representation differences remained visible by design.
+- A deliberately conflicting in-memory candidate was rejected while a read-only client blocked all non-SELECT queries. Final table inventory: eight rows, eight distinct captures, one new row, zero failed August rows, seven other historical rows.
+- `LL-FIND-002` is resolved. `LL-FIND-001` returns to Open at this exit gate. No production write, deployment, route, schedule, frontend, or Claim Extraction change occurred.
+
+---
+
 ## 13. Immediate next action
 
-The one-game LL-3 seam is implemented, and `main` has been reconciled into `learning-lite`. Verify the current development row state, complete the documented guarded recovery only if the locked row is still present and unchanged, then rerun the corrected one-game write/read-back, identical retry, and conflict checks. Record the exit evidence before LL-4 or production invocation. The earlier Matchup Lens M1 proposal is historical; the released endpoint now comes from `main`.
+LL-3's bounded development proof is accepted. Review the LL-4 Claim Extraction file/schema/test boundary against the verified snapshot and existing Level 1 owner before implementation. `LL-FIND-001` is Open after its one-proof waiver expired; production capture requires its separate resolution or explicit review. No production destination, deployment, scheduling, or later checkpoint is authorized by LL-3 acceptance. The earlier Matchup Lens M1 proposal is historical; the released endpoint comes from `main`.
