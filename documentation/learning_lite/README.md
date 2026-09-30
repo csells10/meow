@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status (2026-09-27):** `learning-lite` has incorporated `main@41eea7af`, including the released Matchup Lens backend. LL-2 remains accepted. LL-3 remains in progress: the last documented development write failed read-back on BigQuery JSON number normalization, and the corrected recovery/write/retry proof has not been recorded as complete. No production Learning Lite capture is claimed. The historical M1 proposal below is superseded for the released Matchup Lens endpoint by the frozen contract under `documentation/New API/`.
+**Current status (2026-09-30):** LL-2 remains accepted, and LL-3 has passed its bounded development proof on `learning-lite`. The failed August development row was exported and removed by its guarded one-row recovery; a new pre-kickoff PIT–CLE snapshot was inserted, read back, retried without mutation, and protected against a conflicting candidate. Learning Lite has not been deployed or invoked in production. `main` remains production authority. The historical M1 proposal below is superseded for the released Matchup Lens endpoint by the frozen contract under `documentation/New API/`.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -671,3 +671,49 @@ The ordinary snapshot storage service remains insert-only and exposes no delete 
 5. rerun the corrected one-game write before kickoff and require `inserted` plus verified read-back;
 6. rerun the identical command and require `identical_no_op` with no material change;
 7. document the completed evidence and stop at the LL-3 exit gate.
+
+### LL-3 development proof closure — 2026-09-30
+
+**Status:** Accepted for the bounded development snapshot proof; no production Learning Lite activation
+**Branch / commit:** `learning-lite@c4d2974` for the tested implementation and documentation baseline; this closure is documentation-only
+
+**Objective and files changed**
+
+Complete the approved export-first recovery of one failed development artifact, then prove the corrected immutable snapshot path using a genuinely upcoming game. No implementation file changed during this proof. The closure updates this README, the Learning Lite Sprint, and the Findings Log.
+
+**Verification performed**
+
+- Local `learning-lite` fast-forwarded from `b5a3779` to `c4d2974`; the three incoming commits changed only `documentation/GameLens_Product_Ideas.md` and added `documentation/GameLens_Weekly_Metric_Movement.md`. The untracked local backlog file was left untouched.
+- Accepted LL-2/product packages: `Ran 27 tests — OK`.
+- Focused LL-3 packages, including guarded recovery: `Ran 32 tests — OK`.
+- Both manual runners' `--help` commands loaded successfully.
+- Recovery export, guarded deletion, dry-run, first write/read-back, identical retry, read-only inspection, and a read-only-client conflict probe completed locally against BigQuery.
+- Final read-only table reconciliation: eight rows, eight distinct capture IDs, one corrected new capture, zero failed August captures, and seven other historical rows.
+
+**Observed evidence**
+
+- Failed `20260827_PIT@BUF` development artifact: `capture_78f546a459294669fd10da22`. The complete 22-field row was exported outside the repository; evidence-file SHA-256 `6b6080425a04780c23e7e6789df008a0b54a540918aab6f1f29a4654b868108c` matched on Christian's machine. The locked recovery affected exactly one row and read back zero rows for that capture ID.
+- New eligible game: `20261001_PIT@CLE`, Scheduled, Regular Season Week 4, kickoff `2026-10-02T00:15:00Z`. First stored capture time: `2026-09-30T13:20:59.094384Z`, before kickoff.
+- Stable cohort: `gamelens_2026_regular_season_learning_lite_ll3_v1`; model version `game_service_a048842c`; ruleset `learning_lite_ll3_v1`.
+- New capture ID: `capture_62ecbfb862ef9f3ed05a5626`; canonical payload SHA-256 `f7b37766f17aedd41b52293ed829241c355ca7600654c314eac81777fb5e804b`; ranking context available; 90 distinct lens tags.
+- Dry-run reported `material_change=false`. First write reported `inserted`, `material_change=true`, and `readback=verified`. The identical retry reported `identical_no_op`, `material_change=false`, `readback=verified`, the same capture ID/hash, and the unchanged original stored timestamp.
+- Read-only inspection found one stored row, matching candidate/stored/fresh read-back hashes, and semantic payload equality. Its 19 raw path/type differences were exclusively integral JSON floats versus integers, which the storage-stable canonical hash intentionally normalizes; the inspection test explicitly retains this diagnostic distinction.
+- A deliberately different in-memory payload, with its own valid hash and the same capture ID, raised `canonical_capture_conflict` through the storage reconciliation path. The proof client blocked any non-SELECT query, and a subsequent read found one unchanged row with the original hash and capture timestamp. This is a read-only conflict proof, not a second attempted BigQuery write.
+
+**Data, product, and production effects**
+
+- Read: production `League.schedule`, `Analytics.team_metrics_windowed_2026`, `Analytics.team_metric_rankings_2026`, and `Teams.team_logos` as evidence for the one development capture; development snapshot metadata and rows for verification.
+- Written: one new row in the existing `nfl-stream-406420.GameLens_dev.pregame_snapshots` table. Deleted: only the single exported, locked failed development row. No historical row was changed, and no table was created, altered, replaced, or migrated.
+- No production table write, deployment, route invocation, scheduling, trigger, traffic, frontend, `/game`, Matchup Lean, confidence, Model Trust, claim-language, auth, CORS, or metric-registry change occurred. No Claim Extraction or LL-4 behavior ran.
+
+**Decisions and known limitations**
+
+LL-3's development exit gate is met. This proves one upcoming game's development capture and recovery path; it does not establish a production destination, production wiring, a slate capture, or claim rows. `LL-FIND-002` is resolved by the corrected hash and read-back proof. The `LL-FIND-001` waiver expires at this exit gate and returns to Open; it must be resolved or explicitly reviewed before production capture. The 19 raw inspection differences are expected representation diagnostics, not a hash or semantic mismatch.
+
+**Rollback or recovery point**
+
+The August failed-row export is preserved outside the repository at Christian's `../ll3-evidence/failed-capture-20260827-PIT-BUF.json`, with the SHA-256 above. The new canonical development capture is immutable at the ID and hash above; no cleanup or replacement of that valid row is authorized by this closure. The LL-3 code rollback baseline remains `58d2a8055e23f0d30ec349209a6bc978228409d8`; production `main` was not moved.
+
+**Next checkpoint**
+
+Review a bounded LL-4 Claim Extraction adapter against this canonical snapshot, with stable claim keys, source paths, null postgame targets, zero-claim honesty, idempotent development reconciliation, and focused tests. Do not infer authorization for LL-4 implementation, production activation, scheduling, or the older Matchup Lens M1 proposal from this development proof.
