@@ -1,6 +1,6 @@
 # GameLens Learning Lite Salvage Matrix
 
-**Status:** LL-1 planning baseline accepted; no implementation code has been ported
+**Status:** LL-1 historical salvage baseline accepted; LL-2 and LL-3 have since been selectively implemented and proved on `learning-lite`. LL-4 remains a candidate, not an authorized implementation.
 **Prepared:** 2026-08-22
 **Production baseline:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
 **Historical source:** `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`
@@ -8,6 +8,8 @@
 **Compared range:** `main...dev`, merge base `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`
 
 **Purpose:** This matrix is a decision filter over the archived prototype, not a requirement to port every useful-looking file. Implement only the subset assigned to the active checkpoint, and prefer current `main`/`learning-lite` behavior whenever it already satisfies the need.
+
+**Current-use note (2026-09-30):** The file rows and proposed LL-2/LL-3 worklists below preserve the August LL-1 decision state. Actual implementation and proof are recorded in the Learning Lite README: LL-2 used a smaller pure contract; LL-3 reused the already-existing development snapshot table, corrected storage-stable JSON hashing, and passed its bounded development exit gate. Do not use the old candidate lists as instructions to recreate a table or repeat those checkpoints. Review the current code and actual claim-table schema before finalizing any LL-4 file or test list.
 
 ---
 
