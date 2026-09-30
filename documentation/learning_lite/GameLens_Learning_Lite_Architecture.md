@@ -1,6 +1,6 @@
 # GameLens Learning Lite Architecture
 
-**Document status:** Living architecture; LL-2 accepted, LL-3 development proof in progress. `learning-lite` incorporated `main@41eea7af` on 2026-09-27; see README for the current checkpoint.
+**Document status:** Living architecture; LL-2 accepted and LL-3 bounded development proof accepted on 2026-09-30. Production Learning Lite remains inactive; see the README for current checkpoint status and the Sprint for future gates.
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
