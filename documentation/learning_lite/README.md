@@ -1,6 +1,6 @@
 # GameLens Learning Lite Documentation Index
 
-**Current status (2026-09-30):** LL-2 remains accepted, and LL-3 has passed its bounded development proof on `learning-lite`. The failed August development row was exported and removed by its guarded one-row recovery; a new pre-kickoff PIT–CLE snapshot was inserted, read back, retried without mutation, and protected against a conflicting candidate. Learning Lite has not been deployed or invoked in production. `main` remains production authority. The historical M1 proposal below is superseded for the released Matchup Lens endpoint by the frozen contract under `documentation/New API/`.
+**Current status (2026-10-01):** LL-2 remains accepted, and LL-3 has passed its bounded development proof on `learning-lite`. The failed August development row was exported and removed by its guarded one-row recovery; a new pre-kickoff PIT–CLE snapshot was inserted, read back, retried without mutation, and protected against a conflicting candidate. Learning Lite has not been deployed or invoked in production. `main` remains production authority. The historical M1 proposal below is superseded for the released Matchup Lens endpoint by the frozen contract under `documentation/New API/`.
 **Created:** 2026-08-21
 **Repository:** `csells10/meow`
 **Planning and implementation branch:** `learning-lite`
@@ -13,7 +13,7 @@ The working principle is:
 
 > Keep the football evidence and learning results. Keep operational plumbing lightweight until real use proves that more is necessary.
 
-## Current stage map — 2026-09-30
+## Current stage map — 2026-10-01
 
 | Stage | Current result | Meaning |
 |---|---|---|
@@ -21,12 +21,19 @@ The working principle is:
 | LL-2 | Accepted | The pregame-safe, side-effect-free payload boundary passed controlled tests and review. |
 | LL-3 | Accepted for development proof | One upcoming game's immutable snapshot, read-back, identical retry, conflict guard, and guarded recovery passed in `GameLens_dev`. See the dated closure at the end of this README. |
 | LL-4 | Not started | Claim Extraction from the frozen snapshot remains a proposed bounded checkpoint. Its current claim-table schema and exact file/test boundary require review before implementation. |
-| LL-5 through LL-7 | Historical August/Week 1 plan | Their preseason rehearsal and Week 1 dates have passed. Re-scope them for an in-season path before treating them as future execution gates. |
-| LL-8 through LL-10 | Not started or deferred | Postgame learning, League Discovery readiness, and Language Calibration depend on later evidence and explicit decisions. |
+| LL-5 | Not started | In-season development rehearsal on a small upcoming slate after LL-4 readiness; no replacement preseason deadline. |
+| LL-6 / LL-7 | Not started | Invocation/rollback readiness, then a separately authorized first prospective production cohort. |
+| LL-8 | Not started | Manual postgame learning after authentic captures and accepted final evidence; a bounded development rehearsal can precede production. |
+| LL-9 | Optional / off the critical path | League Discovery means exploring team and league trends from existing rankings and lens tags. No interface or implementation required now. |
+| LL-10 | Deferred | Advisory language calibration only when a reviewed sample is meaningful; runtime promotion is separate. |
 
 **Production posture:** Learning Lite has no production snapshot table, capture invocation, schedule, claim extraction, or deployment. Existing production GameLens behavior remains under `main`. `LL-FIND-001` is Open after its one-proof development waiver expired.
 
 The dated sections below preserve what was known at each checkpoint. An older “next” instruction or “in progress” status is historical once a later dated closure supersedes it.
+
+**Next accomplishment:** complete the bounded LL-4 readiness review below, then implement only after its concrete file/schema/test proposal is accepted. The October 1 update refreshes documentation; it does not start LL-4 or reopen LL-3.
+
+**Quick navigation:** [current next-chat prompt](#current-next-chat-prompt--ll-4-readiness-only) · [remaining gates](./GameLens_Learning_Lite_Sprint.md#5-checkpoint-sequence) · [snap-total finding](./GameLens_Learning_Lite_Findings_Log.md) · [LL-3 closure](#ll-3-development-proof-closure--2026-09-30) · [detailed reassessment](./GameLens_Learning_Lite_Reassessment_2026-09-30.md)
 
 ---
 
@@ -41,17 +48,18 @@ The dated sections below preserve what was known at each checkpoint. An older �
 
 ## Start here
 
-Read these documents in order:
+For the next LL-4 review, read only the relevant material in this order:
 
-1. [Learning Lite Architecture](./GameLens_Learning_Lite_Architecture.md) — product boundaries, terminology, persistent data model, League Discovery readiness, calibration flexibility, and salvage decisions.
-2. [Learning Lite Sprint](./GameLens_Learning_Lite_Sprint.md) — current checkpoint, proposed sequence, acceptance gates, Week 1 target, risks, and open decisions.
-3. [Learning Lite Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — the decision filter for all 92 archived development changes and their tests; it says what may be selectively adapted, deferred, preserved, or omitted and is not a build checklist.
-4. [Matchup Lens Product, Data, Query, and Implementation Specification](./GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md) — historical exploration. The released endpoint's frozen contract and verification in [`documentation/New API/`](../New%20API/) govern implemented behavior.
-5. [Learning Lite Findings Log](./GameLens_Learning_Lite_Findings_Log.md) — append-only review findings, observed data gaps, impact, decisions, and resolution criteria.
-6. [`documentation/GameLens_Product_Ideas.md`](../GameLens_Product_Ideas.md) — larger product ideas, including League Discovery and Postgame Signal Validation.
-7. [Archived `documentation/live` packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live) — historical packet index and evidence from the earlier six-table direction.
+1. This README's current stage map, next-chat prompt, and September 30 LL-3 closure.
+2. [Sprint](./GameLens_Learning_Lite_Sprint.md) — current LL-4 scope and remaining gates.
+3. [Findings Log](./GameLens_Learning_Lite_Findings_Log.md) — current LL-FIND-001 status and LL-FIND-002 resolution.
+4. [Architecture](./GameLens_Learning_Lite_Architecture.md) — snapshot/claim ownership and anti-leakage boundaries.
+5. [Salvage Matrix](./GameLens_Learning_Lite_Salvage_Matrix.md) — current-use notes, LL-4 candidate files/tests, and exclusions.
+6. [September 30 reassessment](./GameLens_Learning_Lite_Reassessment_2026-09-30.md#what-to-review-before-ll-4-implementation) — detailed LL-4 checklist when needed.
 
-The packet documents under `documentation/live` remain valuable implementation evidence. They are not the current authority for what should be built next.
+Optional references, not prerequisites: [Product Ideas](../GameLens_Product_Ideas.md), the [historical Matchup Lens exploration](./GameLens_Matchup_Lens_Product_Data_and_Implementation_Spec.md), and the [archived packet suite](https://github.com/csells10/meow/tree/26287205f420f569d81ccfcb28a8e8e0656fc24b/documentation/live). For the released Matchup Lens endpoint, use [the frozen contract](../New%20API/GameLens_Matchup_Lens_API_Contract_Decision_Record.md) and [release evidence](../New%20API/handoffs/Chunk_F_Release_Handoff.md).
+
+The README owns current status; the Sprint owns the refreshed sequence; dated reassessments and archived prompts retain their original context.
 
 ---
 
@@ -69,13 +77,14 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 - the existing Claim Health and historical QA evidence;
 - the current runtime claim-language support rules, including the backend support translated by the frontend as “Fits matchup.”
 
-### Add or adapt in sequence
+### Completed foundation and remaining work
 
-- **LL-2:** construct and validate a deterministic, hashable, pregame-safe `/game` payload with no final-score query, completed-game write, table, or persistence;
-- **LL-3:** add one immutable pregame snapshot per eligible game, identical-retry safety, conflict protection, and a manual read-back check;
-- **LL-4:** add snapshot lineage to claim-training rows and connect the existing Level 1/Claim Extraction owner through a thin adapter;
-- **Matchup Lens M1:** after LL-2 is accepted or the sequence is explicitly re-planned, authorize a separate bounded checkpoint to canonicalize the six-lens formula and registry, reconcile the discovery values, and add unit tests; it must not be folded into LL-2;
-- at every checkpoint, port only the focused safety tests that travel with the approved behavior.
+- **LL-2 — accepted:** preserve the side-effect-free pregame payload boundary.
+- **LL-3 — accepted for development proof:** preserve the immutable snapshot, storage-stable hash, verified retry, and recovery evidence.
+- **LL-4 — review next:** reuse the existing Claim Extraction owner through a thin frozen-snapshot adapter with reviewed lineage and development reconciliation.
+- **LL-5 through LL-10:** follow the Sprint's readiness gates; the old calendar is historical.
+- **Matchup Lens:** the separate endpoint has released; do not repeat the historical M1 proposal or add six-lens frontend claims to LL-4.
+- At every checkpoint, use only the focused safety tests needed for its approved behavior.
 
 ### Preserve for optional future use
 
@@ -93,6 +102,45 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 - automatic Language Calibration promotion;
 - a League Discovery interface;
 - a winner-prediction product.
+
+---
+
+## Current next-chat prompt — LL-4 readiness only
+
+**Model / effort:** Use the currently selected capable coding/review model; medium reasoning, if selectable, is the default for this bounded review. This is task-sizing guidance, not a requirement to change models or a promise about cost. Use higher effort only for a specific unresolved lineage, leakage, schema, or reconciliation question. Do not launch parallel agents or repeat the full repository audit by default.
+
+**Scope:** This is the only current copy-ready next-step prompt in this folder. Pasting it requests review, not implementation.
+
+```text
+Review LL-4 readiness in csells10/meow on learning-lite. Do not implement or modify files, tables, data, runtime settings, or production behavior.
+
+Read documentation/learning_lite/README.md first: current stage map, this prompt, and the 2026-09-30 LL-3 closure. Then read the current Sprint LL-4 section, Findings Log status updates, Architecture snapshot/claim boundaries, and Salvage Matrix LL-4 candidates. Use the September 30 reassessment's LL-4 checklist as needed; do not repeat the whole audit.
+
+LL-2 is accepted. LL-3 is complete for its bounded development proof, not production activation. main remains production authority; dev@26287205f420f569d81ccfcb28a8e8e0656fc24b is read-only selective salvage.
+
+Inspect the current extractor/schema owner and only relevant archived adapter, storage, runner, and tests. Identify the smallest development-only path from a stored canonical snapshot to traceable claims. Reuse the existing extractor and current corrected hash contract; exclude legacy replace-run writes, stage receipts, new claim surfaces, and broad refactors.
+
+If read-only BigQuery access is available, inspect current claim-table metadata and the recorded snapshot by capture ID. If unavailable, provide only the exact bounded read-only queries needed for Christian to run; do not guess live schema or widen access. Record remaining unknowns once.
+
+The source proof is capture_62ecbfb862ef9f3ed05a5626 for 20261001_PIT@CLE, with payload hash f7b37766f17aedd41b52293ed829241c355ca7600654c314eac81777fb5e804b. Read the frozen record; do not rebuild or recapture it. Extraction after kickoff is valid when the original capture was pre-kickoff.
+
+LL-FIND-001 remains Open. No waiver carries forward. Report what is known about affected snap metrics in the selected snapshot/claim surfaces; if not inspected, say unknown. Do not diagnose or fix the entire source pipeline. Bring any required real-data-use decision back with a concrete recommendation. Synthetic fixtures can support mechanics without declaring the finding resolved.
+
+Return:
+1. Ready / ready with listed decisions / blocked, with evidence and unknowns.
+2. Exact candidate files, development table, and schema delta or no-change proposal.
+3. Capture-scoped key/version policy, null-target boundary, source-path checks, zero-claim behavior, and safe retry/read-back behavior that preserves later grading fields.
+4. Focused tests and one bounded proof sequence, including conflict/partial-write handling.
+5. Decisions Christian must make, separately from routine implementation choices.
+
+Stop after that reviewable proposal. Do not implement LL-4, correct snap metrics, write claims, deploy, schedule, or activate production.
+```
+
+### Later checkpoint handoffs
+
+Do not pre-authorize LL-5 through LL-10 with copy-ready implementation prompts today. At each accepted exit gate, prepare one next-step prompt from the current Sprint: name the objective, verified input evidence, exact allowed files/data effects, explicit exclusions, focused proof, and stopping point. Existing authorization still applies; do not request the same approval twice.
+
+Keep routine documentation work at low/medium effort and bounded implementation at medium initially. Escalate a concrete hard question, not the entire plan. Distinguish planned, implemented, fixture-proven, development-proven, and production-active states. Model/effort notes in archived documents are historical, not instructions to recreate that environment.
 
 ---
 
@@ -413,7 +461,7 @@ Language Calibration is not a general algorithm layer, feature factory, League D
 
 ## Historical post-LL-2 decision gate
 
-LL-2 is accepted as the pregame safety boundary. The current decision is what to authorize next:
+The following decision list records the post-LL-2 planning state; it is superseded by the September 30 LL-3 closure and current stage map:
 
 1. authorize a bounded correction for `LL-FIND-001`;
 2. explicitly waive that finding for a defined proof and authorize LL-3; or
@@ -449,9 +497,9 @@ This was the pre-implementation handoff for LL-3. LL-3 was subsequently authoriz
 
 LL-3 must not replace these seams with a second product builder or a broader archived service.
 
-### Copy-ready LL-3 prompt
+### Archived LL-3 prompt — do not execute
 
-Use this prompt only after the preconditions above are satisfied:
+Retained verbatim as historical evidence. LL-3 closed on September 30. The authorization wording inside this archived block does not authorize a new run, recovery, write, or implementation.
 
 ```text
 Start GameLens Learning Lite checkpoint LL-3 in csells10/meow on the learning-lite branch.
@@ -523,7 +571,7 @@ Before closing LL-3:
 - stop at the LL-3 exit gate and request review before LL-4, Matchup Lens M1, deployment, or production work.
 ```
 
-If the prompt is used while any precondition is unresolved, the correct result is a read-only blocker report, not implementation.
+For current work, use the LL-4 readiness prompt above. Do not execute this archived prompt.
 
 ### LL-3 authorization and verified data target — 2026-08-26
 
@@ -736,3 +784,13 @@ The August failed-row export is preserved outside the repository at Christian's 
 **Next checkpoint**
 
 Review a bounded LL-4 Claim Extraction adapter against this canonical snapshot, with stable claim keys, source paths, null postgame targets, zero-claim honesty, idempotent development reconciliation, and focused tests. Do not infer authorization for LL-4 implementation, production activation, scheduling, or the older Matchup Lens M1 proposal from this development proof.
+
+
+### Documentation handoff refresh — 2026-10-01
+
+- Reviewed all seven Markdown documents in this folder at `learning-lite@b1add694`; changed only documentation.
+- Added one current read-only LL-4 prompt and bounded model/effort guidance; explicitly retired stale LL-2/LL-3 start instructions and the old M1 prerequisite.
+- Replaced future-facing preseason/Week 1 deadlines with the Sprint's prospective in-season gates; preserved dated proof and the September 30 reassessment.
+- Left LL-FIND-001 Open with diagnosis/correction deferred; no new waiver or source-data conclusion. League Discovery remains optional and off the critical path.
+- Checked documentation links, prompt boundaries, and changed-path scope. No application tests, BigQuery reads/writes, implementation, or production operation ran for this update.
+- Next: the read-only LL-4 readiness proposal above. This documentation update is not LL-4 acceptance or implementation authorization.

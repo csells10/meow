@@ -2,14 +2,21 @@
 
 **Status:** LL-1 historical salvage baseline accepted; LL-2 and LL-3 have since been selectively implemented and proved on `learning-lite`. LL-4 remains a candidate, not an authorized implementation.
 **Prepared:** 2026-08-22
-**Production baseline:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
+**Historical comparison baseline:** `main` at `b93c41c210288b9b4d450b4145e2d596e566aa67`
 **Historical source:** `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`
 **Implementation branch:** `learning-lite`
 **Compared range:** `main...dev`, merge base `175e1d0b79ca5d7a61d606cfe08133dd836a95ee`
 
 **Purpose:** This matrix is a decision filter over the archived prototype, not a requirement to port every useful-looking file. Implement only the subset assigned to the active checkpoint, and prefer current `main`/`learning-lite` behavior whenever it already satisfies the need.
 
-**Current-use note (2026-09-30):** The file rows and proposed LL-2/LL-3 worklists below preserve the August LL-1 decision state. Actual implementation and proof are recorded in the Learning Lite README: LL-2 used a smaller pure contract; LL-3 reused the already-existing development snapshot table, corrected storage-stable JSON hashing, and passed its bounded development exit gate. Do not use the old candidate lists as instructions to recreate a table or repeat those checkpoints. Review the current code and actual claim-table schema before finalizing any LL-4 file or test list.
+**Current-use note (2026-10-01):** Sections 2–4 retain the August LL-1 source inventory and candidate decisions, not current implementation instructions. LL-2 and LL-3 are complete at their documented scope. In particular:
+
+- LL-2 used `services/gamelens_pregame_contract.py`, not a wholesale archived learning contract or live-query rewrite.
+- The one-game `queries/gamelens_snapshot_queries.py` loader and its tests landed in LL-3, not LL-2; bounded slate work remains later.
+- LL-3 reused the verified existing table and needed no setup/table-creation path.
+- The corrected current hash contract is authoritative for integral float/int normalization; do not reintroduce the archived hash behavior.
+- The current LL-4 review gate is Section 6 below and the README's current prompt. Historical test counts and “before LL-2” instructions are not today's work.
+
 
 ---
 
@@ -17,12 +24,12 @@
 
 The archived development delta contains 92 changed files and 23,765 additions. It must not be merged wholesale.
 
-The bounded Learning Lite salvage is:
+The original salvage direction, with current completion annotations, is:
 
-1. **LL-2, minimal pregame contract:** selectively adapt only the shared `/game` evidence builder, pregame-only entry point, deterministic identifiers, payload validation and hashing, and their focused tests. LL-2 has no table and no persistence.
-2. **LL-3, immutable snapshot persistence:** selectively adapt the smallest capture orchestration, one snapshot schema, immutable reconciliation, a manual verifier, and focused tests.
+1. **LL-2, complete:** the original candidates were the shared `/game` evidence builder, pregame-only entry point, deterministic identifiers, payload validation and hashing, and their focused tests. LL-2 has no table and no persistence.
+2. **LL-3, development proof complete:** current capture/storage seams and focused proof are documented in the README; do not port or repeat the old worklist.
 3. **LL-4, Claim Extraction:** selectively adapt the existing claim extractor adapter, capture lineage, claim reconciliation, a narrow runner, and focused tests.
-4. **Later postgame review:** retain the pure frozen-capture grading logic as a candidate only after the Week 1 capture path is stable.
+4. **Later postgame review:** retain the pure frozen-capture grading logic as a candidate after capture and Claim Extraction are stable, under the Sprint's LL-8 gate.
 5. **Archive only:** preserve Packet 1–6 plans, QA evidence, development recreation instructions, and historical proof scripts for reference.
 6. **Do not port:** omit the broad coordinator, stage receipts, duplicate outcome ledger, backfill machinery, Admin/run-visibility backend, and Packet 5 route.
 
@@ -164,57 +171,36 @@ All 92 files in the archived `main...dev` comparison are represented in Sections
 
 ---
 
-## 5. Proposed bounded checkpoint worklists
+## 5. Current bounded checkpoint worklist
 
-### LL-2 candidate set — pure pregame contract, no persistence
+LL-2 and LL-3 need no new implementation from this matrix. Their original candidates remain in the file/test inventory above and Git history; their accepted proof is in the README.
 
-- selective side-effect-free seams from `queries/game_queries.py`;
-- the minimum read-only evidence loader from `queries/gamelens_snapshot_queries.py`;
-- pregame-safe shared builder seams from `services/game_service.py`;
-- deterministic identity, payload hashing, and postgame rejection from `services/gamelens_learning_contract.py`;
-- only the focused LL-2 parity, identity, evidence-loading, and rejection tests named in Section 4.
+### LL-4 candidate set — review before implementation
 
-LL-2 must not create or verify a table, write a snapshot, reconcile retries in storage, extract claims, deploy, schedule, or change the live route.
+- Reuse pure extraction functions from `agg/gamelens_training/build_claim_training_examples.py`; do not reuse its append/replace-run writer.
+- Expose schema from `agg/gamelens_training/create_claim_training_examples_table.py` only if current schema inspection proves it necessary.
+- Adapt capture-linked reconciliation from archived `services/gamelens_claim_storage.py`; review any temporary staging-table operations explicitly.
+- Adapt the frozen-snapshot preparation seam from `services/gamelens_level1_service.py` to the current corrected pregame contract; remove all stage-receipt writes.
+- Adapt `run_gamelens_level1_capture.py` into a narrow development-only, dry-run-default command over one stored capture.
+- Carry only the relevant schema, service, storage, and runner tests from Section 4, adding missing current-contract assertions.
 
-### LL-3 candidate set — immutable snapshot persistence after LL-2 proof
+Test decisions must cover stable capture keys, resolved source paths, target-null new rows, zero claims, invalid snapshot rejection, duplicates/conflicts, partial-write recovery, read-back, and identical retries that preserve later labels/features. Receipt-specific tests must not pull receipt infrastructure back in.
 
-- reduced capture orchestration from `services/gamelens_snapshot_capture.py`;
-- snapshot-only schema and immutable reconciliation from `services/gamelens_snapshot_storage.py`;
-- snapshot-only setup/verifier adapted from `setup_gamelens_snapshot_tables.py`;
-- the persistence half of the snapshot handoff test;
-- only the focused LL-3 persistence, retry, hash, conflict, and read-back tests named in Section 4.
+### Exclusions
 
-Before LL-3, inspect the current live schema read-only and approve the exact table name and additive schema separately.
-
-### LL-4 candidate set — Claim Extraction after LL-3 proof
-
-- schema exposure from `agg/gamelens_training/create_claim_training_examples_table.py`;
-- capture-linked claim reconciliation from `services/gamelens_claim_storage.py`;
-- frozen-snapshot adapter from `services/gamelens_level1_service.py`;
-- narrow manual runner adapted from `run_gamelens_level1_capture.py`;
-- only the focused LL-4 claim-lineage, stable-key, zero-claim, and idempotency tests named in Section 4.
-
-### Explicitly excluded from LL-2 through LL-4
-
-- every Packet 4 coordinator and receipt file;
-- every Packet 5 Admin/run-visibility file;
-- stage run/result storage and backfill;
-- postgame outcome table/storage;
-- Level 2 and Level 3 write wrappers and schema migration;
-- production deployment, traffic changes, data migration, or backfill.
+No coordinator, stage receipts, Admin/run visibility, duplicate outcome ledger, postgame write wrappers, production deployment, data backfill, source-data correction, or broad refactor belongs to LL-4. A setup helper is conditional on actual schema evidence and an approved exact operation, not a default deliverable.
 
 ---
 
-## 6. Review gates before implementation
+## 6. Current review gate — before LL-4 implementation
 
-Christian remains the decision maker for code and schema changes. The lean checkpoint sequence above is the accepted planning baseline, but no implementation is authorized by this document.
+Use [the current README readiness prompt](./README.md#current-next-chat-prompt--ll-4-readiness-only), not the archived LL-3 prompt or a missing LL-2 prompt.
 
-Before LL-2 begins:
+1. Confirm the current branch and accepted LL-3 capture/hash; keep `main` and historical `dev` unchanged.
+2. Inspect current extraction/schema owners and the actual claim-table schemas read-only. If cloud access is unavailable, report the gap and provide bounded read-only queries; do not infer live metadata.
+3. Return the exact candidate file list, development target, schema delta/no-change decision, key/version policy, and focused tests.
+4. Keep LL-FIND-001 Open. Synthetic fixtures may support mechanics; use of the real proof snapshot requires its separately recorded scope decision or resolution. No waiver is implied.
+5. Define dry-run, first write/read-back, no-op retry, conflict, and recovery evidence before implementation or data writes.
+6. Stop at a concrete proposal. Implement only once the relevant scope is authorized; no later checkpoint or production action follows automatically.
 
-1. invoke the ready-to-paste LL-2 prompt in the Learning Lite README as the separate explicit implementation decision;
-2. confirm the bounded LL-2 pure-function and read-only file list;
-3. approve the focused LL-2 test list;
-4. confirm that LL-2 contains no schema, persistence, deployment, scheduling, or production-route change;
-5. create one bounded implementation checkpoint on `learning-lite`, without merging `dev`.
-
-Snapshot table naming, current-schema inspection, manual write verification, fallback, and kill-switch decisions belong to the LL-3 approval gate, not LL-2.
+The October 1 documentation refresh changes guidance only. It neither ports code nor grants implementation/data-write authorization.

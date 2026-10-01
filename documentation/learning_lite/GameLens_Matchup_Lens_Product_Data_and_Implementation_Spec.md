@@ -1,16 +1,16 @@
 # GameLens Matchup Lens — Product, Data, Query, and Implementation Specification
 
-> Historical exploration: this specification predates the Matchup Lens backend release. For the implemented endpoint, use the frozen contract and release evidence under [`documentation/New API/`](../New%20API/). Proposals here do not supersede shipped behavior.
+> Historical exploration — not an execution guide (clarified 2026-10-01). This specification predates the Matchup Lens backend release. For implemented behavior, use the [frozen contract](../New%20API/GameLens_Matchup_Lens_API_Contract_Decision_Record.md) and [release handoff](../New%20API/handoffs/Chunk_F_Release_Handoff.md). All “current,” proposed-authority, M1–M7, file-list, and implementation instructions below describe the August exploration only. They do not supersede shipped behavior or authorize new work.
 
-**Document status:** Proposed product-and-implementation authority; documentation only  
+**Document status:** Historical proposal; superseded as implementation authority for the released endpoint  
 **Prepared:** 2026-08-25  
 **Product surface:** Matchup Lens  
 **Overview screen:** Matchup Dashboard  
 **Repository:** `csells10/meow`  
 **Production authority:** `main`  
 **Learning architecture authority:** `documentation/learning_lite`  
-**Intended implementation branch:** `learning-lite`, subject to an explicit checkpoint authorization  
-**Current implementation state:** The analytical spine exists on `main`; the Matchup Lens demo exists as a frontend concept; the canonical Matchup Lens backend contract described here is not yet implemented.
+**Historical intended implementation branch:** `learning-lite`; retained as original planning context, not a current branch/start instruction  
+**Implementation-state clarification (2026-10-01):** The separate Matchup Lens backend endpoint has released under the New API contract. This historical document's broader proposed product/formula/UI scope is not thereby declared shipped. It is not an LL-4 prerequisite.
 
 ---
 
@@ -33,13 +33,13 @@ This document must not be used to claim that proposed Matchup Lens behavior is a
 
 ## 2. Position in the GameLens reference hierarchy
 
-Read the current GameLens material in this order:
+Historical August reading order (superseded for current work by the README's Start here section):
 
 1. `documentation/learning_lite/README.md` — checkpoint status, branch authority, and handoff record.
 2. `documentation/learning_lite/GameLens_Learning_Lite_Architecture.md` — stable learning boundaries, data ownership, and non-goals.
 3. `documentation/learning_lite/GameLens_Learning_Lite_Sprint.md` — checkpoint sequence, gates, safety target, and carry-forward work.
 4. `documentation/learning_lite/GameLens_Learning_Lite_Salvage_Matrix.md` — selective reuse decisions for the archived development prototype.
-5. **This document** — Matchup Lens product, data, query, API, navigation, infrastructure, and QA authority.
+5. **This document** — historical Matchup Lens product/data/UI exploration; the New API contract governs the released endpoint.
 6. `documentation/GameLens_Product_Ideas.md` — broader idea backlog, including League Discovery and Postgame Signal Validation.
 7. Archived `documentation/live` packet work and the Backend August Readiness Plan — historical evidence only.
 
@@ -1756,7 +1756,7 @@ A friend who did not build GameLens should be able to answer within one minute:
 
 ---
 
-## 33. Minimal implementation sequence
+## 33. Historical proposed implementation sequence — not current instructions
 
 This sequence is intentionally smaller than a new product platform.
 
@@ -1919,3 +1919,8 @@ These decisions must not be answered implicitly through frontend constants.
 - Recorded the exact 2026 discovery coverage and reproducible Explosiveness/Turnover Watch examples.
 - Explicitly recorded that the six-lens production formula still requires canonicalization and prototype-parity QA.
 - Added proposed API, loading, navigation, accessibility, performance, security, observability, and implementation contracts.
+
+
+### 2026-10-01 — Historical-authority clarification
+
+Clarified the header, reference hierarchy, and M1–M7 sequence as historical. The released endpoint's New API contract/release evidence govern implemented behavior. No formula, UI, API, or Learning Lite implementation was authorized or changed; the original exploration remains reference material.

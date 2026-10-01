@@ -225,3 +225,16 @@ One failed development artifact was deleted after export, and one valid developm
 **Scope of resolution**
 
 This resolves the BigQuery native-JSON lexical hash mismatch for the proved LL-3 development capture. It does not approve production Learning Lite activation, LL-4, or any change to the separate snap-total issue `LL-FIND-001`.
+
+
+### LL-FIND-001 planning update — 2026-10-01
+
+**Status:** Open; no new waiver
+
+Christian requested documentation/prompt cleanup only. Source diagnosis and correction remain deferred during this task. This does not reopen the accepted LL-3 development proof, resolve snap-total semantics, or extend the expired waiver.
+
+The observed problem is missing/invalid snap totals reaching downstream evidence as real zeroes; the exact upstream reason and correction owner remain unestablished. Waiting is not evidence that it will correct itself. No current regular-season or PIT–CLE claim-level impact was verified by this documentation update.
+
+Documentation maintenance and a bounded read-only LL-4 readiness review may proceed. That review should report whether affected metrics touch the selected snapshot/claim surfaces, or state that this remains unknown. It should not expand into a whole-pipeline diagnosis. Before accepted real-snapshot LL-4 proof, return a concrete scoped-use decision or correction proposal; before production capture, retain the existing resolution/explicit-review requirement. Controlled synthetic fixtures can prove mechanics without waiving the source issue.
+
+**Data and production effects:** None. No source investigation, metric change, snapshot alteration, claim extraction, data write, deployment, or production activation occurred.

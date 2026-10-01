@@ -1,6 +1,6 @@
 # GameLens Learning Lite Architecture
 
-**Document status:** Living architecture; LL-2 accepted and LL-3 bounded development proof accepted on 2026-09-30. Production Learning Lite remains inactive; see the README for current checkpoint status and the Sprint for future gates.
+**Document status:** Living architecture; operating guidance refreshed 2026-10-01. LL-2 and LL-3's bounded development proof remain accepted. Production Learning Lite remains inactive; the README owns status and the Sprint owns readiness gates.
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
@@ -69,7 +69,7 @@ Learning Lite does not initially require:
 - a new Admin frontend;
 - automatic Language Calibration decisions;
 - a public League Discovery dashboard;
-- synthetic Week 1 certainty;
+- synthetic certainty when pregame evidence is missing;
 - a new table for every analytical idea.
 
 ---
@@ -144,7 +144,7 @@ One canonical pregame snapshot per eligible game within a stable season/phase/ru
 
 #### B. Timing
 
-Capture after an accepted or known-healthy metric state is available and before scheduled kickoff.
+Capture after an accepted or known-healthy metric state is available and before scheduled kickoff. The initial production cohort will use upcoming games selected after readiness gates pass; missing historical captures cannot be reconstructed as contemporaneous evidence.
 
 #### C. Payload
 
@@ -189,7 +189,7 @@ Because the full response is stored, additive `/game` sections can be preserved 
 
 #### A. Grain
 
-One row per meaningful claim extracted from a canonical pregame snapshot.
+One row per meaningful claim extracted from a canonical pregame snapshot. Extraction can occur after kickoff if it reads that authentic frozen record and retains its original capture time/hash; extraction time is separate. It must not rebuild a missed pregame response.
 
 #### B. Existing surfaces
 
@@ -197,7 +197,7 @@ Continue extracting supported claims from Game Profile, Core Area comparison, Co
 
 #### C. Snapshot lineage
 
-New regular-season claim rows should retain `capture_id`, source payload hash, extraction version, source section, and source field path.
+New regular-season claim rows should retain `capture_id`, source payload hash, extraction version, source section, and source field path. Review the current claim schema before adding fields. Stable capture-scoped identity and reconciliation must preserve immutable extracted values and later grading/features on retry.
 
 #### D. Pregame features
 
@@ -312,7 +312,7 @@ Before declaring League Discovery data-ready for a season, QA should confirm:
 5. week-over-week or window-over-window comparisons can be reproduced;
 6. insufficient-history states remain explicit.
 
-Week 1 may contain little or no current-season identity evidence. That is expected and should be communicated through existing unavailable/insufficient-context language.
+Early-season or missing-history cases may contain little current-season identity evidence; keep unavailable/insufficient-context language explicit. League Discovery is optional and off the LL-4 capture/claim critical path. Preserving source fields does not require building its query, API, or UI now.
 
 ---
 
@@ -399,7 +399,9 @@ The `dev` history and exact commit permalink preserve the prototype evidence. Le
 
 ---
 
-## 10. Week 1 operating boundary
+## 10. Initial prospective production operating boundary
+
+The former Week 1 deadline has expired. These are readiness requirements for the first future cohort, not a claim that LL-3 activated production. See Sprint LL-5 through LL-7 for rehearsal, activation, and operating gates. LL-FIND-001 remains Open; documentation maintenance does not waive it.
 
 ### Must be available
 
@@ -415,7 +417,6 @@ The `dev` history and exact commit permalink preserve the prototype evidence. Le
 ### Helpful but not required
 
 - automatic invocation after the morning load;
-- a League Discovery source-data QA query;
 - a small internal snapshot/claim coverage summary.
 
 ### Explicitly deferred

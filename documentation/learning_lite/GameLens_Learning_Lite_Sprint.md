@@ -1,6 +1,6 @@
 # GameLens Learning Lite Sprint
 
-**Document status:** Living sprint; LL-3 bounded development proof accepted 2026-09-30; production Learning Lite remains inactive
+**Document status:** Living sprint refreshed 2026-10-01; LL-3 bounded development proof remains accepted; remaining stages are readiness-gated and unimplemented
 **Created:** 2026-08-21
 **Owner:** GameLens product stewardship
 **Repository:** `csells10/meow`
@@ -8,9 +8,9 @@
 **Production authority:** `main`
 **Historical safety target:** 2026-09-09 has passed; only actual pre-kickoff captures for upcoming games may enter the new cohort
 **Current checkpoint:** LL-3 development exit gate met; LL-4 remains a proposed next checkpoint
-**Next action:** review a bounded LL-4 Claim Extraction adapter from the verified canonical snapshot; separately address the reopened `LL-FIND-001` before production capture
+**Next action:** use the README's read-only LL-4 readiness prompt. Review exact files/schema/tests and report any real-snapshot-use decision for Open `LL-FIND-001`; do not begin implementation or source correction.
 
-The dates below preserve the original August and Week 1 plan as history. They are not current delivery deadlines. The Matchup Lens endpoint released on `main` after this plan was written; its frozen contract in `documentation/New API/` governs the shipped endpoint.
+The October 1 gates below supersede the original August and Week 1 execution calendar. Original dates remain historical labels; the September 30 reassessment records the reasoning. No production activation or LL-4 implementation is authorized by this refresh. The Matchup Lens endpoint released on `main` after this plan was written; its frozen contract in `documentation/New API/` governs the shipped endpoint.
 
 Companion documents:
 
@@ -35,11 +35,11 @@ The sprint is intentionally changeable. Checkpoints exist to make decisions visi
 
 ## 2. Sprint outcome
 
-The Week 1 success condition is:
+The initial prospective operating cohort succeeds when:
 
-> Before kickoff, GameLens can preserve an immutable, pregame-safe copy of the response it actually produced, retain enough lineage to interpret it later, and extract whatever legitimate claims exist without changing the existing product.
+> Before kickoff, GameLens preserves an immutable, pregame-safe copy of its response with enough lineage to interpret it later. Claim Extraction reads that frozen record and may happen after kickoff; it never reconstructs missed pregame evidence.
 
-Week 1 does not require useful current-season rankings, non-zero claims, a learning conclusion, or Language Calibration output.
+Unavailable rankings and zero claims remain valid outcomes. No learning conclusion or Language Calibration output is required for initial operation. The next development finish line is one snapshot translated into trustworthy claim rows or an explicit zero-claim result.
 
 ---
 
@@ -56,16 +56,16 @@ Week 1 does not require useful current-season rankings, non-zero claims, a learn
 9. Keep Feature Enrichment inputs pregame-only.
 10. Keep Language Calibration advisory and human-reviewed.
 11. Preserve League Discovery source data even if no view or interface is built.
-12. Do not let the Week 1 target expand into an Admin, frontend, or modeling project.
+12. Keep the current checkpoint bounded; no Admin, frontend, or modeling expansion.
 
 ---
 
 ## 4. Scope tiers
 
-### 4.1 Must have before the opener
+### 4.1 Required before initial production operation
 
 - archive/recovery reference for the historical `dev` head;
-- fresh implementation baseline from current `main`;
+- verify the current branch relationship to `main`; preserve accepted Learning Lite work, with any reconciliation separately scoped;
 - pregame-safe shared `/game` builder;
 - deterministic capture identity;
 - canonical payload hash;
@@ -84,7 +84,6 @@ Week 1 does not require useful current-season rankings, non-zero claims, a learn
 
 - automatic invocation after the existing morning load;
 - a concise capture/claim coverage summary;
-- League Discovery source-data QA for 2025 and available 2026 rows;
 - a bounded completed-game manual Claim Grading and Feature Enrichment rehearsal;
 - a single-command operator wrapper, provided it does not introduce a general coordinator framework.
 
@@ -93,7 +92,7 @@ Week 1 does not require useful current-season rankings, non-zero claims, a learn
 - automatic postgame learning orchestration;
 - per-stage operational tables;
 - run-visibility backend or frontend;
-- public League Discovery;
+- League Discovery readiness analysis (LL-9), query/view work, and public UI; optional and off the capture/claim critical path;
 - automatic Language Calibration scheduling;
 - automatic calibration-to-runtime promotion;
 - production modeling or prediction work;
@@ -103,7 +102,9 @@ Week 1 does not require useful current-season rankings, non-zero claims, a learn
 
 ## 5. Checkpoint sequence
 
-Dates are targets, not promises. A checkpoint closes only when its evidence is documented in `README.md`. As of 2026-09-30, LL-0 through LL-3 have their dated closure evidence; LL-3 is a development-only acceptance. The LL-5 preseason rehearsal and LL-7 Week 1 operation windows have passed, so those future operating gates require an explicit in-season re-plan before execution. LL-4 remains unstarted; its exact current claim-table schema, file list, and focused tests have not yet been approved.
+A checkpoint closes on recorded evidence, not a calendar date. LL-0 through LL-3 retain their dated closure evidence; LL-3 is accepted for development only. The active sequence is LL-4 readiness review → LL-4 → LL-5 → LL-6 → separately authorized LL-7 → LL-8 → LL-10 when sufficient evidence exists. LL-9 is optional. A separately scoped development LL-8 rehearsal can follow LL-4 before production activation.
+
+LL-0 through LL-3 below retain their historical target and proof details; later dated README closure evidence wins over earlier counts or statuses. LL-4's exact schema, file list, and focused tests still require review.
 
 ### LL-0 — Direction and documentation
 
@@ -240,184 +241,134 @@ Exit gate:
 
 ### LL-4 — Claim Extraction from snapshot
 
-**Target:** 2026-08-28 through 2026-08-31
-**Status:** Not started
+**Historical target:** 2026-08-28 through 2026-08-31; expired  
+**Start gate:** accepted LL-3 development proof plus a reviewed LL-4 file/schema/test proposal  
+**Status:** Not started; read-only readiness review is next
 
-Objective:
+Objective: reuse the existing Level 1 calculation owner against one canonical snapshot, with a thin adapter and development-only reconciliation.
 
-Reuse the existing Level 1 calculation owner against the canonical snapshot.
+Before implementation:
 
-Required work:
-
-- adapt the existing extractor rather than creating a second extractor;
-- add or preserve capture lineage on claim rows;
-- use a deterministic claim key within the capture;
-- ensure all postgame fields remain null at extraction;
-- treat zero claims as a successful observable result;
-- write through a game-scoped idempotent boundary or retain a manual dry/write split.
+- inspect current claim schemas read-only, including consumer expectations; do not infer live schema from setup scripts;
+- identify the exact development target, additive fields if any, candidate files, and focused tests;
+- decide stable capture-scoped keys, extraction version/configuration, and immutable versus later-stage fields;
+- keep LL-FIND-001 Open; no inherited waiver. A real-snapshot proof needs a separately recorded scoped decision or resolution. Controlled synthetic fixtures can prove mechanics;
+- reuse the corrected current canonical hash; omit the archived receipt layer and legacy append/replace-run writer.
 
 Required proof:
 
-- zero-claim snapshot succeeds honestly;
-- controlled claim-bearing fixture produces stable keys;
-- identical retry creates no duplicates;
-- source field paths lead back to the frozen payload;
-- no final score, actual winner, or validation target enters a Level 1 row.
+- valid claim-bearing and zero-claim fixtures succeed;
+- input identity/hash/capture timing are validated against the frozen record, including after kickoff;
+- source paths resolve to their original claims; output keys are stable and unique;
+- all new-row postgame targets are null, including legacy placeholders such as `final_margin_bucket`;
+- identical replay creates no duplicates, preserves first-write audit values, and does not reset later grading/features;
+- conflicts, duplicate keys, partial writes, and read-back mismatch have bounded fail-closed/recovery behavior;
+- dry-run and zero-claim operation make no claim mutation; structured summaries expose the result without stage receipts.
 
-Exit gate:
+Exit gate: one accepted canonical development snapshot yields reproducible, read-back-verified claim rows or a documented zero-claim result; focused proof passes and README records exact data effects. No production schema/write, deployment, scheduling, new claim surface, or source correction is included.
 
-- one canonical snapshot can be translated into reproducible claim rows or a documented zero-claim result.
+### LL-5 — In-season development rehearsal
 
-### LL-5 — Final preseason rehearsal
-
-**Target:** 2026-08-31 through 2026-09-02, subject to schedule and implementation readiness
+**Historical target:** final preseason rehearsal, 2026-08-31 through 2026-09-02; expired  
+**Start gate:** LL-4 accepted and applicable data-quality decisions recorded  
 **Status:** Not started
 
-Objective:
-
-Exercise the production-shaped pregame path on a small bounded preseason slate while keeping all evidence development-only.
+Exercise a small named upcoming regular-season slate in development. Select games when ready; do not force a replacement Week 4 deadline.
 
 Required proof:
 
-- eligible-game selection is correct;
-- capture occurs before kickoff;
-- payload matches the product response for the same evidence;
-- retry behavior is deterministic;
-- missing context and zero claims are truthful;
-- runtime and resource usage are reasonable;
-- failure of one game does not corrupt another game;
-- no preseason row enters the regular-season learning cohort.
+- eligible selection, pre-kickoff timing, same-evidence product parity, and truthful missing context/zero claims;
+- every selected game has a capture/extraction/skip/failure disposition;
+- retries reuse existing canonical records; changed live evidence cannot replace them;
+- an empty slate is a successful no-op; schedule changes have an explicit policy;
+- one failed game does not corrupt or block safe siblings;
+- cohort/environment separation holds; runtime, query cost, and manual effort are recorded.
 
-Exit gate:
+Exit gate: documented bounded rehearsal supports or rejects moving to invocation readiness. Use serial execution initially; sequential retry proof does not establish concurrent-writer safety.
 
-- a documented rehearsal supports or rejects production wiring with evidence.
+### LL-6 — Invocation readiness and rollback
 
-If LL-2 through LL-4 are not ready safely, do not rush them merely to use the preseason window. Controlled fixtures and a later shadow proof remain preferable to a fragile deadline.
-
-### LL-6 — Production-shaped invocation and rollback
-
-**Target:** 2026-09-02 through 2026-09-06
+**Historical target:** 2026-09-02 through 2026-09-06; expired  
+**Start gate:** LL-5 accepted  
 **Status:** Not started
 
-Objective:
+Choose the smallest invocation after a known-safe upstream metric state. Preserve Schedule → Stats → Scores → Facts → Windows → Rankings and existing product behavior.
 
-Choose the smallest safe way to invoke capture after the existing morning data path.
+Required decisions/proof:
 
-Preferred order:
+- explicit production snapshot/claim destinations, exact schema plan, permissions, and source commit;
+- positive evidence of accepted consistent upstream data; a supplied run ID or time of day alone is insufficient;
+- failed/mixed upstream state blocks new capture; empty eligible slate is a no-op;
+- manual fallback, serialized invocation, first-capture window, and overlap prevention;
+- a development shadow invocation and disable/rollback rehearsal pass;
+- disabling Learning Lite leaves the existing application/data pipeline healthy and preserves valid evidence.
 
-1. keep the existing Schedule → Stats → Scores → Facts → Windows → Rankings path unchanged;
-2. invoke Learning Lite only after a known-safe metric state;
-3. select eligible future regular-season games;
-4. freeze snapshots;
-5. extract claims;
-6. return a simple structured summary;
-7. preserve a manual fallback;
-8. provide a kill switch that disables learning without disabling the existing application.
+Exit gate: activation plan and rollback evidence are reviewable. This does not activate production. Any deployment or first production write is a separately authorized sub-gate before LL-7 operation; do not relabel development captures as production.
+
+### LL-7 — First prospective production cohort
+
+**Historical target:** Week 1, 2026-09-07 through 2026-09-13, including the September 9 safety target; expired  
+**Start gate:** LL-6 accepted and production activation explicitly authorized  
+**Status:** Not started
+
+Operate on the first named upcoming regular-season cohort selected after readiness. Missing Week 1 or other historical captures remain missing.
 
 Required proof:
 
-- failed or mixed metric state does not create a misleading capture;
-- an empty eligible slate is a successful no-op;
-- the production learning destination is explicit;
-- rollback disables only the new learning path;
-- existing application health and game pages remain healthy.
+- a representative first game and bounded slate are captured and verified before kickoff;
+- every candidate is captured, honestly skipped with reason, or failed with recoverable evidence;
+- capture success is distinguished from extraction pending/failure and successful zero claims;
+- extraction may safely retry after kickoff using the authentic frozen record;
+- unavailable rankings remain honest; no silent prior-season/preseason identity substitution;
+- retries preserve original timestamps/hashes; existing product behavior remains healthy.
 
-Exit gate:
+Exit gate: complete cohort accounting and a sustainable manual operating path, with evidence and next postgame action recorded. No post-kickoff reconstruction is accepted as a new pregame capture.
 
-- one deliberate shadow invocation and one rollback rehearsal pass.
+### LL-8 — First manual postgame learning cycle
 
-### LL-7 — Week 1 pregame operation
-
-**Target:** 2026-09-07 through the 2026-09-09 safety deadline and regular-season opener, then the 2026-09-13 main slate
-**Status:** Not started
-
-Objective:
-
-Preserve the first valid regular-season pregame evidence without forcing current-season conclusions.
-
-Expected behavior:
-
-- rankings or claim rows may be unavailable;
-- existing insufficient-context language remains authoritative;
-- snapshot capture is still valuable when claims equal zero;
-- no prior-season or preseason evidence is silently represented as current regular-season identity;
-- operator verifies the opener snapshot before kickoff;
-- the Sunday slate repeats the same bounded process.
-
-Exit gate:
-
-- every eligible Week 1 game is accounted for as captured, honestly skipped with reason, or failed with recoverable evidence;
-- no post-kickoff reconstruction is represented as a pregame capture.
-
-### LL-8 — First postgame learning cycle
-
-**Target:** after final scores and accepted Week 1 Facts are available
+**Start gate:** authentic captures, accepted LL-4 extraction, final scores, and accepted completed-game Facts  
 **Status:** Not started; not required before kickoff
 
-Objective:
+Normally follows LL-7. A separately approved development rehearsal may use the LL-3 capture after LL-4 acceptance and final evidence readiness without waiting for production activation.
 
-Run the existing Claim Grading and Feature Enrichment calculations manually against eligible Week 1 captures.
+Required rules/proof:
 
-Required rules:
+- valid capture plus final score gates game grading; accepted Facts additionally gate claim grading;
+- existing Claim Grading and Feature Enrichment owners retain calculation ownership;
+- Feature Enrichment sees only an explicit pregame projection, even if executed after final;
+- missing evidence remains unavailable; safe sibling games may proceed;
+- results and versions reconcile to immutable snapshots and claim rows;
+- retries preserve source evidence and valid later-stage fields.
 
-- valid capture plus final score gates game grading;
-- accepted completed-game Facts additionally gate Claim Grading;
-- Feature Enrichment receives only the explicit pregame projection;
-- missing evidence is unavailable, not failure theater;
-- one game does not block safe siblings;
-- no automatic Language Calibration or runtime change follows.
+Exit gate: one bounded manual cycle is verified and its operating burden recorded. No automatic calibration, duplicate outcome ledger, coordinator, or runtime promotion follows.
 
-Exit gate:
+### LL-9 — Optional League Discovery data readiness
 
-- results reconcile to snapshots and claim rows;
-- Week 1 limitations are reported plainly;
-- the README records whether the process is sustainable without additional orchestration.
+**Start gate:** separate decision to investigate ranking-history usefulness  
+**Status:** Deferred; optional and off the critical path
 
-### LL-9 — League Discovery data readiness
+League Discovery means exploring team/league trends from existing rankings and lens tags. It is not required for snapshot capture or claim extraction.
 
-**Target:** after the Week 1 capture path is stable
-**Status:** Deferred analysis checkpoint
+If requested, verify dates/windows, source lag, product-facing tag coverage/filtering, rank direction, sample counts, reproducible movement, and honest insufficient history. Distinguish a team's own metric movement from changes in relative rank. Recomputed historical ranking dates are not automatically immutable point-in-time evidence.
 
-Objective:
+Exit gate: one reviewed read-only query/report establishes usefulness and limitations. No API, frontend, overall power-rating model, or physical table is required.
 
-Prove that the source data needed by IDEA-001 remains available without committing to a product build.
+### LL-10 — Controlled advisory Language Calibration
 
-Required checks:
-
-- historical and current ranking dates;
-- intended windows;
-- lens-tag coverage;
-- product-facing versus internal-only tags;
-- source-date and lag visibility;
-- reproducible movement calculations;
-- honest insufficient-history behavior.
-
-Possible output:
-
-- one reviewed query or view definition;
-- no API or frontend requirement.
-
-### LL-10 — Controlled Language Calibration
-
-**Target:** after a meaningful claim sample exists; likely Week 2 or later
+**Historical timing:** “Week 2 or later”; superseded by sample readiness  
+**Start gate:** reviewed sample of compatible graded/enriched claims with meaningful game/week coverage  
 **Status:** Deferred
-
-Objective:
-
-Run a human-reviewed calibration batch and determine whether any feature or claim surface has enough evidence to justify changed language.
 
 Required output:
 
-- sample size;
-- validation rate;
-- comparison baseline;
-- affected claim surface;
-- feature/context definition;
-- proposed treatment;
-- formula and ruleset version;
+- sample size in rows and distinct games, week coverage, and available/unavailable denominators;
+- validation rate, comparison baseline, affected claim surface, and feature/context definition;
+- extraction/feature/formula/ruleset versions, limitations, and uncertainty;
 - explicit `promote`, `continue_observing`, `caution`, `block`, or `insufficient_evidence` recommendation.
 
-Promotion is a separate checkpoint. A useful result must not automatically modify runtime behavior.
+Review the worker's provisional 30-row threshold rather than treating correlated claims as independent games. Insufficient evidence is a valid result.
+
+Exit gate: a reproducible advisory report is reviewed. Runtime promotion is a separate checkpoint; calibration must not automatically change Matchup Lean, confidence, Model Trust, or language.
 
 ---
 
@@ -496,8 +447,8 @@ These states are not interchangeable.
 
 | Risk | Consequence | Current response |
 |---|---|---|
-| Scope expands back into Packet 6–8 | Week 1 path becomes fragile | Enforce must-have/deferred tiers |
-| Rich Week 1 claims are expected | Pressure to manufacture context | Treat zero claims and unavailable rankings as valid |
+| Scope expands back into Packet 6–8 | Initial operating path becomes fragile | Enforce must-have/deferred tiers |
+| Rich initial-cohort claims are expected | Pressure to manufacture context | Treat zero claims and unavailable rankings as valid |
 | Snapshot is recreated after kickoff | Irrecoverable leakage | Pre-kickoff timestamp, denylist, hash, and first-valid-capture rule |
 | Existing `/game` changes accidentally | Product regression | Shared builder parity tests and live-route default preservation |
 | Preserved `dev` is repurposed or reset | Proven work and breadcrumbs become hard to recover | Keep `dev` at `26287205f420f569d81ccfcb28a8e8e0656fc24b`; do new work only on `learning-lite` |
@@ -520,14 +471,14 @@ Pause the sprint if:
 - the target table or environment is ambiguous;
 - a proposed feature uses evaluated-game postgame data;
 - the historical `dev` state is no longer recoverable at `26287205f420f569d81ccfcb28a8e8e0656fc24b`;
-- Week 1 timing would require skipping verification or rollback;
+- an upcoming kickoff would require skipping verification or rollback;
 - a deferred Admin, frontend, or coordinator dependency becomes mandatory without a new scope decision.
 
 ---
 
-## 10. Definition of done for the Week 1 slice
+## 10. Definition of done for the initial operating slice
 
-The Week 1 slice is done when:
+The initial operating slice is done when:
 
 1. historical `dev` remains recoverable at its recorded commit;
 2. the Learning Lite implementation is based on current `main`;
@@ -536,9 +487,9 @@ The Week 1 slice is done when:
 5. identical retries are safe;
 6. Claim Extraction uses the frozen payload;
 7. zero claims and unavailable context are honest outcomes;
-8. the opener and main slate have a documented manual fallback;
+8. the first selected game and bounded slate have a documented manual fallback;
 9. learning can be disabled without disabling the existing application;
-10. every eligible Week 1 game has a recorded capture/skip/failure disposition;
+10. every game in the selected prospective cohort has a recorded capture/skip/failure disposition;
 11. the README contains the evidence and exact next postgame action;
 12. no deferred component was smuggled into the release path.
 
@@ -550,14 +501,14 @@ Branch roles are now locked: `main` is production, `learning-lite` owns current 
 
 1. whether the canonical production snapshot lives in a dedicated dataset or the existing Analytics dataset;
 2. whether the existing claim table is extended in place or receives a controlled production successor;
-3. whether the Week 1 path is automatically invoked or manually confirmed after the morning load;
+3. whether invocation stays manual after a known-healthy upstream state; manual and serial is the initial recommendation;
 4. the minimum useful capture verification query;
 5. whether one small coverage summary is enough without an operational ledger;
 6. when League Discovery receives its first data-readiness QA;
 7. what evidence threshold makes the first 2026 Language Calibration batch meaningful;
 8. whether a future algorithm is intended to predict claim reliability, matchup structure, or another explicitly defined target.
 
-Open decisions must not be answered implicitly through code.
+Immediate LL-4 decisions are narrower: exact development claim target/schema, identity/version/reconciliation policy, and the LL-FIND-001 real-data-use boundary. Production destinations/invocation belong to LL-6; League Discovery and model research can wait. Open decisions must not be answered implicitly through code.
 
 ---
 
@@ -619,6 +570,14 @@ Open decisions must not be answered implicitly through code.
 
 ---
 
+### 2026-10-01 — Documentation and prompt refresh
+
+- Replaced expired future operating dates with readiness gates; historical dates and accepted LL-0 through LL-3 proof remain visible.
+- Added the LL-4 readiness gate, bounded null-target/lineage/replay proof, in-season rehearsal, and distinct activation/operation gates.
+- Kept LL-FIND-001 Open, source diagnosis deferred, and LL-9 optional; no implementation, waiver, cloud operation, or production change.
+
+---
+
 ## 13. Immediate next action
 
-LL-3's bounded development proof is accepted. Review the LL-4 Claim Extraction file/schema/test boundary against the verified snapshot and existing Level 1 owner before implementation. `LL-FIND-001` is Open after its one-proof waiver expired; production capture requires its separate resolution or explicit review. No production destination, deployment, scheduling, or later checkpoint is authorized by LL-3 acceptance. The earlier Matchup Lens M1 proposal is historical; the released endpoint comes from `main`.
+Use [the README's current next-chat prompt](./README.md#current-next-chat-prompt--ll-4-readiness-only) for a bounded read-only LL-4 file/schema/test proposal. Stop with concrete decisions and unknowns; do not implement or reopen LL-3. Do not use the archived LL-3 prompt or historical M1 proposal.
