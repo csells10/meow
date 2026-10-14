@@ -254,3 +254,17 @@ The next diagnostic should trace an actual affected completed source game and on
 Detailed evidence, limitations, and a copy-ready read-only diagnostic prompt: [Snap totals evidence and handoff](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md). The existing resolution criteria and later-checkpoint use requirements still apply.
 
 **Data and production effects:** Local in-memory parsing and existing unit tests only; three documentation files added/updated. No application code changed, provider API call, BigQuery access, data repair, replay, snapshot/claim write, deployment, or production activation.
+
+### LL-FIND-001 historical parser mechanism — 2026-10-14
+
+**Status:** Open; historical missing-to-zero mechanism reproduced; existing code correction preserved; data not repaired
+
+Christian's read-only results show `20260813_GB@PIT` has all four zero snap metrics in flat input for both teams (one row per returned metric/value group), with GB/PIT total plays `59/64`; PIT's corresponding Facts also contain the four zeroes. The saved raw artifact at `gs://xtra_point/nfl_boxscore_20260813_GB@PIT.json` omits `snapCounts` for both teams under `$.body.body`. Generation `1786708887408844`, created/updated `2026-08-14T12:01:27.468000Z`, SHA-256 `4218cb02b2fff0465b01b65b09c64a6a01c6376e00dbc03f4baa9d79c956fe2e`.
+
+Historical parser `7bec0d2` defaulted absent snap fields to zero and emitted all four totals. Existing correction `ad5fec518642c85bd2e56c0ad2614ad70c6e78e6` at `2026-08-14T20:00:59Z` removed that behavior. A controlled local comparison with snap groups removed from the supplied CAR–WSH fixture produced eight zero snap rows under the old parser and none under the current parser. This supports legacy data from the old behavior; exact deployed revision remains unverified.
+
+The three other checked PIT/BUF August team/game records have total-play Facts but no selected snap metrics, rather than zero snap rows. The current parser correction should remain completed. Next bound remaining data impact by phase/source date and inspect a regular-season comparison before proposing historical repair. Do not rewrite the parser, replay ingestion, rebuild tables, or alter frozen snapshots by implication. Provider-supplied explicit-zero semantics remain separate from this missing-field case.
+
+Full query observations, provenance, chronology, limits, and the refreshed diagnostic prompt are in [the snap-total evidence note](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md#follow-up-evidence--october-14-affected-august-record). LL-1 through LL-3 retain acceptance; no waiver or finding closure follows from this diagnosis.
+
+**Effects:** Christian performed read-only BigQuery/GCS checks; local controlled parser comparison and GitHub source inspection; two documentation files updated. No application code or cloud data changed.

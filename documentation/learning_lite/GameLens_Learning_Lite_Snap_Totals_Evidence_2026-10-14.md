@@ -9,7 +9,7 @@
 
 The supplied `getNFLBoxScore` response directly contains the three team snap counts needed by the existing metrics. The current parser already reads these exact fields and produces the expected positive values for this sample. Implementing another parser or estimating snaps from plays is not justified by this evidence.
 
-The remaining question is why the affected stored observations contain zeroes or missing values. This example narrows that investigation; it does not establish the cause, repair historical data, prove current-season coverage, or resolve LL-FIND-001.
+The initial positive example narrowed the investigation. The follow-up below now reproduces historical missing-field-to-zero conversion and records an existing parser correction. The remaining questions concern historical deployment, affected data scope, and downstream impact; no historical data has been repaired and LL-FIND-001 remains Open.
 
 LL-1, LL-2, and LL-3 retain their existing acceptance. In particular, the authentic PIT–CLE LL-3 snapshot remains immutable.
 
@@ -78,11 +78,35 @@ Raw-artifact inspection must account for the current call `save_raw_response({"b
 
 The August finding's scheduled fixture `20260827_PIT@BUF` was the consumer of earlier team evidence. Determine the actual completed source game(s) behind those Facts; do not assume the upcoming fixture itself supplied the defective snap counts.
 
+## Follow-up evidence — October 14, affected August record
+
+**Current assessment:** Historical missing-field-to-zero conversion is reproduced in source. The affected stored data remains unrepaired; LL-FIND-001 remains Open. Exact historical deployment and total affected population remain unverified.
+
+Christian ran bounded read-only BigQuery and GCS checks and supplied these results:
+
+- Facts for PIT/BUF, August 1–23: PIT `20260813_GB@PIT` has all four snap metrics at zero and `total_plays=64`; BUF `20260815_CAR@BUF`, PIT `20260821_NYJ@PIT`, and BUF `20260822_BUF@CLE` have total-play rows but no selected snap-metric rows. Each returned metric/value group has one row.
+- Flat metrics for `20260813_GB@PIT`: both GB (team ID `12`) and PIT (`26`) have all four snap metrics at zero, with one row per returned metric/value group. Total plays are GB `59`, PIT `64`. Therefore the zeroes are already present before Facts processing.
+- Raw artifact: `gs://xtra_point/nfl_boxscore_20260813_GB@PIT.json`.
+- Generation: `1786708887408844`; SHA-256: `4218cb02b2fff0465b01b65b09c64a6a01c6376e00dbc03f4baa9d79c956fe2e`.
+- Created and updated: `2026-08-14T12:01:27.468000Z`.
+- Actual game object: `$.body.body`; game identity matches; status `Completed`; total plays GB `59`, PIT `64`.
+- Both teams have `snapCounts_present=false`. The printed null is the inspection script's absent-key result, not evidence of an explicit provider JSON null.
+
+GitHub history identifies the preceding parser revision at `7bec0d294c31a9cf0674ef4b00a0ee20793f532b`. It used `t_stats.get("snapCounts", {})` and `.get(field, 0)`, then unconditionally emitted all four snap metrics. Commit [`ad5fec518642c85bd2e56c0ad2614ad70c6e78e6`](https://github.com/csells10/meow/commit/ad5fec518642c85bd2e56c0ad2614ad70c6e78e6), timestamp `2026-08-14T20:00:59Z`, removed that absent-to-zero behavior. That correction is already in the reviewed current code.
+
+A local controlled comparison used a copy of the supplied 2024 CAR–WSH response with both team `snapCounts` groups removed. The historical parser emitted eight zero-valued snap rows; the current parser emitted zero snap rows. This reproduces the mechanism; it is not a replay of the full August raw artifact, which was inspected by Christian rather than downloaded into this review environment.
+
+The raw timestamp, stored rows, and historical behavior strongly support legacy zeroes introduced by the old parser. Git history alone does not prove which revision Cloud Run executed. Current raw-object metadata is provenance evidence, not a complete ingestion/deployment audit.
+
+**Changed next step:** Preserve the existing parser correction. Bound the remaining affected population by season phase and source date, check at least one completed regular-season comparison, and determine downstream/claim impact. Then prepare a narrowly scoped historical-data repair proposal if warranted. Do not default to new parser code, broad source redesign, or replay. Explicit provider zero handling remains a distinct unresolved domain policy; this case demonstrates missing fields, not provider-supplied zeroes.
+
+These new observations supersede the initial uncertainty about whether a missing-field-to-zero implementation existed. They do not resolve all original finding criteria, repair data, waive later-checkpoint use, or alter valid frozen captures.
+
 ## Smallest next task
 
 Trace one affected source game and one completed regular-season comparison game through: original saved response → existing parser → flat metrics → Facts → Windows → Rankings. Prefer existing saved responses and read-only metadata/SELECT access. A fresh provider response, if separately obtained, must remain labeled as a later observation rather than a replacement for what was originally ingested.
 
-First establish where the value becomes absent or zero. Stop there with a correction proposal, or state that the original evidence is unavailable. A missing original response is a real limit; do not fill that gap by guessing.
+The affected August record now has a missing raw group and zero-valued flat rows, with a matching historical parser mechanism. Use that result rather than repeating the diagnosis. Bound current impact and any data-repair scope; distinguish unverified historical deployment from reproduced source behavior.
 
 Provider semantics still needed: coverage by season phase, publication delay for snap counts, meaning of explicit zeroes, and whether request options affect inclusion. The public Tank01 site directs documentation to [its RapidAPI listing](https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl/playground). Field-level documentation was not retrievable in this review. No acquisition or UI change is evidence of a changed data contract. A later reviewer should use an actual provider excerpt when available.
 
@@ -97,9 +121,9 @@ Read GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md and the current s
 
 Known evidence: the supplied 20241020_CAR@WSH response has body.teamStats.<side>.snapCounts.totalOffensive/totalDefensive/totalSpecialTeams. CAR=43/69/26, WSH=69/43/26; the existing parser already emits these values and total_snaps=138 for each team. Its seven existing parser tests passed at fa6e762. Do not implement a new parser, infer snaps from totalPlays, or aggregate player participation as team snaps.
 
-Inspect only the current parser/tests, Stats ingestion and raw-response envelope, and the transformation seams needed to trace one affected completed source game plus one regular-season comparison. The August scheduled PIT@BUF fixture was a consumer of earlier evidence; first identify its actual completed source game(s). Existing tables are Analytics.game_metrics_flat, Analytics.game_team_metric_facts_2026, Analytics.team_metrics_windowed_2026, and Analytics.team_metric_rankings_2026; verify live schemas and appropriate source year before constructing bounded SELECTs.
+The follow-up already identifies a saved August response without snapCounts, zero flat/Facts rows, and the historical parser's missing-to-zero behavior, corrected in ad5fec5 on August 14 after the saved artifact timestamp. Preserve that correction. Inspect only the relevant current parser/tests, Stats reconciliation, raw-response envelope, and downstream seams needed to bound remaining bad-data scope plus one regular-season comparison. The August scheduled PIT@BUF fixture was a consumer of earlier evidence; first identify its actual completed source game(s). Existing tables are Analytics.game_metrics_flat, Analytics.game_team_metric_facts_2026, Analytics.team_metrics_windowed_2026, and Analytics.team_metric_rankings_2026; verify live schemas and appropriate source year before constructing bounded SELECTs.
 
-Use existing raw artifacts and read-only access. Inspect whether an artifact has body or body.body. Match game/team/metric/source dates. Separate what the original ingestion saw from any response retrieved later. Check whether both-team completeness caused ingestion to skip missing metric enrichment. Do not assume that mechanism caused the finding.
+Use existing raw artifacts and read-only access. Inspect whether an artifact has body or body.body. Match game/team/metric/source dates. Separate what the original ingestion saw from any response retrieved later. Treat both-team completeness as a possible reason old observations were retained, not the cause of missing-to-zero conversion. Do not infer a deployed revision from commit time alone.
 
 If cloud/artifact access is unavailable, return the exact minimal SELECT/metadata checks and specific raw file needed; do not guess results or keep expanding the audit. Do not import or run ingestion modules: their imports can create clients/read secrets. The pure parser and existing parser tests can run locally.
 
