@@ -3,13 +3,13 @@
 **Date:** 2026-10-14  
 **Status:** Evidence documented; finding remains Open; no new waiver  
 **Reviewed source:** `learning-lite@fa6e762eb1c5da5517e61167140de03a5ab4acdd`  
-**Scope:** Inspect the user-supplied response, execute the existing pure parser locally, and document the next investigation. No application fix, provider request, cloud read/write, replay, rebuild, deployment, or LL-4 execution.
+**Scope:** Initial local parser review, followed by Christian's read-only BigQuery/GCS checks and one fresh provider comparison. Documentation only in the repository; no application fix, cloud data write, replay, rebuild, deployment, or LL-4 execution.
 
 ## Conclusion
 
 The supplied `getNFLBoxScore` response directly contains the three team snap counts needed by the existing metrics. The current parser already reads these exact fields and produces the expected positive values for this sample. Implementing another parser or estimating snaps from plays is not justified by this evidence.
 
-The initial positive example narrowed the investigation. The follow-up below now reproduces historical missing-field-to-zero conversion and records an existing parser correction. The remaining questions concern historical deployment, affected data scope, and downstream impact; no historical data has been repaired and LL-FIND-001 remains Open.
+The initial positive example narrowed the investigation. The follow-up below now reproduces historical missing-field-to-zero conversion and records an existing parser correction. The later comparison below also establishes that a 2026 regular-season response acquired team snap fields after its original saved observation. Investigation is paused at this documented stopping point; no historical data has been repaired and LL-FIND-001 remains Open.
 
 LL-1, LL-2, and LL-3 retain their existing acceptance. In particular, the authentic PIT–CLE LL-3 snapshot remains immutable.
 
@@ -102,34 +102,86 @@ The raw timestamp, stored rows, and historical behavior strongly support legacy 
 
 These new observations supersede the initial uncertainty about whether a missing-field-to-zero implementation existed. They do not resolve all original finding criteria, repair data, waive later-checkpoint use, or alter valid frozen captures.
 
-## Smallest next task
+## Follow-up evidence — regular-season coverage and later availability
 
-Trace one affected source game and one completed regular-season comparison game through: original saved response → existing parser → flat metrics → Facts → Windows → Rankings. Prefer existing saved responses and read-only metadata/SELECT access. A fresh provider response, if separately obtained, must remain labeled as a later observation rather than a replacement for what was originally ingested.
+Christian supplied the following read-only query results on October 14, 2026. These are observed results, not independently executed cloud queries by the reviewer.
 
-The affected August record now has a missing raw group and zero-valued flat rows, with a matching historical parser mechanism. Use that result rather than repeating the diagnosis. Bound current impact and any data-repair scope; distinguish unverified historical deployment from reproduced source behavior.
+| Facts coverage among team-games with total_plays | Preseason | Regular Season |
+|---|---:|---:|
+| Distinct games | 49 | 79 |
+| Team-game groups | 98 | 158 |
+| No snap metrics | 84 | 158 |
+| One to three snap metrics | 0 | 0 |
+| All four snap metrics | 14 | 0 |
+| First game date | 2026-08-06 | 2026-09-09 |
+| Latest game date | 2026-08-29 | 2026-10-12 |
 
-Provider semantics still needed: coverage by season phase, publication delay for snap counts, meaning of explicit zeroes, and whether request options affect inclusion. The public Tank01 site directs documentation to [its RapidAPI listing](https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl/playground). Field-level documentation was not retrievable in this review. No acquisition or UI change is evidence of a changed data contract. A later reviewer should use an actual provider excerpt when available.
+A separate aggregation over the four snap metrics returned only Preseason: each metric had 14 rows, all zero, spanning seven games dated August 6–13; no positive, negative, or null rows were returned. Thus 56 stored snap metric rows were zero. Regular-season absence is missing coverage, not proof of healthy snap values. The denominator is existing Facts team-games with total_plays, not an independent schedule-completeness audit.
 
-## Copy-ready diagnostic prompt — no fixes
+### Same-game comparison: 20261001_PIT@CLE
 
-Task sizing: a smaller capable coding model is suitable for this constrained reproduction and comparison. Low/medium reasoning is a reasonable starting point if selectable; escalate only an unresolved semantics or lineage question. This is not a claim about a particular model's price or correctness. Use one agent.
+Original saved response:
+
+- Object: `gs://xtra_point/nfl_boxscore_20261001_PIT@CLE.json`.
+- Created/updated: `2026-10-02T12:00:42.781000Z`; generation `1790942442728566`.
+- SHA-256: `8137a0ea46a3b73346e133a59792970b07a05ad426303fa24a827aba2c60f464`.
+- Game object at `$.body.body`; matching game ID, status Completed.
+- Both teams lack the snapCounts key; PIT/CLE totalPlays are 64/62. Printed nulls are absent-key inspection results.
+
+Fresh response requested by Christian on October 14 with gameID=20261001_PIT@CLE, playByPlay=false, fantasyPoints=false:
+
+| Team | totalOffensive | totalDefensive | totalSpecialTeams |
+|---|---:|---:|---:|
+| PIT | 72 | 64 | 28 |
+| CLE | 64 | 72 | 28 |
+
+Both snapCounts keys are present, with numeric-string values; game identity matches and status is Completed. Christian saved the response outside the repository as `../ll3-evidence/current-boxscore-20261001-PIT-CLE.json`. The fresh file's hash and exact retrieval timestamp were not supplied. No credential or full response is stored in this note.
+
+This establishes later availability for this game. The fresh request uses the flags in reviewed ingestion source; exact historical wire parameters were not independently captured. We do not know when the provider added the fields, whether publication delay is consistent across games, or whether the change was delayed enrichment versus another provider update. Do not infer a twelve-day publication delay from the interval between our observations.
+
+The existing parser supports these fields. The reviewed ingestion completeness check skips insertion when both teams already have rows, so later available fields are not automatically added to an already-loaded game through that path. This explains a concrete persistence mechanism; it does not establish every historical execution or prove all 158 missing team-games now have provider values.
+
+### Usefulness and stopping decision
+
+Snap totals remain potentially useful for later matchup context and postgame analysis once actually available. They are not dependable inputs to the first postgame run on this evidence. These checks establish availability behavior, not predictive value or a reason to make snap metrics a prerequisite for Learning Lite.
+
+Preserve as-of availability: never enrich the accepted pregame snapshot retrospectively or treat a later observation as evidence known at capture time. Missing values must remain distinguishable from true zero. Existing totalPlays values are not a snap-count substitute.
+
+Christian approved stopping this investigation and documenting the evidence. Keep LL-FIND-001 Open, with no new waiver. Preserve the completed parser correction and LL-1/LL-2/LL-3 acceptance. Resume the previously recommended read-only LL-4 readiness inventory; any accepted real-snapshot claim use still requires its explicit scoped-use decision or resolution. No new recovery or data repair is authorized.
+
+## Deferred proposal prompt — only when snap work is resumed
+
+This supersedes the earlier diagnostic prompt to repeat August tracing and find a regular-season comparison. Those checks now have evidence above. A smaller capable coding model can prepare this bounded proposal; use one agent and verify the current revision.
 
 ```text
-Investigate LL-FIND-001 snap totals in csells10/meow, branch learning-lite. This is read-only diagnosis and documentation, not implementation.
+Prepare a proposal only for LL-FIND-001 in csells10/meow, learning-lite.
+Read this snap-total evidence note and the latest Findings Log updates.
+Preserve accepted LL-1/LL-2/LL-3, immutable snapshots, and the existing
+missing-field parser correction. Do not repeat completed diagnosis.
 
-Read GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md and the current status updates in GameLens_Learning_Lite_Findings_Log.md under documentation/learning_lite. Preserve accepted LL-1/LL-2/LL-3 and all valid snapshots. Check current branch/file revisions before relying on the recorded baseline.
+Known: original October 2 PIT-CLE raw response lacks team snapCounts;
+an October 14 request with playByPlay=false/fantasyPoints=false contains
+PIT 72/64/28 and CLE 64/72/28. Facts has no snap metrics for 158 measured
+regular-season team-games. Historical preseason zeros are a separate
+legacy-data issue. The existing both-team completeness check can prevent
+later metrics being inserted.
 
-Known evidence: the supplied 20241020_CAR@WSH response has body.teamStats.<side>.snapCounts.totalOffensive/totalDefensive/totalSpecialTeams. CAR=43/69/26, WSH=69/43/26; the existing parser already emits these values and total_snaps=138 for each team. Its seven existing parser tests passed at fa6e762. Do not implement a new parser, infer snaps from totalPlays, or aggregate player participation as team snaps.
+Review current code and propose the smallest development-only approach
+to adding missing snap metrics from a later response for this one game.
+Specify candidate files, provenance/as-of timestamps, eligible metric
+keys, duplicate protection, identical-retry behavior, conflict handling,
+and preservation of existing values and unrelated metrics. Do not assume
+a source correction may overwrite a stored value. Keep legacy-zero repair
+separate: filling absent rows does not correct existing zeros.
+Explain how invalid/missing metrics stay out of rank/tier/edge evidence,
+and identify any remaining downstream scope decision.
 
-The follow-up already identifies a saved August response without snapCounts, zero flat/Facts rows, and the historical parser's missing-to-zero behavior, corrected in ad5fec5 on August 14 after the saved artifact timestamp. Preserve that correction. Inspect only the relevant current parser/tests, Stats reconciliation, raw-response envelope, and downstream seams needed to bound remaining bad-data scope plus one regular-season comparison. The August scheduled PIT@BUF fixture was a consumer of earlier evidence; first identify its actual completed source game(s). Existing tables are Analytics.game_metrics_flat, Analytics.game_team_metric_facts_2026, Analytics.team_metrics_windowed_2026, and Analytics.team_metric_rankings_2026; verify live schemas and appropriate source year before constructing bounded SELECTs.
-
-Use existing raw artifacts and read-only access. Inspect whether an artifact has body or body.body. Match game/team/metric/source dates. Separate what the original ingestion saw from any response retrieved later. Treat both-team completeness as a possible reason old observations were retained, not the cause of missing-to-zero conversion. Do not infer a deployed revision from commit time alone.
-
-If cloud/artifact access is unavailable, return the exact minimal SELECT/metadata checks and specific raw file needed; do not guess results or keep expanding the audit. Do not import or run ingestion modules: their imports can create clients/read secrets. The pure parser and existing parser tests can run locally.
-
-Return: (1) observed values at each inspected boundary, (2) first evidenced failure point or precise unknown, (3) provider semantics still unverified, (4) smallest proposed correction with exact candidate files/tests, and (5) whether historical data repair is a separate need. Explain separately whether affected metrics reach the accepted PIT-CLE snapshot's claim surfaces; say unknown if uninspected.
-
-No provider requests, DML/DDL, table recreation, replay/backfill/rebuild, metric policy change, runtime/deployment change, or snapshot mutation. Do not mark LL-FIND-001 resolved or extend its expired waiver. Stop at the evidence and proposal.
+Give focused tests and a code-only stopping point for a later authorized
+implementation. Do not assume predictive benefit, a fixed publication
+delay, all-game coverage, or that automatic refresh is worth its cost.
+No provider requests, ingestion execution, code edits, DML/DDL, replay,
+backfill, rebuild, deployment, snapshot mutation, waiver, or closure.
+Return the bounded proposal and unresolved decisions, then stop.
 ```
 
 ## Later implementation handoff — prepare only after diagnosis
@@ -147,4 +199,4 @@ Acceptance requires the Findings Log's resolution criteria, including valid posi
 
 ## Effect on Learning Lite
 
-LL-3 remains complete at its documented development scope. LL-4 readiness work can continue, but accepted real-data claim use still needs the finding's recorded scope decision or resolution. This note supplies a smaller diagnostic task; it does not activate any LL gate.
+LL-3 remains complete at its documented development scope. LL-4 readiness work can continue, but accepted real-data claim use still needs the finding's recorded scope decision or resolution. The snap investigation is paused with a deferred proposal prompt; this note does not activate any LL gate.

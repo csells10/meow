@@ -268,3 +268,19 @@ The three other checked PIT/BUF August team/game records have total-play Facts b
 Full query observations, provenance, chronology, limits, and the refreshed diagnostic prompt are in [the snap-total evidence note](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md#follow-up-evidence--october-14-affected-august-record). LL-1 through LL-3 retain acceptance; no waiver or finding closure follows from this diagnosis.
 
 **Effects:** Christian performed read-only BigQuery/GCS checks; local controlled parser comparison and GitHub source inspection; two documentation files updated. No application code or cloud data changed.
+
+### LL-FIND-001 later availability and investigation stopping point — 2026-10-14
+
+**Status:** Open; investigation paused by Christian; no new waiver
+
+Facts coverage among team-games with total_plays is 49 preseason games / 98 team-games and 79 regular-season games / 158 team-games. Fourteen preseason team-games have all four snap metrics; the other 84 have none. All 158 regular-season team-games have none. A separate metric aggregation found 14 zero rows per metric, seven games per metric dated August 6–13, and no positive/negative/null rows. Absence of regular-season zero rows must not be mistaken for valid snap coverage.
+
+For completed `20261001_PIT@CLE`, the saved October 2 response omits snapCounts for both teams. Object generation `1790942442728566`, created/updated `2026-10-02T12:00:42.781000Z`, SHA-256 `8137a0ea46a3b73346e133a59792970b07a05ad426303fa24a827aba2c60f464`. Christian's October 14 fresh request with playByPlay=false and fantasyPoints=false returns team offense/defense/special-teams counts PIT 72/64/28 and CLE 64/72/28. This establishes later availability for this game, not the exact publication delay or universal coverage.
+
+The current parser already supports these fields; reviewed ingestion skips insertion once both expected teams have rows, preventing automatic enrichment through that path. Preserve the parser correction. Treat historical zero repair separately from filling absent metrics. Snap totals may inform later matchups or postgame analysis when available, but are not proven dependable for the first postgame run or proven to add predictive value. Later observations must never rewrite pregame evidence.
+
+**Decision:** Stop this investigation at the documented evidence, leave the finding Open, and return to bounded read-only LL-4 readiness inventory. LL-1 through LL-3 remain accepted. Existing real-snapshot claim-use review requirements remain in force. A deferred proposal prompt describes a one-game development approach with provenance, duplicate/retry protection, conflict handling, and existing-value preservation; it authorizes no implementation or repair.
+
+See [coverage, same-game provenance, and deferred handoff](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md#follow-up-evidence--regular-season-coverage-and-later-availability).
+
+**Effects:** User-run read-only BigQuery/GCS checks, one fresh provider GET, and a local evidence file; this commit changes documentation only. No application code, cloud data, deployment, or valid snapshot changed.
