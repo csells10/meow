@@ -61,6 +61,8 @@ Optional references, not prerequisites: [Product Ideas](../GameLens_Product_Idea
 
 The README owns current status; the Sprint owns the refreshed sequence; dated reassessments and archived prompts retain their original context.
 
+**October 14 snap-total evidence:** [The supplied box score already contains team snap totals, and the existing parser reads them](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md). This note narrows LL-FIND-001 diagnosis; it does not resolve the finding or reopen LL-3.
+
 ---
 
 ## Current decision
@@ -109,7 +111,7 @@ Learning Lite starts from the production-safe capabilities already on `main` and
 
 **Model / effort:** Use the currently selected capable coding/review model; medium reasoning, if selectable, is the default for this bounded review. This is task-sizing guidance, not a requirement to change models or a promise about cost. Use higher effort only for a specific unresolved lineage, leakage, schema, or reconciliation question. Do not launch parallel agents or repeat the full repository audit by default.
 
-**Scope:** This is the only current copy-ready next-step prompt in this folder. Pasting it requests review, not implementation.
+**Scope:** This is the current copy-ready LL-stage prompt. Pasting it requests review, not implementation. The separately scoped [snap-total diagnostic prompt](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md#copy-ready-diagnostic-prompt--no-fixes) supports LL-FIND-001 investigation and does not start an LL stage.
 
 ```text
 Review LL-4 readiness in csells10/meow on learning-lite. Do not implement or modify files, tables, data, runtime settings, or production behavior.

@@ -238,3 +238,19 @@ The observed problem is missing/invalid snap totals reaching downstream evidence
 Documentation maintenance and a bounded read-only LL-4 readiness review may proceed. That review should report whether affected metrics touch the selected snapshot/claim surfaces, or state that this remains unknown. It should not expand into a whole-pipeline diagnosis. Before accepted real-snapshot LL-4 proof, return a concrete scoped-use decision or correction proposal; before production capture, retain the existing resolution/explicit-review requirement. Controlled synthetic fixtures can prove mechanics without waiving the source issue.
 
 **Data and production effects:** None. No source investigation, metric change, snapshot alteration, claim extraction, data write, deployment, or production activation occurred.
+
+### LL-FIND-001 endpoint evidence update — 2026-10-14
+
+**Status:** Open; cause not yet established; no new waiver
+
+Christian supplied a completed `getNFLBoxScore` response for `20241020_CAR@WSH` and authorized investigation/documentation, not a fix. Its team-level `snapCounts` directly report offense/defense/special-teams totals: CAR `43/69/26`, WSH `69/43/26`. The current unmodified parser at `learning-lite@fa6e762` emitted all six values and derived `total_snaps=138` for each team. The supplied input remained unchanged and all seven existing parser tests passed locally.
+
+This establishes that the endpoint can supply team totals and the current parser handles this positive historical regular-season example. It does not establish current-season/preseason coverage, original ingestion-time values, deployed revision, stored data correctness, or why the previously observed zeroes appeared.
+
+One bounded lead: current Stats reconciliation treats both expected teams having any rows as complete and skips reinsertion, so re-fetching a richer response is not automatically a missing-metric repair. Explicit numeric zeroes are also preserved by the parser. Neither observation proves the origin of the affected rows.
+
+The next diagnostic should trace an actual affected completed source game and one regular-season comparison through original raw evidence, parser output, flat metrics, Facts, Windows, and Rankings. Preserve retrieval-time distinctions and the valid PIT–CLE snapshot. Keep LL-1 through LL-3 accepted.
+
+Detailed evidence, limitations, and a copy-ready read-only diagnostic prompt: [Snap totals evidence and handoff](./GameLens_Learning_Lite_Snap_Totals_Evidence_2026-10-14.md). The existing resolution criteria and later-checkpoint use requirements still apply.
+
+**Data and production effects:** Local in-memory parsing and existing unit tests only; three documentation files added/updated. No application code changed, provider API call, BigQuery access, data repair, replay, snapshot/claim write, deployment, or production activation.
